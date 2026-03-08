@@ -1,23 +1,16 @@
 package config
 
-import (
-	"log"
-	"os"
-
-	"github.com/joho/godotenv"
-)
+import "github.com/ilyakaznacheev/cleanenv"
 
 type Config struct {
-	TelegramToken string
-	ReddisAddr    string
+	TelegramToken string `env:"TELEGRAM_BOT_TOKEN" env-required:"true"`
+	ReddisAddr    string `env:"REDIS_ADDR" env-required:"true"`
 }
 
 func Load() *Config {
-	if err := godotenv.Load(); err != nil {
-		log.Println("")
+	cfg := &Config{}
+	if err := cleanenv.ReadConfig(".env", cfg); err != nil {
+		panic(err)
 	}
-	return &Config{
-		TelegramToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
-		ReddisAddr:    os.Getenv("REDIS_ADDR"),
-	}
+	return cfg
 }
