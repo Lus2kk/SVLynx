@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVLynx — Вход</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #080c14;
+            --surface: #0d1220;
+            --border: rgba(255,255,255,0.07);
+            --accent: #4f8ef7;
+            --accent2: #7c5ef7;
+            --text: #f0f2f8;
+            --muted: #5a6480;
+        }
+
+        body {
+            min-height: 100vh;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'DM Sans', sans-serif;
+            overflow: hidden;
+        }
+
+        /* Animated background */
+        .bg-scene {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.18;
+            animation: drift 12s ease-in-out infinite alternate;
+        }
+        .orb-1 {
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, #4f8ef7, transparent);
+            top: -100px; left: -100px;
+            animation-delay: 0s;
+        }
+        .orb-2 {
+            width: 400px; height: 400px;
+            background: radial-gradient(circle, #7c5ef7, transparent);
+            bottom: -80px; right: -80px;
+            animation-delay: -4s;
+        }
+        .orb-3 {
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, #2dd4bf, transparent);
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            animation-delay: -8s;
+            opacity: 0.08;
+        }
+
+        @keyframes drift {
+            from { transform: translate(0, 0) scale(1); }
+            to   { transform: translate(30px, 20px) scale(1.1); }
+        }
+
+        /* Grid overlay */
+        .grid-overlay {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+            background-size: 48px 48px;
+            z-index: 0;
+        }
+
+        /* Card */
+        .card {
+            position: relative;
+            z-index: 10;
+            width: 420px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 48px 44px 40px;
+            box-shadow:
+                0 0 0 1px rgba(79,142,247,0.08),
+                0 32px 80px rgba(0,0,0,0.6),
+                inset 0 1px 0 rgba(255,255,255,0.06);
+            animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(32px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Logo area */
+        .logo-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 36px;
+        }
+
+        .logo-icon {
+            width: 44px; height: 44px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(79,142,247,0.35);
+            flex-shrink: 0;
+        }
+
+        .logo-icon svg {
+            width: 22px; height: 22px;
+            fill: white;
+        }
+
+        .logo-text {
+            font-family: 'Syne', sans-serif;
+            font-weight: 800;
+            font-size: 22px;
+            color: var(--text);
+            letter-spacing: -0.5px;
+        }
+
+        .logo-text span {
+            color: var(--accent);
+        }
+
+        /* Headline */
+        .headline {
+            font-family: 'Syne', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1.2;
+            letter-spacing: -0.5px;
+            margin-bottom: 10px;
+        }
+
+        .subline {
+            font-size: 14px;
+            color: var(--muted);
+            line-height: 1.6;
+            margin-bottom: 36px;
+        }
+
+        /* Divider */
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .divider-line {
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .divider-text {
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        /* Telegram widget wrapper */
+        .tg-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 32px;
+            animation: fadeUp 0.7s 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        /* Status message */
+        .status {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            font-size: 13.5px;
+            margin-bottom: 16px;
+            animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .status.success {
+            display: flex;
+            background: rgba(52, 211, 153, 0.1);
+            border: 1px solid rgba(52, 211, 153, 0.2);
+            color: #34d399;
+        }
+
+        .status.error {
+            display: flex;
+            background: rgba(248, 113, 113, 0.1);
+            border: 1px solid rgba(248, 113, 113, 0.2);
+            color: #f87171;
+        }
+
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .status.success .status-dot { background: #34d399; }
+        .status.error .status-dot { background: #f87171; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .footer a:hover { opacity: 1; }
+
+        /* Shimmer line at top of card */
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 10%; right: 10%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(79,142,247,0.5), transparent);
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-scene">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+    <div class="grid-overlay"></div>
+
+    <div class="card">
+
+        <div class="logo-row">
+            <div class="logo-icon">
+                <svg viewBox="0 0 24 24"><path d="M20 2H4C2.9 2 2 2.9 2 4v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+            </div>
+            <div class="logo-text">SV<span>Lynx</span></div>
+        </div>
+
+        <div class="headline">Добро пожаловать</div>
+        <div class="subline">Войдите через Telegram, чтобы начать общение. Быстро и безопасно.</div>
+
+        <div class="divider">
+            <div class="divider-line"></div>
+            <div class="divider-text">войти через</div>
+            <div class="divider-line"></div>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div class="tg-wrapper">
+            <script
+                async
+                src="https://telegram.org/js/telegram-widget.js?22"
+                data-telegram-login="svlynx_auth_bot"
+                data-size="large"
+                data-onauth="onTelegramAuth(user)"
+                data-request-access="write">
+            </script>
+        </div>
+
+        <div class="footer">
+            Входя, вы соглашаетесь с <a href="#">условиями использования</a><br>и <a href="#">политикой конфиденциальности</a>
+        </div>
+
+    </div>
+
+    <script>
+    function showStatus(type, message) {
+        const el = document.getElementById('status');
+        el.className = 'status ' + type;
+        el.innerHTML = '<div class="status-dot"></div><span>' + message + '</span>';
+    }
+
+    function onTelegramAuth(user) {
+        console.log('Данные от Телеграма:', user);
+        showStatus('success', 'Подключение к серверу...');
+
+        fetch('https://armor-cleaner-admission-anymore.trycloudflare.com/auth/telegram/callback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(user)
+        })
+        .then(res => res.json())
+        .then(data => {
+            console.log('Ответ сервера:', data);
+            if (data.status === 'approved') {
+                showStatus('success', 'Вы вошли! Переход в мессенджер...');
+                // window.location.href = '/messenger'
+            } else {
+                showStatus('error', 'Ошибка входа: ' + data.error);
+            }
+        })
+        .catch(() => {
+            showStatus('error', 'Не удалось подключиться к серверу');
+        });
+    }
+    </script>
+
+</body>
+</html>
