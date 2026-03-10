@@ -7,7 +7,7 @@ type Config struct {
 	ReddisAddr    string `env:"REDIS_ADDR" env-required:"true"`
 }
 
-func Load() *Config {
+func MustLoad() *Config {
 	cfg := &Config{}
 	if err := cleanenv.ReadConfig(".env", cfg); err != nil {
 		panic(err)
