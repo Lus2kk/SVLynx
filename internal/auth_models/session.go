@@ -9,6 +9,7 @@ type Session struct {
 	TelegramID int64     `json:"telegram_id"`
 	Username   string    `json:"username"`
 	FirstName  string    `json:"first_name"`
+	PhotoURL   string    `json:"photo_url"`
 }
 
 type TelegramCallbackRequest struct {
