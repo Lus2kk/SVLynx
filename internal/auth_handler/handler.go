@@ -58,9 +58,12 @@ func (h *Handler) TelegramCallback() gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"status":     session.Status,
-			"session_id": session.SessionID,
-			"first_name": session.FirstName,
+			"status":      session.Status,
+			"session_id":  session.SessionID,
+			"first_name":  session.FirstName,
+			"username":    session.Username,
+			"telegram_id": session.TelegramID,
+			"photo_url":   session.PhotoURL,
 		})
 	}
 }

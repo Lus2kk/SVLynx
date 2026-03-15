@@ -60,6 +60,7 @@ func (s *Service) TelegramCallback(req *auth_models.TelegramCallbackRequest) (*a
 		TelegramID: req.ID,
 		Username:   req.Username,
 		FirstName:  req.FirstName,
+		PhotoURL:   req.PhotoURL,
 	}
 
 	if err := s.repo.UpdateSession(session); err != nil {
