@@ -7,6 +7,7 @@ import (
 	"github.com/svlynx/messenger/internal/auth_repository"
 	"github.com/svlynx/messenger/internal/auth_service"
 	"github.com/svlynx/messenger/internal/config"
+	"github.com/svlynx/messenger/internal/email"
 )
 
 func main(){
@@ -17,7 +18,11 @@ func main(){
 	})
 
 	repo := auth_repository.NewRepository(redisClient)
-	service := auth_service.NewService(repo)
+
+	emailSender := email.NewSender(cfg.SmtpHost, cfg.SmtpPort, cfg.SenderEmail, cfg.SenderPassword)
+
+	service := auth_service.NewService(repo, emailSender)
+	
 	handler := auth_handler.NewHandler(service)
 
 	r := gin.Default()
