@@ -1,0 +1,36 @@
+package chat_models
+
+import (
+	"time"
+	"github.com/google/uuid"
+)
+
+
+type MessageStatus string 
+const (
+	Sent MessageStatus = "sent"
+	Delivered MessageStatus = "delivered"
+	Written MessageStatus = "written"
+)
+
+
+
+type ChatMember struct {
+	ChatId     uuid.UUID `json:"chat_id"`
+	UserId     uuid.UUID `json:"user_id"`
+	JoinedTime time.Time `json:"joined_time"`
+}
+
+type Chat struct {
+	Id                    uuid.UUID    `json:"id"`
+	CreationTime          time.Time    `json:"creation_time"`
+}
+
+type Message struct {
+    ID      	    uuid.UUID      `json:"id"`
+    ChatID      uuid.UUID      `json:"chat_id"`
+    SenderID    uuid.UUID      `json:"sender_id"`
+    Content     string         `json:"content,omitempty"`
+    Status      MessageStatus  `json:"status"`
+	CreatedAT   time.Time      `json:"created_at"`
+}
