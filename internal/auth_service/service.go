@@ -1,35 +1,39 @@
 package auth_service
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/svlynx/messenger/internal/apperrors"
 	"github.com/svlynx/messenger/internal/auth_models"
 	"github.com/svlynx/messenger/internal/auth_repository"
 )
+type AuthRepository interface {
+	SaveSession(ctx context.Context, sessionID string) error
+	UpdateSession(ctx context.Context, session *auth_models.Session) error
+	GetSession(ctx context.Context, sessionID string) (*auth_models.Session, error)
+} 
 
 type Service struct {
-	repo          auth_repository.AuthRepository
-	telegramToken string
+	repo          AuthRepository
 }
 
-func NewService(repo auth_repository.AuthRepository, telegramToken string) *Service {
+func NewService(repo AuthRepository) *Service {
 	return &Service{
 		repo:          repo,
-		telegramToken: telegramToken,
 	}
 }
 
-func (s *Service) InitSession() (*auth_models.Session, error) {
+func (s *Service) InitSession(ctx context.Context) (*auth_models.Session, error) {
 	sessionID := uuid.New().String()
-	if err := s.repo.SaveSession(sessionID); err != nil {
+	if err := s.repo.SaveSession(ctx, sessionID); err != nil {
 		return nil, err
 	}
 	return &auth_models.Session{
@@ -39,13 +43,14 @@ func (s *Service) InitSession() (*auth_models.Session, error) {
 	}, nil
 }
 
-func (s *Service) TelegramCallback(req *auth_models.TelegramCallbackRequest) (*auth_models.Session, error) {
-	if !s.verifyHash(req) {
-		return nil, errors.New("invalid hash")
+func (s *Service) TelegramCallback(ctx context.Context, telegramToken string, req *auth_models.TelegramCallbackRequest) (*auth_models.Session, error) {
+	if !s.verifyHash(telegramToken, req) {
+		return nil, apperrors.ErrInvalidHash
+
 	}
 
 	if time.Now().Unix()-req.AuthDate > 86400 {
-		return nil, errors.New("auth data expired")
+		return nil, apperrors.ErrAuthExpired
 	}
 
 	sessionID := req.SessionID
@@ -63,14 +68,15 @@ func (s *Service) TelegramCallback(req *auth_models.TelegramCallbackRequest) (*a
 		PhotoURL:   req.PhotoURL,
 	}
 
-	if err := s.repo.UpdateSession(session); err != nil {
+	if err := s.repo.UpdateSession(ctx, session); err != nil {
 		return nil, err
 	}
 
 	return session, nil
 }
 
-func (s *Service) verifyHash(req *auth_models.TelegramCallbackRequest) bool {
+// TODO: refactor verifyHash to be more concise
+func (s *Service) verifyHash(telegramToken string, req *auth_models.TelegramCallbackRequest) bool {
 	data := map[string]string{
 		"id":         strconv.FormatInt(req.ID, 10),
 		"first_name": req.FirstName,
@@ -96,7 +102,7 @@ func (s *Service) verifyHash(req *auth_models.TelegramCallbackRequest) bool {
 	dataString := strings.Join(parts, "\n")
 
 	h := sha256.New()
-	h.Write([]byte(s.telegramToken))
+	h.Write([]byte(telegramToken))
 	secretKey := h.Sum(nil)
 	mac := hmac.New(sha256.New, secretKey)
 	mac.Write([]byte(dataString))
