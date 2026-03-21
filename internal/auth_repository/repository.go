@@ -11,11 +11,7 @@ import (
 
 const SessionTTL = 10 * time.Minute
 
-type AuthRepository interface {
-	SaveSession(sessionID string) error
-	UpdateSession(session *auth_models.Session) error
-	GetSession(sessionID string) (*auth_models.Session, error)
-}
+
 type Repository struct {
 	redis *redis.Client
 }
@@ -24,8 +20,8 @@ func NewRepository(redis *redis.Client) *Repository {
 	return &Repository{redis: redis}
 }
 
-func (r *Repository) SaveSession(sessionID string) error {
-	ctx := context.Background()
+func (r *Repository) SaveSession(ctx context.Context, sessionID string) error {
+	
 	return r.redis.Set(
 		ctx,
 		"session:"+sessionID,
@@ -34,8 +30,7 @@ func (r *Repository) SaveSession(sessionID string) error {
 	).Err()
 }
 
-func (r *Repository) UpdateSession(session *auth_models.Session) error {
-	ctx := context.Background()
+func (r *Repository) UpdateSession(ctx context.Context, session *auth_models.Session) error {
 
 	data, err := json.Marshal(session)
 	if err != nil {
@@ -48,8 +43,7 @@ func (r *Repository) UpdateSession(session *auth_models.Session) error {
 		SessionTTL,
 	).Err()
 }
-func (r *Repository) GetSession(sessionID string) (*auth_models.Session, error) {
-	ctx := context.Background()
+func (r *Repository) GetSession(ctx context.Context, sessionID string) (*auth_models.Session, error) {
 
 	data, err := r.redis.Get(ctx, "session:"+sessionID).Bytes()
 	if err != nil {
