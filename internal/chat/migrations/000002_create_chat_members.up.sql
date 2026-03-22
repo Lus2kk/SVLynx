@@ -4,3 +4,4 @@ CREATE TABLE IF NOT EXISTS chat_members (
     joined_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(chat_id, user_id)
 );
+CREATE INDEX idx_chat_members_user_id ON chat_members(user_id);

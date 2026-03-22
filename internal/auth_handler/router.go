@@ -7,3 +7,5 @@ func RegisterRoutes(r *gin.Engine, h *Handler){
 	auth.POST("/init", h.InitTelegramAuth())
 	auth.POST("/callback", h.TelegramCallback())
 }
+
+
