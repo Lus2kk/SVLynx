@@ -10,4 +10,7 @@ func RegisterRoutes(r *gin.Engine, h *Handler){
     emailAuth.POST("/init", h.InitEmailAuth())  
     emailAuth.POST("/send-code", h.SendEmailCode())  
     emailAuth.POST("/verify-code", h.VerifyEmailCode()) 
+	emailAuth.POST("/complete", h.CompleteRegistration())
+	emailAuth.POST("/logout", h.Logout())
+	emailAuth.GET("/me", h.GetMe())
 }
