@@ -28,7 +28,7 @@ func NewService(repo auth_repository.AuthRepository, emailSender *email.Sender, 
 func (s *Service) InitSession(ctx context.Context) (*auth_models.Session, error) {
 	sessionID := uuid.New().String()
 	if err := s.repo.SaveSession(ctx, sessionID); err != nil {
-		slog.Error("ошибка при создании сессии", "err", err)
+		slog.Error("error when creating the session", "err", err)
 		return nil, err
 	}
 	return &auth_models.Session{
@@ -37,26 +37,26 @@ func (s *Service) InitSession(ctx context.Context) (*auth_models.Session, error)
 	}, nil
 }
 
-func (s *Service) SendConfirmationCode(ctx context.Context, sessionID, receiverEmail string) error {
-	onCooldown, err := s.repo.CooldownExists(ctx, receiverEmail)
+func (s *Service) SendConfirmationCode(ctx context.Context, sessionID, email string) error {
+	onCooldown, err := s.repo.EmailCooldownExists(ctx, email)
 
 	if err != nil {
 		return apperrors.ErrInternalError
 	}
 
 	if onCooldown {
-		slog.Warn("заблокировано cooldown", "email", receiverEmail)
-		return apperrors.ErrCooldown
+		slog.Warn("blocked by email cooldown", "email", email)
+		return apperrors.ErrEmailCooldown
 	}
 
-	attempts, err := s.repo.IncrAttempts(ctx, receiverEmail)
+	attempts, err := s.repo.IncrEmailAttempts(ctx, email)
 
 	if err != nil {
 		return apperrors.ErrInternalError
 	}
 
 	if attempts > auth_repository.MaxAttempts {
-		slog.Warn("Превышено кол-во попыток", "email", receiverEmail)
+		slog.Warn("number of attempts exceeded", "email", email)
 		return apperrors.ErrTooManyAttempts
 	}
 
@@ -66,26 +66,29 @@ func (s *Service) SendConfirmationCode(ctx context.Context, sessionID, receiverE
 		return apperrors.ErrInternalError
 	}
 
-	err = s.repo.SavePending(ctx, sessionID, receiverEmail)
+	err = s.repo.SavePending(ctx, sessionID, email)
 
 	if err != nil {
 		return apperrors.ErrInternalError
 	}
 
-	err = s.repo.SaveCode(ctx, receiverEmail, code)
+	err = s.repo.SaveCode(ctx, email, code)
 
 	if err != nil {
 		return apperrors.ErrInternalError
 	}
 
-	s.repo.SetCooldown(ctx, receiverEmail)
+	if err := s.repo.SetEmailCooldown(ctx, email); err != nil {
+		slog.Warn("error when setting email cooldown", "email", email)
+		return apperrors.ErrInternalError
+	}
 
-	if err := s.emailSender.SendSixDigitsCode(receiverEmail, code); err != nil {
-		slog.Warn("Ошибка при отправке кода на email", "email", receiverEmail, "err", err)
+	if err := s.emailSender.SendSixDigitsCode(email, code); err != nil {
+		slog.Warn("Error when sending the code by email", "email", email, "err", err)
 		return apperrors.ErrEmailSendFailed
 	}
 
-	slog.Info("Код отправлен на email", "email", receiverEmail)
+	slog.Info("the code has been sent by email", "email", email)
 	return nil
 }
 
@@ -93,41 +96,67 @@ func (s *Service) VerifyCode(ctx context.Context, sessionID, code string) (strin
 	email, err := s.repo.GetPending(ctx, sessionID)
 
 	if err != nil {
-		slog.Warn("Ошибка при получении pending email", "sessionID", sessionID, "err", err)
+		slog.Warn("error when receiving the pending email", "sessionID", sessionID, "err", err)
 		return "", false, apperrors.ErrSessionNotFound
+	}
+
+	onCooldown, err := s.repo.CodeCooldownExists(ctx, email)
+
+	if onCooldown {
+		slog.Warn("blocked by code cooldown", "email", email)
+		return "", false, apperrors.ErrCodeCooldown
+	}
+
+	attempts, err := s.repo.IncrEmailAttempts(ctx, email)
+
+	if err != nil {
+		return "", false, apperrors.ErrInternalError
+	}
+
+	if attempts > auth_repository.MaxAttempts {
+		if attempts > auth_repository.MaxAttempts {
+			slog.Warn("number of attempts exceeded", "email", email)
+			return "", false, apperrors.ErrTooManyAttempts
+		}
 	}
 
 	savedCode, err := s.repo.GetCode(ctx, email)
 
 	if err != nil {
-		slog.Warn("Ошибка при получении кода из репозитория", "email", email, "err", err)
+		slog.Warn("error when getting the code from the repository", "email", email, "err", err)
 		return "", false, apperrors.ErrInvalidCode
 	}
 
+	if err := s.repo.SetCodeCooldown(ctx, email); err != nil {
+		slog.Warn("error when setting code cooldown", "email", email)
+		return "", false, apperrors.ErrInternalError
+	}
+
 	if savedCode != code {
-		slog.Warn("Неверный код", "email", email)
+		slog.Warn("invalid code", "email", email)
 		return "", false, apperrors.ErrInvalidCode
 	}
 
 	s.repo.DeleteCode(ctx, email)
 	s.repo.DeletePending(ctx, sessionID)
-	s.repo.ResetAttempts(ctx, email)
+	s.repo.ResetEmailAttempts(ctx, email)
+	s.repo.ResetEmailAttempts(ctx, email)
 
 	token := uuid.New().String()
 
 	if err := s.repo.SaveAuthSession(ctx, token, email); err != nil {
-		slog.Warn("ошибка при создании постоянной сессии")
+		slog.Warn("error when creating a permanent session")
 		return "", false, apperrors.ErrSessionCreate
 	}
 
 	exists, err := s.userRepo.UserExistsByEmail(ctx, email)
 
 	if err != nil {
-		slog.Warn("Ошибка при проверке существования пользователя", "email", email, "err", err)
+		slog.Warn("error checking the user's existence", "email", email, "err", err)
 		return "", false, apperrors.ErrInternalError
 	}
 
-	slog.Info("Пользователь успешно авторизован", "email", email)
+	slog.Info("the user has been successfully logged in", "email", email)
 	return token, !exists, nil
 }
 
@@ -135,45 +164,45 @@ func (s *Service) GetMe(ctx context.Context, token string) (*user_repository.Use
 	email, err := s.repo.GetAuthSession(ctx, token)
 
 	if err != nil {
-		slog.Warn("Ошибка при получении email")
+		slog.Warn("error when receiving email")
 		return nil, apperrors.ErrUnauthorized
 	}
 
 	err = s.repo.RefreshAuthSession(ctx, token)
-	if err != nil{
-		slog.Warn("токен не найден", "err", err)
+	if err != nil {
+		slog.Warn("the token was not found", "err", err)
 		return nil, apperrors.ErrUnauthorized
 	}
 
-	slog.Info("получен профиль", "email", email)
+	slog.Info("profile received", "email", email)
 
 	return s.userRepo.GetUserByEmail(ctx, email)
 }
 
 func (s *Service) Logout(ctx context.Context, token string) {
 	s.repo.DeleteAuthSession(ctx, token)
-	slog.Info("пользователь вышел")
+	slog.Info("the user goes out")
 }
 
 func (s *Service) CompleteRegistration(ctx context.Context, token, nickname, name, status string) error {
 	email, err := s.repo.GetAuthSession(ctx, token)
 
 	if err != nil {
-		slog.Warn("Ошибка при получении email для завершения регистрации")
+		slog.Warn("error when receiving email to complete registration")
 		return apperrors.ErrUnauthorized
 	}
 
 	exists, err := s.userRepo.NicknameExists(ctx, nickname)
 	if err != nil {
-		slog.Warn("Ошибка при проверке существования username", "username", nickname, "err", err)
+		slog.Warn("error checking the existence of username", "username", nickname, "err", err)
 		return apperrors.ErrInternalError
 	}
 	if exists {
-		slog.Warn("Username уже существует", "username", nickname)
+		slog.Warn("username already exists", "username", nickname)
 		return apperrors.ErrNicknameExists
 	}
 
-	colors := []string{"#7F77DD", "#1D9E75", "#D85A30", "#378ADD", "#b51ed7"}
+	colors := []string{"#2a2379", "#1D9E75", "#D85A30", "#378ADD", "#b51ed7"}
 	avatar_color := colors[rand.Intn(len(colors))]
 
 	if status == "" {
@@ -181,10 +210,10 @@ func (s *Service) CompleteRegistration(ctx context.Context, token, nickname, nam
 	}
 
 	if err = s.userRepo.SaveUserEmail(ctx, email, nickname, name, status, avatar_color); err != nil {
-    	slog.Error("ошибка при сохранении профиля", "email", email, "err", err)
-    	return err
+		slog.Error("error when saving the profile", "email", email, "err", err)
+		return err
 	}
-	
-	slog.Info("профиль создан", "email", email, "nickname", nickname)
+
+	slog.Info("profile created", "email", email, "nickname", nickname)
 	return nil
 }

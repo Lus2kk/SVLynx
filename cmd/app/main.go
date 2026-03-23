@@ -19,7 +19,7 @@ import (
 
 func runMigrate(PostgresAddr string) {
 	m, err := migrate.New("file://migrations", PostgresAddr)
-	if err != nil{
+	if err != nil{ 
 		panic(err)
 	}
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {

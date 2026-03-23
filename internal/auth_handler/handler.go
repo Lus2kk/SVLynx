@@ -24,14 +24,14 @@ type VerifyCodeDTO struct {
 	Code      string `json:"code" binding:"required,len=6"`
 }
 
-type CompleteRegistrationDTO struct{ 
+type CompleteRegistrationDTO struct {
 	Nickname string `json:"nickname" binding:"required,min=3,max=25"`
-	Name 	 string `json:"name"`
-	Status 	 string `json:"status"`
+	Name     string `json:"name"`
+	Status   string `json:"status"`
 }
 
-func HandlerError(c *gin.Context, err error){
-	switch{
+func HandlerError(c *gin.Context, err error) {
+	switch {
 	case errors.Is(err, apperrors.ErrUnauthorized):
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": err.Error(),
@@ -48,7 +48,11 @@ func HandlerError(c *gin.Context, err error){
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
-	case errors.Is(err, apperrors.ErrCooldown):
+	case errors.Is(err, apperrors.ErrEmailCooldown):
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"error": err.Error(),
+		})
+	case errors.Is(err, apperrors.ErrCodeCooldown):
 		c.JSON(http.StatusTooManyRequests, gin.H{
 			"error": err.Error(),
 		})
@@ -65,17 +69,17 @@ func HandlerError(c *gin.Context, err error){
 			"error": err.Error(),
 		})
 	case errors.Is(err, apperrors.ErrSessionCreate):
-        c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
 		})
 	case errors.Is(err, apperrors.ErrSaveUserFailed):
-        c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
 		})
 	case errors.Is(err, apperrors.ErrEmailSendFailed):
-    	c.JSON(http.StatusInternalServerError, gin.H{
-        "error": err.Error(),
-    })
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": apperrors.ErrInternalError.Error(),
@@ -107,17 +111,17 @@ func (h *Handler) InitTelegramAuth() gin.HandlerFunc {
 
 func (h *Handler) InitEmailAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-	ctx := context.Background()
-	session, err := h.service.InitSession(ctx)
-	if err != nil {
-		HandlerError(c, err)
-		return 
-	}
+		ctx := context.Background()
+		session, err := h.service.InitSession(ctx)
+		if err != nil {
+			HandlerError(c, err)
+			return
+		}
 
-	c.JSON(http.StatusOK, gin.H{
-		"session_id": session.SessionID,
-		"expires_at": session.ExpiresAt,
-	})
+		c.JSON(http.StatusOK, gin.H{
+			"session_id": session.SessionID,
+			"expires_at": session.ExpiresAt,
+		})
 
 	}
 }
@@ -128,7 +132,7 @@ func (h *Handler) SendEmailCode() gin.HandlerFunc {
 		var req SendCodeDTO
 
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "почта введена неверно"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "the email address was entered incorrectly"})
 			return
 		}
 
@@ -138,7 +142,7 @@ func (h *Handler) SendEmailCode() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Код отправлен на " + req.Email,
+			"message": "The code has been sent to " + req.Email,
 		})
 	}
 }
@@ -149,12 +153,12 @@ func (h *Handler) VerifyEmailCode() gin.HandlerFunc {
 		var req VerifyCodeDTO
 
 		if err := c.ShouldBindJSON(&req); err != nil {
-			 c.JSON(http.StatusBadRequest, gin.H{"error": "введите 6-значный код"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "enter the 6-digit code"})
 			return
 		}
 
 		token, isNew, err := h.service.VerifyCode(ctx, req.SessionID, req.Code)
-		
+
 		if err != nil {
 			HandlerError(c, err)
 			return
@@ -169,18 +173,18 @@ func (h *Handler) VerifyEmailCode() gin.HandlerFunc {
 }
 
 func (h *Handler) GetMe() gin.HandlerFunc {
-	return func (c *gin.Context) {
+	return func(c *gin.Context) {
 		ctx := context.Background()
 		token, err := c.Cookie("auth_token")
-		if err != nil{
+		if err != nil {
 			HandlerError(c, apperrors.ErrUnauthorized)
-			return 
+			return
 		}
 
 		user, err := h.service.GetMe(ctx, token)
-		if err != nil{
+		if err != nil {
 			HandlerError(c, err)
-			return 
+			return
 		}
 
 		c.JSON(http.StatusOK, user)
@@ -197,34 +201,34 @@ func (h *Handler) Logout() gin.HandlerFunc {
 
 		c.SetCookie("auth_token", "", -1, "/", "", false, true)
 		c.JSON(http.StatusOK, gin.H{
-			"message": "вышел",
+			"message": "go out",
 		})
 	}
 }
 
-func (h *Handler) CompleteRegistration() gin.HandlerFunc{
-	return func (c *gin.Context) {
+func (h *Handler) CompleteRegistration() gin.HandlerFunc {
+	return func(c *gin.Context) {
 		ctx := context.Background()
 		var req CompleteRegistrationDTO
 
-		if err := c.ShouldBindJSON(&req); err != nil{
+		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": err.Error(),
 			})
-			return 
+			return
 		}
 
 		token, err := c.Cookie("auth_token")
-		if err != nil{
+		if err != nil {
 			HandlerError(c, apperrors.ErrUnauthorized)
-			return 
+			return
 		}
 
-		if err := h.service.CompleteRegistration(ctx, token, req.Nickname, req.Name, req.Status); err != nil{
+		if err := h.service.CompleteRegistration(ctx, token, req.Nickname, req.Name, req.Status); err != nil {
 			HandlerError(c, err)
-			return 
+			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "профиль создан"})
+		c.JSON(http.StatusOK, gin.H{"message": "profile created"})
 	}
 }

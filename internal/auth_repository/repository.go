@@ -11,12 +11,13 @@ import (
 const (
 	SessionTTL = 10 * time.Minute
 
-	CodeTTL     = 3 * time.Minute
-	PendingTTL  = 10 * time.Minute
-	CooldownTTL = 1 * time.Minute
-	AttemptsTTL = 15 * time.Minute
-	AuthSessionTTL = 30 * 24 * time.Hour
-	MaxAttempts = 5
+	CodeTTL          = 3 * time.Minute
+	PendingTTL       = 10 * time.Minute
+	EmailCooldownTTL = 1 * time.Minute
+	CodeCooldownTTL  = 5 * time.Second
+	AttemptsTTL      = 15 * time.Minute
+	AuthSessionTTL   = 30 * 24 * time.Hour
+	MaxAttempts      = 5
 )
 
 type AuthRepository interface {
@@ -30,11 +31,17 @@ type AuthRepository interface {
 	GetPending(ctx context.Context, sessionID string) (string, error)
 	DeletePending(ctx context.Context, sessionID string) error
 
-	CooldownExists(ctx context.Context, email string) (bool, error)
-	SetCooldown(ctx context.Context, email string) error
+	EmailCooldownExists(ctx context.Context, email string) (bool, error)
+	SetEmailCooldown(ctx context.Context, email string) error
 
-	IncrAttempts(ctx context.Context, email string) (int64, error)
-	ResetAttempts(ctx context.Context, email string) error
+	CodeCooldownExists(ctx context.Context, email string) (bool, error)
+	SetCodeCooldown(ctx context.Context, email string) error
+
+	IncrEmailAttempts(ctx context.Context, email string) (int64, error)
+	ResetEmailAttempts(ctx context.Context, email string) error
+
+	InrcCodeAttempts(ctx context.Context, email string) (int64, error)
+	ResetCodeAttempts(ctx context.Context, email string) error
 
 	SaveAuthSession(ctx context.Context, token, email string) error
 	GetAuthSession(ctx context.Context, token string) (string, error)
@@ -83,47 +90,77 @@ func (r *Repository) DeletePending(ctx context.Context, sessionID string) error 
 	return r.redis.Del(ctx, "pending:"+sessionID).Err()
 }
 
-func (r *Repository) CooldownExists(ctx context.Context, email string) (bool, error) {
-	n, err := r.redis.Exists(ctx, "cooldown:"+email).Result()
+func (r *Repository) EmailCooldownExists(ctx context.Context, email string) (bool, error) {
+	n, err := r.redis.Exists(ctx, "email_cooldown:"+email).Result()
 	return n > 0, err
 }
 
-func (r *Repository) SetCooldown(ctx context.Context, email string) error {
-	return r.redis.Set(ctx, "cooldown:"+email, 1, CooldownTTL).Err()
+func (r *Repository) SetEmailCooldown(ctx context.Context, email string) error {
+	return r.redis.Set(ctx, "email_cooldown:"+email, 1, EmailCooldownTTL).Err()
 }
 
-func (r *Repository) IncrAttempts(ctx context.Context, email string) (int64, error) {
-	count, err := r.redis.Incr(ctx, "attempts:"+email).Result()
+func (r *Repository) CodeCooldownExists(ctx context.Context, email string) (bool, error) {
+	n, err := r.redis.Exists(ctx, "code_cooldown:"+email).Result()
+	return n > 0, err
+}
+
+func (r *Repository) SetCodeCooldown(ctx context.Context, email string) error {
+	return r.redis.Set(ctx, "code_cooldown:"+email, 1, CodeCooldownTTL).Err()
+}
+
+func (r *Repository) IncrEmailAttempts(ctx context.Context, email string) (int64, error) {
+	count, err := r.redis.Incr(ctx, "email_attempts:"+email).Result()
 
 	if err != nil {
 		return 0, err
 	}
 
 	if count == 1 {
-		if err := r.redis.Expire(ctx, "attempts:"+email, AttemptsTTL); err != nil{
-			slog.Warn("не удалось выставить TTL для attempts", "email", email, "err", err)
+		if err := r.redis.Expire(ctx, "email_attempts:"+email, AttemptsTTL); err != nil {
+			slog.Warn("couldn't set TTL for email attempts", "email", email, "err", err)
 		}
 	}
 
 	return count, nil
 }
 
-func (r *Repository) ResetAttempts(ctx context.Context, email string) error {
-	return r.redis.Del(ctx, "attempts:"+email).Err()
+func (r *Repository) ResetEmailAttempts(ctx context.Context, email string) error {
+	return r.redis.Del(ctx, "email_attempts:"+email).Err()
+}
+
+func (r *Repository) InrcCodeAttempts(ctx context.Context, email string) (int64, error) {
+	count, err := r.redis.Incr(ctx, "code_attempts:"+email).Result()
+
+
+	if err != nil {
+		return 0, err
+	}
+
+	if count == 1 {
+		if err := r.redis.Expire(ctx, "code_atempts:"+email, AttemptsTTL); err != nil {
+			slog.Warn("couldn't set TTl for code attempts", "email", email)
+		}
+	}
+
+	return count, nil
+}
+
+func (r *Repository) ResetCodeAttempts(ctx context.Context, email string) error {
+	return r.redis.Del(ctx, "code_attempts:"+email).Err()
 }
 
 func (r *Repository) SaveAuthSession(ctx context.Context, token, email string) error {
-	return r.redis.Set(ctx, "auth:" + token, email, AuthSessionTTL).Err()
+	return r.redis.Set(ctx, "auth:"+token, email, AuthSessionTTL).Err()
 }
 
 func (r *Repository) GetAuthSession(ctx context.Context, token string) (string, error) {
-	return r.redis.Get(ctx, "auth:" + token).Result()
+	return r.redis.Get(ctx, "auth:"+token).Result()
 }
 
 func (r *Repository) DeleteAuthSession(ctx context.Context, token string) error {
-	return r.redis.Del(ctx, "auth:" + token).Err()
+	return r.redis.Del(ctx, "auth:"+token).Err()
 }
 
-func (r *Repository) RefreshAuthSession (ctx context.Context, token string) error {
-	return r.redis.Expire(ctx, "auth:" + token, AuthSessionTTL).Err()
+func (r *Repository) RefreshAuthSession(ctx context.Context, token string) error {
+	return r.redis.Expire(ctx, "auth:"+token, AuthSessionTTL).Err()
 }
