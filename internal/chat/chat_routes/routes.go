@@ -1,4 +1,4 @@
-package routes
+package chat_routes
 
 import (
 	"net/http"
@@ -7,7 +7,7 @@ import (
 	"github.com/svlynx/messenger/internal/chat/chat_handler"
 )
 
-func SetupRoutes (engine *gin.Engine) {
+func SetupRoutes(engine *gin.Engine) {
 	engine.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Test connection is running",
@@ -15,7 +15,15 @@ func SetupRoutes (engine *gin.Engine) {
 	})
 }
 
-func DirectRouter (engine *gin.Engine, handler *chat_handler.DirectHandler) {
+func DirectRouter(engine *gin.Engine, handler *chat_handler.DirectHandler) {
 	chat := engine.Group("/chat/direct")
-    chat.POST("", handler.CreateNewDirectHandler)
+	chat.POST("", handler.CreateNewDirectHandler)
+	chat.GET("", handler.GetDirectByIdHandler)
+	chat.GET("/list", handler.GetListOfDirectsByIDHandler)
+}
+
+func MessageRouter(engine *gin.Engine, handler *chat_handler.MessageHandler) {
+	message := engine.Group("/chat/messages")
+	message.POST("", handler.SendMessageHandler)
+	message.GET("", handler.GetMessagesByChatIdHandler)
 }

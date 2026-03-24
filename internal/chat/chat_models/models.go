@@ -11,7 +11,7 @@ type MessageStatus string
 const (
 	Sent      MessageStatus = "sent"
 	Delivered MessageStatus = "delivered"
-	Written   MessageStatus = "written"
+	Read   MessageStatus = "read"
 )
 
 type ChatMember struct {

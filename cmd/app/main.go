@@ -46,8 +46,11 @@ func main(){
 	 postgresRepo := chat_repository.NewPostgresRepo(db)
 
 	 directService := chat_service.NewDirectService(postgresRepo)
-
 	 directHandler := chat_handler.NewDirectHandler(directService)
+
+	 messageService := chat_service.NewMessageService(postgresRepo)
+	 messageHandler := chat_handler.NewMessageHandler(messageService)
+
 
 	///router 
 	router := gin.Default()
@@ -59,8 +62,9 @@ func main(){
   
 	 ///routes
 	auth_handler.RegisterRoutes(router, handler)
-    routes.SetupRoutes(router)
-	 routes.DirectRouter(router, directHandler)
+    chat_routes.SetupRoutes(router)
+	chat_routes.DirectRouter(router, directHandler)
+	chat_routes.MessageRouter(router,messageHandler)
 
 	router.Run(":8080")
 }
