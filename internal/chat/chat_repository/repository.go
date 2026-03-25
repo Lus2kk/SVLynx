@@ -192,3 +192,60 @@ func (repo *PostgresRepo) GetMessagesByChatIdRepo(ctx context.Context, chatId uu
 
 	return messages, nil
 }
+
+// SearchMesageRepo implements [MessageRepo].
+func (repo *PostgresRepo) SearchMesageRepo(ctx context.Context, chat_id uuid.UUID, content string) ([]*chat_models.Message, error) {
+	stmt, err := repo.db.PrepareContext(ctx, ` SELECT id, chat_id, sender_id, content, status, created_at
+        FROM messages
+        WHERE chat_id = $1 AND content ILIKE $2 
+        ORDER BY created_at DESC`) // от нового к старому;  ilike для того чтоб не надо было учитвывть регистр ("Привет" == "привет")
+	if err != nil {
+		return nil, fmt.Errorf("statement error: %w", err)
+	}
+
+	defer stmt.Close()
+	rows, err := stmt.QueryContext(ctx, chat_id, "%"+content+"%")
+	//content так для того чтоб не обращать внимание на знаки ("Привет!" == "Привет")
+	if err != nil {
+		return nil, fmt.Errorf("error of searching : %w ", err)
+	}
+	defer rows.Close()
+
+	messages := make([]*chat_models.Message, 0)
+	for rows.Next() {
+		var message chat_models.Message
+		err := rows.Scan(
+			&message.ID,
+			&message.ChatID,
+			&message.SenderID,
+			&message.CreatedAT,
+			&message.Content,
+			&message.Status,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error of scan message : %w", err)
+		}
+		messages = append(messages, &message)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error returning message : %w", err)
+	}
+
+	return messages, nil
+	}
+
+
+	
+	func (repo *PostgresRepo) UpdateMessageStatusRepo(ctx context.Context, message_id uuid.UUID, status chat_models.MessageStatus) error {
+		stmt, err := repo.db.PrepareContext(ctx, `UPDATE messages SET status = $1 WHERE id = $2 `)
+		if err != nil {
+			return  fmt.Errorf("error prepare statement : %w", err)
+		}
+		defer stmt.Close()
+		_, err = stmt.ExecContext(ctx,status,message_id) 
+		if err != nil {
+			return fmt.Errorf("error of updating message status : %w", err)
+		}
+		return nil 
+	}
+
