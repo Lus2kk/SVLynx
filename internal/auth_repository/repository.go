@@ -16,12 +16,15 @@ const (
 	EmailCooldownTTL = 1 * time.Minute
 	CodeCooldownTTL  = 5 * time.Second
 	AttemptsTTL      = 15 * time.Minute
-	AuthSessionTTL   = 30 * 24 * time.Hour
+	RefreshTokenTTL  = 30 * 24 * time.Hour
+	AccesTokenTTL	 = 15 * time.Minute
 	MaxAttempts      = 5
 )
 
 type AuthRepository interface {
 	SaveSession(ctx context.Context, sessionID string) error
+	GetSession(ctx context.Context, sessionID string) (string, error)
+	DeleteSession(ctx context.Context, sessionID string) error
 
 	SaveCode(ctx context.Context, email string, code string) error
 	GetCode(ctx context.Context, email string) (string, error)
@@ -43,10 +46,9 @@ type AuthRepository interface {
 	InrcCodeAttempts(ctx context.Context, email string) (int64, error)
 	ResetCodeAttempts(ctx context.Context, email string) error
 
-	SaveAuthSession(ctx context.Context, token, email string) error
-	GetAuthSession(ctx context.Context, token string) (string, error)
-	DeleteAuthSession(ctx context.Context, token string) error
-	RefreshAuthSession(ctx context.Context, token string) error
+	SaveRefreshToken(ctx context.Context, token, email string) error
+	GetRefreshToken(ctx context.Context, token string) (string, error) 
+	DeleteRefreshToken(ctx context.Context, token string) error
 }
 
 type Repository struct {
@@ -58,12 +60,15 @@ func NewRepository(redis *redis.Client) *Repository {
 }
 
 func (r *Repository) SaveSession(ctx context.Context, sessionID string) error {
-	return r.redis.Set(
-		ctx,
-		"session:"+sessionID,
-		sessionID,
-		SessionTTL,
-	).Err()
+	return r.redis.Set(ctx, "session_id:"+sessionID, sessionID, SessionTTL).Err()
+}
+
+func (r *Repository) GetSession(ctx context.Context, sessionID string) (string, error) {
+	return r.redis.Get(ctx, "session_id:"+sessionID).Result()
+}
+
+func (r *Repository) DeleteSession(ctx context.Context, sessionID string) error {
+	return r.redis.Del(ctx, "session_id:"+sessionID).Err()
 }
 
 func (r *Repository) SaveCode(ctx context.Context, email string, code string) error {
@@ -137,7 +142,7 @@ func (r *Repository) InrcCodeAttempts(ctx context.Context, email string) (int64,
 	}
 
 	if count == 1 {
-		if err := r.redis.Expire(ctx, "code_atempts:"+email, AttemptsTTL); err != nil {
+		if err := r.redis.Expire(ctx, "code_attempts:"+email, AttemptsTTL); err != nil {
 			slog.Warn("couldn't set TTl for code attempts", "email", email)
 		}
 	}
@@ -149,18 +154,14 @@ func (r *Repository) ResetCodeAttempts(ctx context.Context, email string) error 
 	return r.redis.Del(ctx, "code_attempts:"+email).Err()
 }
 
-func (r *Repository) SaveAuthSession(ctx context.Context, token, email string) error {
-	return r.redis.Set(ctx, "auth:"+token, email, AuthSessionTTL).Err()
+func (r *Repository) SaveRefreshToken(ctx context.Context, token, email string) error {
+	return r.redis.Set(ctx, "refresh:"+token, email, RefreshTokenTTL).Err()
 }
 
-func (r *Repository) GetAuthSession(ctx context.Context, token string) (string, error) {
-	return r.redis.Get(ctx, "auth:"+token).Result()
+func (r *Repository) GetRefreshToken(ctx context.Context, token string) (string, error){
+	return r.redis.Get(ctx, "refresh:"+token).Result()
 }
 
-func (r *Repository) DeleteAuthSession(ctx context.Context, token string) error {
-	return r.redis.Del(ctx, "auth:"+token).Err()
-}
-
-func (r *Repository) RefreshAuthSession(ctx context.Context, token string) error {
-	return r.redis.Expire(ctx, "auth:"+token, AuthSessionTTL).Err()
+func (r *Repository) DeleteRefreshToken(ctx context.Context, token string) error {
+	return r.redis.Del(ctx, "refresh:"+token).Err()
 }

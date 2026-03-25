@@ -3,7 +3,9 @@ package auth_handler
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/svlynx/messenger/internal/apperrors"
@@ -109,6 +111,24 @@ func (h *Handler) InitTelegramAuth() gin.HandlerFunc {
 	}
 }
 
+func (h *Handler) getBearer(c *gin.Context) string {
+	header := c.GetHeader("Authorization")
+
+	slog.Info("auth header", "value", header)
+
+	if header == "" {
+		return ""
+	}
+
+	parts := strings.SplitN(header, " ", 2)
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		 slog.Warn("invalid auth header format", "value", header)
+		return ""
+	}
+	
+	return parts[1]
+}
+ 
 func (h *Handler) InitEmailAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := context.Background()
@@ -157,17 +177,40 @@ func (h *Handler) VerifyEmailCode() gin.HandlerFunc {
 			return
 		}
 
-		token, isNew, err := h.service.VerifyCode(ctx, req.SessionID, req.Code)
+		tokens, isNew, err := h.service.VerifyCode(ctx, req.SessionID, req.Code)
 
 		if err != nil {
 			HandlerError(c, err)
 			return
 		}
 
-		c.SetCookie("auth_token", token, 30*24*3600, "/", "", false, true)
+		c.JSON(http.StatusOK, gin.H{
+			"access_token": tokens.AccessToken,
+			"refresh_token": tokens.RefreshToken,
+			"is_new": isNew, // для регистрации
+		})
+	}
+}
+
+func (h *Handler) Refresh() gin.HandlerFunc {
+	return func (c *gin.Context) {
+		ctx := context.Background()
+		
+		refreshToken := c.GetHeader("X-Refresh-Token")
+		if refreshToken == "" {
+			HandlerError(c, apperrors.ErrUnauthorized)
+			return 
+		}
+
+		tokens, err := h.service.Refresh(ctx, refreshToken)
+		if err != nil {
+			HandlerError(c, err)
+			return 
+		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"is_new": isNew, // для регистрации
+			"access_token": tokens.AccessToken,
+			"refresh_token": tokens.RefreshToken,
 		})
 	}
 }
@@ -175,13 +218,14 @@ func (h *Handler) VerifyEmailCode() gin.HandlerFunc {
 func (h *Handler) GetMe() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := context.Background()
-		token, err := c.Cookie("auth_token")
-		if err != nil {
+		
+		accessToken := h.getBearer(c)
+		if accessToken == "" {
 			HandlerError(c, apperrors.ErrUnauthorized)
-			return
+			return 
 		}
 
-		user, err := h.service.GetMe(ctx, token)
+		user, err := h.service.GetMe(ctx, accessToken)
 		if err != nil {
 			HandlerError(c, err)
 			return
@@ -194,14 +238,14 @@ func (h *Handler) GetMe() gin.HandlerFunc {
 func (h *Handler) Logout() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := context.Background()
-		token, err := c.Cookie("auth_token")
-		if err == nil {
-			h.service.Logout(ctx, token)
+
+		refreshToken := c.GetHeader("X-Refresh-Token")
+		if refreshToken != "" {
+			h.service.Logout(ctx, refreshToken)
 		}
 
-		c.SetCookie("auth_token", "", -1, "/", "", false, true)
 		c.JSON(http.StatusOK, gin.H{
-			"message": "go out",
+			"message": "logged out",
 		})
 	}
 }
@@ -218,17 +262,20 @@ func (h *Handler) CompleteRegistration() gin.HandlerFunc {
 			return
 		}
 
-		token, err := c.Cookie("auth_token")
-		if err != nil {
+		accessToken := h.getBearer(c)
+
+		if accessToken == "" {
 			HandlerError(c, apperrors.ErrUnauthorized)
 			return
 		}
 
-		if err := h.service.CompleteRegistration(ctx, token, req.Nickname, req.Name, req.Status); err != nil {
+		if err := h.service.CompleteRegistration(ctx, accessToken, req.Nickname, req.Name, req.Status); err != nil {
 			HandlerError(c, err)
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "profile created"})
+		c.JSON(http.StatusOK, gin.H{
+			"message": "profile created",
+		})
 	}
 }

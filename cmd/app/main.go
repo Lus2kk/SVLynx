@@ -47,7 +47,7 @@ func main(){
 
 	emailSender := email.NewSender(cfg.SmtpHost, cfg.SmtpPort, cfg.SenderEmail, cfg.SenderPassword)
 
-	service := auth_service.NewService(repo, emailSender, userRepo)
+	service := auth_service.NewService(repo, emailSender, userRepo, cfg.JWTSecret)
 	
 	handler := auth_handler.NewHandler(service)
 
