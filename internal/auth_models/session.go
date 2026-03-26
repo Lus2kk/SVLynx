@@ -12,6 +12,11 @@ type Session struct {
 	PhotoURL   string    `json:"photo_url"`
 }
 
+type TokenPair struct {
+	AccessToken  string
+	RefreshToken string
+}
+
 type TelegramCallbackRequest struct {
 	ID        int64  `json:"id" binding:"required"`
 	FirstName string `json:"first_name" binding:"required"`
@@ -27,3 +32,4 @@ const (
 	StatusApproved = "approved"
 	StatusRejected = "rejected"
 )
+
