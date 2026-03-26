@@ -249,3 +249,22 @@ func (repo *PostgresRepo) SearchMesageRepo(ctx context.Context, chat_id uuid.UUI
 		return nil 
 	}
 
+func (repo *PostgresRepo) DeleteMessageRepo(ctx context.Context, message_id uuid.UUID) error {
+	stmt, err := repo.db.PrepareContext(ctx, `DELETE FROM messages WHERE id = $1`)
+	if err != nil {
+		return fmt.Errorf("prepare statement error : %w", err)
+	}
+	defer stmt.Close()
+	res, err := stmt.ExecContext(ctx, message_id)
+	if err != nil {
+		return fmt.Errorf("delete message error : %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected error : %w", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("message not found")
+	}
+	return nil
+}

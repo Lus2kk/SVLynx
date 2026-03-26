@@ -31,7 +31,7 @@ type Message struct {
 	ID        uuid.UUID     `json:"id"`
 	ChatID    uuid.UUID     `json:"chat_id"`
 	SenderID  uuid.UUID     `json:"sender_id"`
-	Content   string        `json:"content,omitempty"`
+	Content   string        `json:"content"`
 	Status    MessageStatus `json:"status"`
 	CreatedAT time.Time     `json:"created_at"`
 }

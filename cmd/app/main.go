@@ -18,53 +18,51 @@ import (
 	"github.com/svlynx/messenger/internal/repository"
 )
 
-func main(){
+func main() {
 	cfg := config.MustLoad()
-	 //redis client
+	//redis client
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: cfg.ReddisAddr,
 	})
-	//auth repo 
+	//auth repo
 	repo := auth_repository.NewRepository(redisClient)
-	service := auth_service.NewService(repo,cfg.TelegramToken)
+	service := auth_service.NewService(repo, cfg.TelegramToken)
 	handler := auth_handler.NewHandler(service)
 
-	///chat initialization 
-	dsn:= fmt.Sprintf(
+	///chat initialization
+	dsn := fmt.Sprintf(
 
-    "postgres://%s:%s@%s/%s?sslmode=disable",
-	cfg.Postgres.User,
-    cfg.Postgres.Password,
-    cfg.Postgres.Addr,
-    cfg.Postgres.DB,
-
+		"postgres://%s:%s@%s/%s?sslmode=disable",
+		cfg.Postgres.User,
+		cfg.Postgres.Password,
+		cfg.Postgres.Addr,
+		cfg.Postgres.DB,
 	)
 	db, err := repository.NewDB(dsn)
-	 if err != nil {
+	if err != nil {
 		log.Fatal("have no connection to database! ", err.Error())
-	 }
-	 postgresRepo := chat_repository.NewPostgresRepo(db)
+	}
+	postgresRepo := chat_repository.NewPostgresRepo(db)
 
-	 directService := chat_service.NewDirectService(postgresRepo)
-	 directHandler := chat_handler.NewDirectHandler(directService)
+	directService := chat_service.NewDirectService(postgresRepo)
+	directHandler := chat_handler.NewDirectHandler(directService)
 
-	 messageService := chat_service.NewMessageService(postgresRepo)
-	 messageHandler := chat_handler.NewMessageHandler(messageService)
+	messageService := chat_service.NewMessageService(postgresRepo)
+	messageHandler := chat_handler.NewMessageHandler(messageService)
 
-
-	///router 
+	///router
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
-    AllowOrigins: []string{"*"},
-    AllowMethods: []string{"POST", "GET", "OPTIONS"},
-    AllowHeaders: []string{"Content-Type"},
-}))
-  
-	 ///routes
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{"POST", "GET", "OPTIONS"},
+		AllowHeaders: []string{"Content-Type"},
+	}))
+
+	///routes
 	auth_handler.RegisterRoutes(router, handler)
-    chat_routes.SetupRoutes(router)
+	chat_routes.SetupRoutes(router)
 	chat_routes.DirectRouter(router, directHandler)
-	chat_routes.MessageRouter(router,messageHandler)
+	chat_routes.MessageRouter(router, messageHandler)
 
 	router.Run(":8080")
 }

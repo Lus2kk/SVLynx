@@ -133,54 +133,61 @@ func (h *MessageHandler) GetMessagesByChatIdHandler(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"messages": messages})
+}
+
+func (h *MessageHandler) SearchMessageHandler(ctx *gin.Context) {
+	chat_id, err := uuid.Parse(ctx.Query("chat_id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	content := ctx.Query("content")
+	if content == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error ": "content cannot be empty"})
+		return
+	}
+	messages, err := h.srvc.SearchMesaageService(ctx.Request.Context(), chat_id, content)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"troubles with server": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"messages": messages})
+}
+
+func (h *MessageHandler) UpdateMessageStatusHandler(ctx *gin.Context) {
+
+	messageId, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid message_id"})
+		return
 	}
 
-
-	func ( h *MessageHandler) SearchMessageHandler(ctx *gin.Context) {
-		chat_id, err := uuid.Parse(ctx.Query("chat_id"))
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error" : err.Error()})
-			return
-		}
-		content := ctx.Query("content") 
-		if content == "" {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error " : "content cannot be empty"})
-			return
-		}
-		messages , err := h.srvc.SearchMesaageService(ctx.Request.Context(),chat_id,content)
-		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"troubles with server" : err.Error()})
-			return
-		}
-		ctx.JSON(http.StatusOK, gin.H{"messages": messages})
+	var input struct {
+		Status chat_models.MessageStatus `json:"status"`
+	}
+	if err := ctx.ShouldBind(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 
-	func (h *MessageHandler) UpdateMessageStatusHandler(ctx *gin.Context) {
-    
-    messageId, err := uuid.Parse(ctx.Param("id"))
-    if err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid message_id"})
-        return
-    }
-
-    var input struct {
-        Status chat_models.MessageStatus `json:"status"`
-    }
-    if err := ctx.ShouldBind(&input); err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
-
-    if err := h.srvc.UpdateMessageStatusService(ctx.Request.Context(), input.Status, messageId); err != nil {
-        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-
-    ctx.JSON(http.StatusOK, gin.H{"message": "status updated"})
+	if err := h.srvc.UpdateMessageStatusService(ctx.Request.Context(), input.Status, messageId); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
-		
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "status updated"})
+	}
+
+	func (h *MessageHandler) DeleteMessageHandler(ctx *gin.Context) {
+	messageId, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid message_id"})
+		return
+	}
+	if err := h.srvc.DeleteMessageService(ctx.Request.Context(), messageId); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error with server": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"message": "message deleted"})
 	
-	
-
-
- 
+	}
