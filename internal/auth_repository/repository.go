@@ -3,14 +3,15 @@ package auth_repository
 import (
 	"context"
 	"log/slog"
+	"encoding/json"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/svlynx/messenger/internal/auth_models"
 )
 
 const (
 	SessionTTL = 10 * time.Minute
-
 	CodeTTL          = 3 * time.Minute
 	PendingTTL       = 10 * time.Minute
 	EmailCooldownTTL = 1 * time.Minute
@@ -23,8 +24,10 @@ const (
 
 type AuthRepository interface {
 	SaveSession(ctx context.Context, sessionID string) error
-	GetSession(ctx context.Context, sessionID string) (string, error)
+	GetSessionEmail(ctx context.Context, sessionID string) (string, error)
+	GetSessionTG(ctx context.Context, sesionID string) (*auth_models.Session, error)
 	DeleteSession(ctx context.Context, sessionID string) error
+	UpdateSession(ctx context.Context, session *auth_models.Session) error
 
 	SaveCode(ctx context.Context, email string, code string) error
 	GetCode(ctx context.Context, email string) (string, error)
@@ -63,7 +66,7 @@ func (r *Repository) SaveSession(ctx context.Context, sessionID string) error {
 	return r.redis.Set(ctx, "session_id:"+sessionID, sessionID, SessionTTL).Err()
 }
 
-func (r *Repository) GetSession(ctx context.Context, sessionID string) (string, error) {
+func (r *Repository) GetSessionEmail(ctx context.Context, sessionID string) (string, error) {
 	return r.redis.Get(ctx, "session_id:"+sessionID).Result()
 }
 
@@ -164,4 +167,29 @@ func (r *Repository) GetRefreshToken(ctx context.Context, token string) (string,
 
 func (r *Repository) DeleteRefreshToken(ctx context.Context, token string) error {
 	return r.redis.Del(ctx, "refresh:"+token).Err()
+}
+
+func (r *Repository) UpdateSession(ctx context.Context, session *auth_models.Session) error {
+
+	data, err := json.Marshal(session)
+	if err != nil {
+		return err
+	}
+	return r.redis.Set(ctx, "session:"+session.SessionID, data, SessionTTL).Err()
+}
+
+func (r *Repository) GetSessionTG(ctx context.Context, sessionID string) (*auth_models.Session, error) {
+
+	data, err := r.redis.Get(ctx, "session:"+sessionID).Bytes()
+
+	if err != nil {
+		return nil, err
+	}
+
+	var session auth_models.Session
+	if err := json.Unmarshal(data, &session); err != nil{
+		return nil, err
+	}
+	return &session, nil
+
 }

@@ -9,11 +9,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/svlynx/messenger/internal/apperrors"
+	"github.com/svlynx/messenger/internal/auth_models"
 	"github.com/svlynx/messenger/internal/auth_service"
 )
 
 type Handler struct {
-	service *auth_service.Service
+	service       *auth_service.Service
+	telegramToken string
 }
 
 type SendCodeDTO struct {
@@ -82,6 +84,22 @@ func HandlerError(c *gin.Context, err error) {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
 		})
+	case errors.Is(err, apperrors.ErrInvalidHash):
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error()},
+		)
+	case errors.Is(err, apperrors.ErrAuthExpired):
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+	case errors.Is(err, apperrors.ErrSessionNotFound):
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": err.Error(),
+	})
+	case errors.Is(err, apperrors.ErrInvalidRequest):
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": apperrors.ErrInternalError.Error(),
@@ -89,18 +107,19 @@ func HandlerError(c *gin.Context, err error) {
 	}
 }
 
-func NewHandler(service *auth_service.Service) *Handler {
-	return &Handler{service: service}
-}
+func NewHandler(service *auth_service.Service, telegramToken string) *Handler {
+	return &Handler{
+		service: service,
+	telegramToken: telegramToken,
+}}
+
 
 func (h *Handler) InitTelegramAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx := context.Background()
+		ctx := c.Request.Context()
 		session, err := h.service.InitSession(ctx)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Session creation error",
-			})
+			HandlerError(c, err)
 			return
 		}
 
@@ -113,8 +132,6 @@ func (h *Handler) InitTelegramAuth() gin.HandlerFunc {
 
 func (h *Handler) getBearer(c *gin.Context) string {
 	header := c.GetHeader("Authorization")
-
-	slog.Info("auth header", "value", header)
 
 	if header == "" {
 		return ""
@@ -276,6 +293,36 @@ func (h *Handler) CompleteRegistration() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"message": "profile created",
+		})
+	}
+}
+
+func (h *Handler) TelegramCallback() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req auth_models.TelegramCallbackRequest
+
+		ctx := c.Request.Context()
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			HandlerError(c, apperrors.ErrInvalidRequest)
+			return
+		}
+
+		if err := validateTelegramCallback(&req); err != nil {
+			HandlerError(c, err)
+		}
+		session, err := h.service.TelegramCallback(ctx, h.telegramToken, &req)
+		if err != nil {
+			HandlerError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"status":      session.Status,
+			"session_id":  session.SessionID,
+			"first_name":  session.FirstName,
+			"username":    session.Username,
+			"telegram_id": session.TelegramID,
+			"photo_url":   session.PhotoURL,
 		})
 	}
 }

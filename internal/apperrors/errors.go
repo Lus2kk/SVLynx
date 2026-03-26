@@ -3,6 +3,10 @@ package apperrors
 import "errors"
 
 var (
+	ErrInvalidHash = errors.New("invalid telegram hash signature") 
+	ErrAuthExpired     = errors.New("auth data expired, please try again")
+    ErrInvalidRequest  = errors.New("invalid request body")
+    ErrInternal        = errors.New("internal server error")
 	ErrInternalError    = errors.New("internal error")
 	ErrSessionNotFound  = errors.New("the session was not found or expired")
 	ErrCodeExpired      = errors.New("the code has expired, request a new one")

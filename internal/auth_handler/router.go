@@ -5,6 +5,7 @@ import "github.com/gin-gonic/gin"
 func RegisterRoutes(r *gin.Engine, h *Handler){
 	authTg := r.Group("/auth/telegram")
 	authTg.POST("/init", h.InitTelegramAuth())
+	authTg.POST("/callback", h.TelegramCallback())
 
 	emailAuth := r.Group("/auth/email")
     emailAuth.POST("/init", h.InitEmailAuth())  
