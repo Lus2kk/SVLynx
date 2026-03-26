@@ -131,13 +131,16 @@ func (s *Service) VerifyCode(ctx context.Context, sessionID, code string) (*auth
 	}
 
 	onCooldown, err := s.repo.CodeCooldownExists(ctx, email)
+	if err != nil {
+    return nil, false, apperrors.ErrInternalError
+	}
 
 	if onCooldown {
 		slog.Warn("blocked by code cooldown", "email", email)
 		return nil, false, apperrors.ErrCodeCooldown
 	}
 
-	attempts, err := s.repo.IncrEmailAttempts(ctx, email)
+	attempts, err := s.repo.InrcCodeAttempts(ctx, email)
 
 	if err != nil {
 		return nil, false, apperrors.ErrInternalError

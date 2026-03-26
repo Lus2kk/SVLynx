@@ -310,6 +310,7 @@ func (h *Handler) TelegramCallback() gin.HandlerFunc {
 
 		if err := validateTelegramCallback(&req); err != nil {
 			HandlerError(c, err)
+			return 
 		}
 		session, err := h.service.TelegramCallback(ctx, h.telegramToken, &req)
 		if err != nil {
