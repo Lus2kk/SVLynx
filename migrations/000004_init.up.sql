@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     telegram_id     BIGINT UNIQUE,
     username        TEXT UNIQUE,
     first_name      TEXT,
+    last_name       TEXT,
     photo_url       TEXT,
     created_at      TIMESTAMP DEFAULT now()
 );

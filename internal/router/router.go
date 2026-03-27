@@ -1,8 +1,11 @@
-package auth_handler
+package router
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/svlynx/messenger/internal/auth_handler"
+)
 
-func RegisterRoutes(r *gin.Engine, h *Handler){
+func RegisterRoutes(r *gin.Engine, h *auth_handler.Handler){
 	authTg := r.Group("/auth/telegram")
 	authTg.POST("/init", h.InitTelegramAuth())
 	authTg.POST("/callback", h.TelegramCallback())

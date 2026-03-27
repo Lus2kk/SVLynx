@@ -7,6 +7,7 @@ import (
 )
 
 func RunMigrate(PostgresAddr string) {
+	
 	m, err := migrate.New("file://migrations", PostgresAddr)
 	if err != nil{ 
 		panic(err)

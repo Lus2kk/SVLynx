@@ -1,4 +1,4 @@
-package auth_handler
+package router
 
 import (
 	"github.com/gin-contrib/cors"
