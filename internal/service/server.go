@@ -45,7 +45,7 @@ func NewServer(cfg *config.Config) *Server {
 	handler := auth_handler.NewHandler(service, cfg.TelegramToken)
 
 	r := gin.Default()
-	r.Use(auth_handler.CorsMiddleware())
+	r.Use(router.CorsMiddleware())
 	router.RegisterRoutes(r, handler)
 
 	return &Server{
