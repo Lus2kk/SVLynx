@@ -18,6 +18,9 @@ export default {
     script.setAttribute('data-onauth', 'onTelegramAuth(user)')
     script.setAttribute('data-request-access', 'write')
     script.async = true
+    script.onerror = () => {
+      console.warn('Telegram widget failed to load')
+    }
     this.$refs.wrapper.appendChild(script)
   }
 }

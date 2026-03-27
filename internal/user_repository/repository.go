@@ -13,7 +13,7 @@ type UserRepository interface {
 	UsernameExists(ctx context.Context, username string) (bool, error)
 	NicknameExists(ctx context.Context, nickname string) (bool, error)
 
-	SaveUserTelegram(ctx context.Context, telegramID int64, username, firstName, PhotoURL string) error
+	SaveUserTelegram(ctx context.Context, telegramID int64, username, firstName, lastName, PhotoURL string) error
 	SaveUserEmail(ctx context.Context, email, nickname, name, status, avatar_color string) error
 
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
@@ -84,10 +84,10 @@ func (r *Repository) SaveUserEmail(ctx context.Context, email, nickname, name, s
 
 }
 
-func (r * Repository) SaveUserTelegram(ctx context.Context, telegramID int64, username, firstName, PhotoURL string) error{
+func (r * Repository) SaveUserTelegram(ctx context.Context, telegramID int64, username, firstName, LastName, PhotoURL string) error{
 	_, err := r.db.Exec(ctx, `
-	INSERT INTO users (telegram_id, username, first_name, photo_url)
-	VALUES ($1, $2, $3, $4)`, telegramID, username, firstName, PhotoURL)
+	INSERT INTO users (telegram_id, username, first_name, last_name, photo_url)
+	VALUES ($1, $2, $3, $4, $5)`, telegramID, username, firstName, LastName, PhotoURL)
 
 	return err
 }
@@ -118,6 +118,7 @@ func (r *Repository) GetUserByTgID(ctx context.Context, telegramID int64) (*User
 		&u.TelegramID,
 		&u.Username,
 		&u.FirstName,
+		&u.LastName,
 		&u.PhotoURL,
 	)
 

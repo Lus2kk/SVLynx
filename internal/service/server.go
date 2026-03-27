@@ -1,4 +1,4 @@
-package auth_handler
+package service
 
 import (
 	"context"
@@ -6,11 +6,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/svlynx/messenger/internal/auth_handler"
 	"github.com/svlynx/messenger/internal/auth_repository"
 	"github.com/svlynx/messenger/internal/auth_service"
 	"github.com/svlynx/messenger/internal/config"
 	"github.com/svlynx/messenger/internal/email"
 	"github.com/svlynx/messenger/internal/migration"
+	"github.com/svlynx/messenger/internal/router"
 	"github.com/svlynx/messenger/internal/user_repository"
 )
 
@@ -40,11 +42,11 @@ func NewServer(cfg *config.Config) *Server {
 
 	service := auth_service.NewService(repo, emailSender, userRepo, cfg.JWTSecret)
 
-	handler := NewHandler(service, cfg.TelegramToken)
+	handler := auth_handler.NewHandler(service, cfg.TelegramToken)
 
 	r := gin.Default()
-	r.Use(CorsMiddleware())
-	RegisterRoutes(r, handler)
+	r.Use(auth_handler.CorsMiddleware())
+	router.RegisterRoutes(r, handler)
 
 	return &Server{
 		cfg: cfg,
