@@ -6,11 +6,15 @@ import (
 )
 
 func CorsMiddleware() gin.HandlerFunc {
-	return cors.New(cors.Config{
-		AllowOrigins: 	[]string{"https://95.182.97.36"},
-		AllowMethods: 	[]string{"POST", "GET", "OPTIONS"},
-		AllowHeaders: 	[]string{"Content-Type", "Autorization"},
-		ExposeHeaders:  []string{"Content-Lenght"},
-		AllowCredentials: true,
-	})
+    return cors.New(cors.Config{
+        AllowOrigins: []string{
+    "http://localhost:5173",        
+    "https://svlynx.site",          
+    "https://www.svlynx.site",      
+},
+        AllowMethods:     []string{"POST", "GET", "OPTIONS"},
+        AllowHeaders:     []string{"Content-Type", "Authorization", "X-Refresh-Token"},
+        ExposeHeaders:    []string{"Content-Length"},
+        AllowCredentials: true,
+    })
 }
