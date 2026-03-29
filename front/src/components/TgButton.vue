@@ -31,5 +31,16 @@ export default {
   display: flex;
   justify-content: center;
   margin-bottom: 32px;
+  width: 100%;
+}
+
+.tg-wrapper :deep(iframe),
+.tg-wrapper :deep(span) {
+  width: 100% !important;
+}
+
+.tg-wrapper :deep(a) {
+  width: 100% !important;
+  display: block !important;
 }
 </style>
