@@ -62,7 +62,7 @@ func (h *Handler) TelegramCallback() gin.HandlerFunc {
 			handlerError(c, apperrors.ErrInvalidRequest)
 			return
 		}
-
+		
 		if err := validateTelegramCallback(&req); err != nil {
 			handlerError(c, err)
 		}

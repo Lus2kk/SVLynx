@@ -66,6 +66,7 @@ func (s *Service) TelegramCallback(ctx context.Context, telegramToken string, re
 		Username:   req.Username,
 		FirstName:  req.FirstName,
 		PhotoURL:   req.PhotoURL,
+		LastName: req.LastName,
 	}
 
 	if err := s.repo.UpdateSession(ctx, session); err != nil {
@@ -87,6 +88,9 @@ func (s *Service) verifyHash(telegramToken string, req *auth_models.TelegramCall
 	}
 	if req.PhotoURL != "" {
 		data["photo_url"] = req.PhotoURL
+	}
+	if req.LastName != ""{
+		data["last_name"] = req.LastName
 	}
 
 	keys := make([]string, 0, len(data))

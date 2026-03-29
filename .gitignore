@@ -1,5 +1,7 @@
 .env
-
+.postman
 .DS_Store
 .vscode
 .vite
+postman
+test.go

@@ -44,7 +44,7 @@ export default {
     onTelegramAuth(user) {
       this.status = { type: 'success', message: 'Подключение к серверу...' }
 
-      fetch('https://division-custody-lessons-monthly.trycloudflare.com/auth/telegram/callback', {
+   fetch('https://svlynx.site/auth/telegram/callback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user)
