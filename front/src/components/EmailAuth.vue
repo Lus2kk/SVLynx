@@ -1,17 +1,16 @@
 <template>
   <div class="email-auth">
     <transition name="slide" mode="out-in">
-
       <!-- Шаг 1: email -->
       <div v-if="step === 'email'" key="email" class="email-step">
         <input
           ref="emailInput"
-          v-model="email"
+          v-model.trim="email"
           type="email"
           placeholder="your@gmail.com"
           class="email-input"
           @keyup.enter="sendCode"
-          autocomplete="new-password"
+          autocomplete="email"
         />
         <button class="email-btn" @click="sendCode" :disabled="loading">
           <span v-if="!loading">Получить код</span>
@@ -33,6 +32,7 @@
             :ref="el => { if (el) pinInputs[index] = el }"
             v-model="codeDigits[index]"
             type="text"
+            inputmode="numeric"
             maxlength="1"
             class="pin-input"
             @input="onPinInput(index, $event)"
@@ -41,7 +41,11 @@
           />
         </div>
 
-        <button class="email-btn pin-btn" @click="verifyCode" :disabled="loading || code.length !== 6">
+        <button
+          class="email-btn pin-btn"
+          @click="verifyCode"
+          :disabled="loading || code.length !== 6"
+        >
           <span v-if="!loading">Войти →</span>
           <span v-else class="spinner"></span>
         </button>
@@ -55,13 +59,19 @@
           </span>
         </div>
       </div>
-
     </transition>
   </div>
 </template>
 
 <script>
-const BASE = 'https://svlynx.site'
+const PROD_BASE = 'https://svlynx.site'
+const DEV_BASE = 'http://localhost:8080' // если backend локально, поправь порт при необходимости
+
+// Выбираем базовый URL в зависимости от окружения
+const BASE =
+  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? DEV_BASE
+    : PROD_BASE
 
 export default {
   emits: ['status', 'success'],
@@ -76,7 +86,7 @@ export default {
       sessionId: null,
       loading: false,
       cooldown: 0,
-      cooldownTimer: null,
+      cooldownTimer: null
     }
   },
 
@@ -84,6 +94,7 @@ export default {
     maskedEmail() {
       if (!this.email) return ''
       const [user, domain] = this.email.split('@')
+      if (!domain || !user) return this.email
       const masked = user[0] + '***'
       return `${masked}@${domain}`
     }
@@ -96,6 +107,8 @@ export default {
   },
 
   methods: {
+    // ------- PIN -------
+
     onPinInput(index, e) {
       const val = e.target.value.replace(/\D/g, '')
       this.codeDigits[index] = val ? val[val.length - 1] : ''
@@ -108,6 +121,14 @@ export default {
     onPinKeydown(index, e) {
       if (e.key === 'Backspace' && !this.codeDigits[index] && index > 0) {
         this.pinInputs[index - 1]?.focus()
+      }
+      if (e.key === 'ArrowLeft' && index > 0) {
+        e.preventDefault()
+        this.pinInputs[index - 1]?.focus()
+      }
+      if (e.key === 'ArrowRight' && index < 5) {
+        e.preventDefault()
+        this.pinInputs[index + 1]?.focus()
       }
     },
 
@@ -122,27 +143,55 @@ export default {
       this.pinInputs[nextIndex]?.focus()
     },
 
+    // ------- COOLDOWN -------
+
     startCooldown(seconds = 60) {
       this.cooldown = seconds
+      if (this.cooldownTimer) clearInterval(this.cooldownTimer)
       this.cooldownTimer = setInterval(() => {
         this.cooldown--
         if (this.cooldown <= 0) {
           clearInterval(this.cooldownTimer)
+          this.cooldownTimer = null
           this.cooldown = 0
         }
       }, 1000)
     },
 
+    // ------- EMAIL CHECK -------
+
+    isEmailValid() {
+      const input = this.$refs.emailInput
+      if (!input) return false
+      // Явно запускаем HTML5-валидацию
+      if (!input.checkValidity()) {
+        input.reportValidity()
+        return false
+      }
+      return true
+    },
+
+    // ------- API CALLS -------
+
     async sendCode() {
+      this.email = this.email.trim()
       if (!this.email) return
+
+      if (!this.isEmailValid()) {
+        return
+      }
+
       this.loading = true
       this.$emit('status', { type: '', message: '' })
+
       try {
+        // Шаг 1: init
         const initRes = await fetch(`${BASE}/auth/email/init`, { method: 'POST' })
         const initData = await initRes.json()
         if (!initRes.ok) throw new Error(initData.error || 'Ошибка инициализации')
         this.sessionId = initData.session_id
 
+        // Шаг 2: отправка кода
         const sendRes = await fetch(`${BASE}/auth/email/send-code`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -156,21 +205,23 @@ export default {
         this.$emit('status', { type: 'success', message: `Код отправлен на ${this.maskedEmail}` })
         this.$nextTick(() => this.pinInputs[0]?.focus())
       } catch (e) {
-        this.$emit('status', { type: 'error', message: e.message })
+        this.$emit('status', { type: 'error', message: e.message || 'Ошибка отправки кода' })
       } finally {
         this.loading = false
       }
     },
 
     async resendCode() {
-      if (this.cooldown > 0) return
+      if (this.cooldown > 0 || !this.sessionId) return
       await this.sendCode()
     },
 
     async verifyCode() {
-      if (!this.code || this.code.length !== 6) return
+      if (!this.code || this.code.length !== 6 || !this.sessionId) return
+
       this.loading = true
       this.$emit('status', { type: '', message: '' })
+
       try {
         const res = await fetch(`${BASE}/auth/email/verify-code`, {
           method: 'POST',
@@ -184,14 +235,20 @@ export default {
         sessionStorage.setItem('refresh_token', data.refresh_token)
 
         if (data.is_new) {
-          this.$emit('status', { type: 'success', message: 'Добро пожаловать! Заполните профиль...' })
+          this.$emit('status', {
+            type: 'success',
+            message: 'Добро пожаловать! Заполните профиль...'
+          })
           this.$emit('success', { isNew: true })
         } else {
-          this.$emit('status', { type: 'success', message: 'Вы вошли! Переход в SVLynx...' })
+          this.$emit('status', {
+            type: 'success',
+            message: 'Вы вошли! Переход в SVLynx...'
+          })
           this.$emit('success', { isNew: false })
         }
       } catch (e) {
-        this.$emit('status', { type: 'error', message: e.message })
+        this.$emit('status', { type: 'error', message: e.message || 'Ошибка проверки кода' })
       } finally {
         this.loading = false
       }
@@ -203,7 +260,10 @@ export default {
       this.codeDigits = ['', '', '', '', '', '']
       this.pinInputs = []
       this.sessionId = null
-      clearInterval(this.cooldownTimer)
+      if (this.cooldownTimer) {
+        clearInterval(this.cooldownTimer)
+        this.cooldownTimer = null
+      }
       this.cooldown = 0
       this.$emit('status', { type: '', message: '' })
       this.$nextTick(() => this.$refs.emailInput?.focus())
@@ -211,13 +271,18 @@ export default {
   },
 
   beforeUnmount() {
-    clearInterval(this.cooldownTimer)
+    if (this.cooldownTimer) {
+      clearInterval(this.cooldownTimer)
+      this.cooldownTimer = null
+    }
   }
 }
 </script>
 
 <style scoped>
-.email-auth { margin-bottom: 32px; }
+.email-auth {
+  margin-bottom: 32px;
+}
 
 .email-step {
   display: flex;
@@ -233,8 +298,8 @@ export default {
 .email-input {
   flex: 1;
   min-width: 0;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(79,142,247,0.15);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(79, 142, 247, 0.15);
   border-radius: 12px;
   padding: 12px 16px;
   color: #f0f2f8;
@@ -243,6 +308,7 @@ export default {
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
+
 .email-input:-webkit-autofill,
 .email-input:-webkit-autofill:hover,
 .email-input:-webkit-autofill:focus {
@@ -251,11 +317,17 @@ export default {
   caret-color: #f0f2f8;
   transition: background-color 5000s ease-in-out 0s;
 }
-.email-input::placeholder { color: #3a4060; }
-.email-input:focus {
-  border-color: rgba(79,142,247,0.5);
-  box-shadow: 0 0 0 3px rgba(79,142,247,0.1);
+
+.email-input::placeholder {
+  color: #3a4060;
 }
+
+.email-input:focus {
+  border-color: rgba(79, 142, 247, 0.5);
+  box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.1);
+}
+
+/* PIN */
 
 .pin-container {
   display: flex;
@@ -267,8 +339,8 @@ export default {
 .pin-input {
   width: 48px;
   height: 56px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(79,142,247,0.2);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(79, 142, 247, 0.2);
   border-radius: 12px;
   color: #f0f2f8;
   font-size: 22px;
@@ -282,8 +354,10 @@ export default {
 
 .pin-input:focus {
   border-color: #4f8ef7;
-  box-shadow: 0 0 0 3px rgba(79,142,247,0.15);
+  box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.15);
 }
+
+/* BUTTONS */
 
 .email-btn {
   background: linear-gradient(135deg, #4f8ef7, #7c5ef7);
@@ -300,19 +374,30 @@ export default {
   align-items: center;
   justify-content: center;
 }
+
 .pin-btn {
   width: 100%;
   padding: 14px;
   font-size: 15px;
   font-weight: 500;
 }
-.email-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.email-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .email-btn:hover:not(:disabled) {
   opacity: 0.9;
-  box-shadow: 0 8px 24px rgba(79,142,247,0.4);
+  box-shadow: 0 8px 24px rgba(79, 142, 247, 0.4);
   transform: translateY(-1px);
 }
-.email-btn:active:not(:disabled) { transform: scale(0.97); }
+
+.email-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* TEXT */
 
 .code-hint {
   font-size: 12px;
@@ -320,40 +405,75 @@ export default {
   margin-bottom: 16px;
   text-align: center;
 }
-.code-hint strong { color: #a0aec0; }
+
+.code-hint strong {
+  color: #a0aec0;
+}
+
 .change-link {
   color: #4f8ef7;
   cursor: pointer;
   margin-left: 8px;
   font-size: 12px;
 }
-.change-link:hover { text-decoration: underline; }
+
+.change-link:hover {
+  text-decoration: underline;
+}
+
+/* RESEND */
 
 .resend-row {
   margin-top: 14px;
   text-align: center;
   font-size: 12px;
 }
-.cooldown-text { color: #3a4060; }
+
+.cooldown-text {
+  color: #3a4060;
+}
+
 .resend-link {
   color: #4f8ef7;
   cursor: pointer;
 }
-.resend-link:hover { text-decoration: underline; }
+
+.resend-link:hover {
+  text-decoration: underline;
+}
+
+/* LOADER */
 
 .spinner {
   display: inline-block;
-  width: 14px; height: 14px;
-  border: 2px solid rgba(255,255,255,0.3);
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
 
-.slide-enter-active, .slide-leave-active {
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ANIMATION */
+
+.slide-enter-active,
+.slide-leave-active {
   transition: all 0.25s ease;
 }
-.slide-enter-from { opacity: 0; transform: translateX(20px); }
-.slide-leave-to { opacity: 0; transform: translateX(-20px); }
+
+.slide-enter-from {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.slide-leave-to {
+  opacity: 0;
+  transform: translateX(-20px);
+}
 </style>

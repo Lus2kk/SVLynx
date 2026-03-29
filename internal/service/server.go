@@ -47,13 +47,11 @@ func NewServer(cfg *config.Config) *Server {
 
 	emailSender := email.NewSender(cfg.SmtpHost, cfg.SmtpPort, cfg.SenderEmail, cfg.SenderPassword)
 
-	
-
-
 	db, err := pgxpool.New(context.Background(), dsn)
 	if err != nil{
 		panic(err)
 	}
+	
 	userRepo := user_repository.NewRepository(db)
 	repo := auth_repository.NewRepository(redisClient)
 	service := auth_service.NewService(repo, emailSender, userRepo, cfg.JWTSecret)
