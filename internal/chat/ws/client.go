@@ -1,18 +1,20 @@
 package ws
 
 import (
-	
-	"log/slog"
+	log "log/slog"
 	"time"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	
 	
 )
 
 
 const (
 	MaxMessageSize = 512
-	PongWaitingTimeout = 60 
+	PongWaitingTimeout = 60 * time.Second
+	WriteDeadline = 10 * time.Second
+	PingInterval =54 * time.Second
 )
 
 
@@ -47,7 +49,7 @@ func (client *Client) ReadPump () {
 	for {
 		_, message, err := client.connection.ReadMessage()
 		if err != nil {
-			slog.Error("error of reading message ", "error", err)
+			log.Error("error of reading message ", "error", err)
 			break
 		}
 		client.hub.broadcast <- message
@@ -55,30 +57,50 @@ func (client *Client) ReadPump () {
 	}
 
 
-	func (client *Client) WritePump() {
-		ticker := time.NewTicker(54*time.Second)
-		defer func () {
-		 ticker.Stop()
-		 client.connection.Close()
-		}()
-		for {
-			select {
-			case message, ok := <- client.send:
-			if !ok {
-				client.connection.WriteMessage(websocket.CloseMessage, []byte{})
-				return
-			}
-				 if err := client.connection.WriteMessage(websocket.TextMessage, message); err != nil {
-					 slog.Error("Error of sending message", "error", err.Error())
-					 return
-				 }
+		func (client *Client) WritePump() {
+			ticker := time.NewTicker(PingInterval)
+	defer func () {
+		ticker.Stop()
+		client.connection.Close()
+	}()
 
-			case <-ticker.C: 
-
-
-				
-			}
+	for {
+		select {
+		case message , ok := <- client.send:
+		client.connection.SetWriteDeadline(time.Now().Add(WriteDeadline))
+		if !ok {
+			client.connection.WriteMessage(websocket.CloseMessage, []byte{})
+			return
 		}
 
+		writer, err := client.connection.NextWriter(websocket.TextMessage)
+		if err != nil {
+			log.Error("error connecting new writer : ","error", err)
+			return
+		}
+		writer.Write(message)
+
+	    sended := len(client.send)
+		for i := 0; i < sended; i++ {
+			writer.Write([]byte{'\n'})
+			writer.Write(<-client.send)
+		}
+
+		if err := writer.Close(); err!= nil {
+			log.Error("error of flushing the message", "error",err)
+			return
+		}
+
+	case <-ticker.C:
+	client.connection.SetWriteDeadline(time.Now().Add(WriteDeadline))
+	if err :=client.connection.WriteMessage(websocket.PingMessage,nil); err != nil {
+		log.Error("error of sending ping", "error", err)
+		return
+	       }  
+
+		}
 	}
+}
+	
+	
 

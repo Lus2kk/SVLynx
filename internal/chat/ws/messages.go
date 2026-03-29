@@ -39,12 +39,12 @@ import (
 
 	type DeleteMessagePayload struct {
     ID          uuid.UUID       `json:"id"`
-	RecipientID uuid.UUID      `json:"recipient_id"`
+	RecipientID uuid.UUID       `json:"recipient_id"`
     }
 
 	type UpdateMessageStatusPayload struct {
 	ID          uuid.UUID			                    `json:"id"`
-	RecipientID uuid.UUID                           `json:"recipient_id"`
+	RecipientID uuid.UUID                               `json:"recipient_id"`
 	Status      chat_models.MessageStatus			    `json:"status"`
 	} 
 

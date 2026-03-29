@@ -33,27 +33,26 @@ func NewHub (Mservice *chat_service.MessageService, Dservice *chat_service.Direc
 }
 
 
-func (h *Hub) Run() {
+func (hub *Hub) Run() {
     for {
         select {
-
-
-        case client := <-h.register:
-			h.mutex.Lock()
-			h.clients[client.id] = client
-			h.mutex.Unlock()
+			
+        case client := <-hub.register:
+			hub.mutex.Lock()
+			hub.clients[client.id] = client
+			hub.mutex.Unlock()
 
             
-        case client := <-h.unregister:
-    h.mutex.Lock()
-    if _, ok := h.clients[client.id]; ok {
-        delete(h.clients, client.id)
+        case client := <-hub.unregister:
+    hub.mutex.Lock()
+    if _, ok := hub.clients[client.id]; ok {
+        delete(hub.clients, client.id)
         close(client.send)
     }
-    h.mutex.Unlock()
+    hub.mutex.Unlock()
 
             
-        case message := <-h.broadcast:
+        case message := <-hub.broadcast:
 			var event BaseMessagePayload 
 			if err := json.Unmarshal(message, &event); err != nil {
 				slog.Error("Error unmarshal payload!", "error", err)
@@ -78,7 +77,7 @@ func (h *Hub) Run() {
         Content:  payload.Content,
     }
     
-    message, err := h.Mservice.SendMessage(ctx, input)
+    message, err := hub.Mservice.SendMessage(ctx, input)
     if err != nil {
 		slog.Error("Error of sending message ", "error", err)
         continue
@@ -96,11 +95,11 @@ func (h *Hub) Run() {
         continue
     }
 
-    h.mutex.RLock()
-    if recipient, ok := h.clients[payload.RecipientID]; ok {
+    hub.mutex.RLock()
+    if recipient, ok := hub.clients[payload.RecipientID]; ok {
         recipient.send <- responsePayload
     }
-    h.mutex.RUnlock()
+    hub.mutex.RUnlock()
 			
 
 
@@ -112,7 +111,7 @@ func (h *Hub) Run() {
 		continue
 	}
 	ctx :=  context.Background()
-	 if  err := h.Mservice.DeleteMessageService(ctx,payload.ID); err != nil {
+	 if  err := hub.Mservice.DeleteMessageService(ctx,payload.ID); err != nil {
 	slog.Error("Error of deleting message ", "error", err)
 		continue
 		}
@@ -125,11 +124,11 @@ func (h *Hub) Run() {
 	slog.Error("Error of marshaling message ", "error",err)
 	continue
 	}
-	h.mutex.RLock()
-	if recipient, ok :=h.clients[payload.RecipientID];  ok {
+	hub.mutex.RLock()
+	if recipient, ok :=hub.clients[payload.RecipientID];  ok {
 	recipient.send <- responcePayload
 	 } 
-	 h.mutex.RUnlock()
+	 hub.mutex.RUnlock()
 			
 
 
@@ -142,7 +141,7 @@ case UpdateMessageStatus:
 	}
 	ctx := context.Background()
 
-if err := h.Mservice.UpdateMessageStatusService(ctx,payload.Status,payload.ID); err != nil {
+if err := hub.Mservice.UpdateMessageStatusService(ctx,payload.Status,payload.ID); err != nil {
 	slog.Error("Error updating message", "error", err)
 		continue
 	}
@@ -155,11 +154,11 @@ if err := h.Mservice.UpdateMessageStatusService(ctx,payload.Status,payload.ID); 
 	slog.Error("Error marshaling message", "error", err)
 		continue
 	}
-	h.mutex.RLock()
-		if recipient, ok := h.clients[payload.RecipientID]; ok {
+	hub.mutex.RLock()
+		if recipient, ok := hub.clients[payload.RecipientID]; ok {
 			recipient.send <- recponcePayload
 	}
-	h.mutex.RUnlock()
+	hub.mutex.RUnlock()
 			}
         }
     }
