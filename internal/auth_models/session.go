@@ -10,7 +10,12 @@ type Session struct {
 	Username   string    `json:"username"`
 	FirstName  string    `json:"first_name"`
 	PhotoURL   string    `json:"photo_url"`
-	LastName   string    `json:"last_name"`
+	LastName   string	 `json:"last_name"`
+}
+
+type TokenPair struct {
+	AccessToken  string
+	RefreshToken string
 }
 
 type TelegramCallbackRequest struct {
@@ -25,7 +30,8 @@ type TelegramCallbackRequest struct {
 }
 
 const (
-	StatusPending  = "pending"
+	StatusPending = "pending"
 	StatusApproved = "approved"
 	StatusRejected = "rejected"
 )
+

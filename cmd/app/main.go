@@ -1,17 +1,22 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"github.com/svlynx/messenger/internal/config"
-
-	"github.com/svlynx/messenger/internal/auth_handler"
+	"github.com/svlynx/messenger/internal/service"
 )
 
-func main(){
+func main() {
 	cfg := config.MustLoad()
-	server := auth_handler.NewServer(cfg)
-	if err := server.Run(); err != nil {
-		log.Fatal(err)
-	}
+	server := service.NewServer(cfg)
+    defer server.Close()  
+
+    if err := server.Run(); err != nil {
+        slog.Warn(err.Error())
+    }
+	
 
 }
+
+
+
