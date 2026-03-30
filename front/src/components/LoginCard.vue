@@ -3,19 +3,25 @@
     <Logo />
     <div class="headline">Добро пожаловать</div>
     <div class="subline">Войдите, чтобы начать общение. Быстро и безопасно.</div>
+
     <div class="divider">
       <div class="divider-line"></div>
       <div class="divider-text">войти через</div>
       <div class="divider-line"></div>
     </div>
+
     <StatusMsg :type="status.type" :message="status.message" />
-    <EmailAuth @status="status = $event" />
+
+    <EmailAuth @status="status = $event" @success="onEmailSuccess" />
+
     <div class="divider" style="margin-bottom: 24px;">
       <div class="divider-line"></div>
       <div class="divider-text">или</div>
       <div class="divider-line"></div>
     </div>
+
     <TgButton @auth="onTelegramAuth" />
+
     <div class="footer">
       Входя, вы соглашаетесь с <a href="#">условиями использования</a><br>
       и <a href="#">политикой конфиденциальности</a>
@@ -28,12 +34,24 @@ import Logo from './Logo.vue'
 import StatusMsg from './StatusMsg.vue'
 import TgButton from './TgButton.vue'
 import EmailAuth from './EmailAuth.vue'
+
 export default {
   components: { Logo, StatusMsg, TgButton, EmailAuth },
+  emits: ['show-profile'],
+
   data() {
-    return { status: { type: '', message: '' } }
+    return {
+      status: { type: '', message: '' }
+    }
   },
+
   methods: {
+    onEmailSuccess({ isNew }) {
+      if (isNew) {
+        setTimeout(() => this.$emit('show-profile'), 100)
+      }
+    },
+
     onTelegramAuth(user) {
       this.status = { type: 'success', message: 'Подключение к серверу...' }
       fetch('https://svlynx.site/auth/telegram/callback', {
@@ -56,6 +74,7 @@ export default {
   }
 }
 </script>
+
 <style scoped>
 .card {
   position: relative;
@@ -84,15 +103,28 @@ export default {
   font-weight: 700;
   color: #f0f2f8;
   margin-bottom: 10px;
+  animation: fadeUp 0.5s 0.1s ease both;
 }
-.subline { font-size: 14px; color: #5a6480; margin-bottom: 36px; }
-.divider { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+.subline {
+  font-size: 14px;
+  color: #5a6480;
+  margin-bottom: 36px;
+  animation: fadeUp 0.5s 0.2s ease both;
+}
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+  animation: fadeUp 0.5s 0.3s ease both;
+}
 .divider-line { flex: 1; height: 1px; background: rgba(255,255,255,0.07); }
 .divider-text { font-size: 11px; color: #5a6480; text-transform: uppercase; letter-spacing: 1.5px; }
 .footer { text-align: center; font-size: 12px; color: #5a6480; line-height: 1.6; }
 .footer a { color: #4f8ef7; text-decoration: none; }
+
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(32px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 </style>

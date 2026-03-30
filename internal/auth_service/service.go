@@ -377,12 +377,13 @@ func (s *Service) verifyHash(telegramToken string, req *auth_models.TelegramCall
 	}
 	dataString := strings.Join(parts, "\n")
 
-	h := sha256.New()
-	h.Write([]byte(telegramToken))
-	secretKey := h.Sum(nil)
-	mac := hmac.New(sha256.New, secretKey)
-	mac.Write([]byte(dataString))
-	expectedHash := hex.EncodeToString(mac.Sum(nil))
+	mac := hmac.New(sha256.New, []byte("WebAppData"))
+    mac.Write([]byte(telegramToken))
+    secretKey := mac.Sum(nil)
+
+    mac2 := hmac.New(sha256.New, secretKey)
+    mac2.Write([]byte(dataString))
+    expectedHash := hex.EncodeToString(mac2.Sum(nil))
 
 	return expectedHash == req.Hash
 }

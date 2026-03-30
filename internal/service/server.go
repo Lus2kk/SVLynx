@@ -45,7 +45,7 @@ func NewServer(cfg *config.Config) *Server {
 		Addr: cfg.ReddisAddr,
 	})
 
-	emailSender := email.NewSender(cfg.SmtpHost, cfg.SmtpPort, cfg.SenderEmail, cfg.SenderPassword)
+	emailSender := email.NewSender(cfg.ResendAPIKey, cfg.ResendFrom)
 
 	
 
