@@ -7,7 +7,7 @@ type Config struct {
 	SmtpPort       int    `env:"SMTP_PORT"     env-default:"587"`
 	SenderEmail    string `env:"SENDER_EMAIL" env-required:"true"`
 	SenderPassword string `env:"SENDER_PASSWORD" env-required:"true"`
-	JWTSecret      string `env:"JWT_SECRET" env-reqiured:"true"`
+	JWTSecret      string `env:"JWT_SECRET" env-required:"true"`
 	Port           string `env:"PORT" env-required:"true"`
 	TelegramToken  string `env:"TELEGRAM_BOT_TOKEN" env-required:"true"`
 	ReddisAddr     string `env:"REDIS_ADDR" env-required:"true"`

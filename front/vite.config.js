@@ -4,6 +4,6 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   plugins: [vue()],
   server: {
-    allowedHosts: true,
+    allowedHosts: ['http://localhost:8080', 'https://svlynx.site'],
   }
 })

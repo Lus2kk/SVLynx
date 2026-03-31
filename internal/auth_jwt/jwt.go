@@ -10,17 +10,16 @@ import (
 )
 
 type Claims struct {
-	Email 		string `json:"email"`
 	TokenType	string `json:"token_type"`
 	jwt.RegisteredClaims 
 }
 
-func generateToken(email, tokenType, secret string, ttl time.Duration) (string, error){
+func generateToken(userID, tokenType, secret string, ttl time.Duration) (string, error){
 	claim := Claims{
-		Email: email,
 		TokenType: tokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
+			Subject: userID,
 		},
 	}
 
@@ -28,12 +27,12 @@ func generateToken(email, tokenType, secret string, ttl time.Duration) (string, 
 	return token.SignedString([]byte(secret))
 }
 
-func GenerateAccessToken(email, secret string) (string, error) {
-	return generateToken(email, "access", secret, auth_repository.AccesTokenTTL)
+func GenerateAccessToken(userID, secret string) (string, error) {
+	return generateToken(userID, "access", secret, auth_repository.AccesTokenTTL)
 }
 
-func GenerateRefreshToken(email, secret string) (string, error) {
-	return generateToken(email, "refresh", secret, auth_repository.RefreshTokenTTL)
+func GenerateRefreshToken(userID, secret string) (string, error) {
+	return generateToken(userID, "refresh", secret, auth_repository.RefreshTokenTTL)
 }
 
 func Parse(tokenSTR, secret string) (*Claims, error) {
@@ -56,7 +55,7 @@ func Parse(tokenSTR, secret string) (*Claims, error) {
 		return nil, apperrors.ErrInvalidToken
 	}
 
-	slog.Info("token parsed successfully", "email", claims.Email, "token_type", claims.TokenType)
+	slog.Info("token parsed successfully", "email", claims.Subject, "token_type", claims.TokenType)
 
 	return &claims, nil
 }

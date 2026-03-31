@@ -8,9 +8,10 @@ import (
 func CorsMiddleware() gin.HandlerFunc {
     return cors.New(cors.Config{
         AllowOrigins: []string{
+	"https://deeply-holly-son-tax.trycloudflare.com",
     "http://localhost:5173",        
     "https://svlynx.site",          
-    "https://www.svlynx.site",      
+    "https://www.svlynx.site",
 },
         AllowMethods:     []string{"POST", "GET", "OPTIONS"},
         AllowHeaders:     []string{"Content-Type", "Authorization", "X-Refresh-Token"},

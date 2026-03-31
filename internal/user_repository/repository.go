@@ -17,7 +17,11 @@ type UserRepository interface {
 	SaveUserEmail(ctx context.Context, email, nickname, name, status, avatar_color string) error
 
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
-	GetUserByTgID(tctx context.Context, elegramID int64) (*User, error)
+	GetUserByTgID(ctx context.Context, telegramID int64) (*User, error)
+	GetUserByUserID(ctx context.Context, userID string) (*User, error)
+
+	UpdateUserProfile(ctx context.Context, id, nickname, name, status, avatarColor string) error
+	UpdateTelegramUser(ctx context.Context, telegramID int64, username, firstName, lastName, phoroURL string) error
 }
 
 type Repository struct {
@@ -96,31 +100,90 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*User, e
 	u := &User{}
 
 	err := r.db.QueryRow(ctx, `
-	SELECT id, email, nickname, name, avatar_color
+	SELECT  id, telegram_id, username, first_name, last_name, photo_url, email, nickname, name, avatar_color, status
 	FROM users WHERE email=$1`, email).Scan(
 		&u.ID,
-		&u.Email,  
-		&u.Nickname, 
-		&u.Name, 
+		&u.TelegramID,
+		&u.Username,
+		&u.FirstName,
+		&u.LastName,
+		&u.PhotoURL,
+		&u.Email,
+		&u.Nickname,
+		&u.Name,
 		&u.AvatarColor,
+		&u.Status,
 	)
 
 	return u, err
 }
 
 func (r *Repository) GetUserByTgID(ctx context.Context, telegramID int64) (*User, error){
-	u:= &User{}
+	u := &User{}
 
 	err := r.db.QueryRow(ctx, `
-	SELECT id, telegram_id, username, first_name, photo_url
+	SELECT  id, telegram_id, username, first_name, last_name, photo_url, email, nickname, name, avatar_color, status
 	FROM users WHERE telegram_id = $1`, telegramID).Scan(
-		&u.ID, 
+		&u.ID,
 		&u.TelegramID,
 		&u.Username,
 		&u.FirstName,
 		&u.LastName,
 		&u.PhotoURL,
+		&u.Email,
+		&u.Nickname,
+		&u.Name,
+		&u.AvatarColor,
+		&u.Status,
 	)
 
 	return u, err
+}
+
+func (r *Repository) GetUserByUserID(ctx context.Context, userID string) (*User, error) {
+	u := &User{}
+
+	err := r.db.QueryRow(ctx, `
+	SELECT id, telegram_id, username, first_name, last_name, photo_url, email, nickname, name, avatar_color, status
+	FROM users WHERE id = $1`, userID).Scan(
+		&u.ID,
+		&u.TelegramID,
+		&u.Username,
+		&u.FirstName,
+		&u.LastName,
+		&u.PhotoURL,
+		&u.Email,
+		&u.Nickname,
+		&u.Name,
+		&u.AvatarColor,
+		&u.Status,
+	)
+
+	return u, err
+}
+
+func (r *Repository) UpdateUserProfile(ctx context.Context, id, nickname, name, status, avatarColor string) error {
+	_, err := r.db.Exec(ctx, `
+	UPDATE users
+	SET nickname = $2,
+		name = $3, 
+		status = $4,
+		avatar_color = $5
+	WHERE id = $1
+	`,  id, nickname, name, status, avatarColor)
+
+	return err
+}
+
+func (r *Repository) UpdateTelegramUser(ctx context.Context, telegramID int64, username, firstName, lastName, phoroURL string) error {
+	_, err := r.db.Exec(ctx, `
+	UPDATE users
+	SET username = $2,
+		first_name = $3 ,
+		last_name = $4,
+		photo_url = $5
+	WHERE telegram_id = $1
+	`,  telegramID, username, firstName, lastName, phoroURL)
+
+	return err
 }

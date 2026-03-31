@@ -6,16 +6,18 @@ import (
 )
 
 func RegisterRoutes(r *gin.Engine, h *auth_handler.Handler){
-	authTg := r.Group("/auth/telegram")
-	authTg.POST("/init", h.InitTelegramAuth())
-	authTg.POST("/callback", h.TelegramCallback())
+	auth := r.Group("/auth")
+	auth.POST("/refresh", h.Refresh())
+	auth.POST("/logout", h.Logout())
+	auth.POST("/me", h.GetMe())
+	
+	telegram := auth.Group("/telegram")
+	telegram.POST("/init", h.InitEmailAuth())
+	telegram.POST("/callback", h.TelegramCallback())
 
-	emailAuth := r.Group("/auth/email")
-    emailAuth.POST("/init", h.InitEmailAuth())  
-    emailAuth.POST("/send-code", h.SendEmailCode())  
-    emailAuth.POST("/verify-code", h.VerifyEmailCode())
-	emailAuth.POST("/refresh", h.Refresh()) 
-	emailAuth.POST("/complete", h.CompleteRegistration())
-	emailAuth.POST("/logout", h.Logout())
-	emailAuth.GET("/me", h.GetMe())
+	email:= auth.Group("/email")
+    email.POST("/init", h.InitEmailAuth())  
+    email.POST("/send-code", h.SendEmailCode())  
+    email.POST("/verify-code", h.VerifyEmailCode())
+	email.POST("/complete", h.CompleteRegistration())
 }
