@@ -60,7 +60,7 @@
 import Logo from './Logo.vue'
 import StatusMsg from './StatusMsg.vue'
 
-const BASE = '  http://localhost:8080'
+const BASE = 'https://svlynx.site'
 
 export default {
   components: { Logo, StatusMsg },
