@@ -4,11 +4,33 @@
 
 <script>
 export default {
-  emits: ['auth'],
+  emits: ['auth', 'error'],
 
   mounted() {
-    window.onTelegramAuth = (user) => {
-      this.$emit('auth', user)
+    window.onTelegramAuth = async (user) => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/telegram/callback`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(user)
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Telegram auth failed')
+        }
+
+        sessionStorage.setItem('access_token', data.access_token)
+        sessionStorage.setItem('refresh_token', data.refresh_token)
+
+        this.$emit('auth', data)
+      } catch (err) {
+        console.error('Telegram auth failed', err)
+        this.$emit('error', err)
+      }
     }
 
     const script = document.createElement('script')
@@ -21,7 +43,12 @@ export default {
     script.onerror = () => {
       console.warn('Telegram widget failed to load')
     }
+
     this.$refs.wrapper.appendChild(script)
+  },
+
+  beforeUnmount() {
+    delete window.onTelegramAuth
   }
 }
 </script>
@@ -38,9 +65,8 @@ export default {
 .tg-wrapper :deep(iframe),
 .tg-wrapper :deep(span),
 .tg-wrapper :deep(a) {
-  width: auto !important;
+  display: block;
+  margin: 0 auto;
   max-width: 100%;
-  margin: 0 auto !important;
-  display: block !important;
 }
-</style> 
+</style>

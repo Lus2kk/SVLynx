@@ -393,40 +393,37 @@ func (s *Service) TelegramCallback(ctx context.Context, telegramToken string, re
 }
 
 func (s *Service) verifyHash(telegramToken string, req *auth_models.TelegramCallbackRequest) bool {
-	data := map[string]string{
-		"id":         strconv.FormatInt(req.ID, 10),
-		"first_name": req.FirstName,
-		"auth_date":  strconv.FormatInt(req.AuthDate, 10),
-	}
-	if req.Username != "" {
-		data["username"] = req.Username
-	}
-	if req.PhotoURL != "" {
-		data["photo_url"] = req.PhotoURL
-	}
-	if req.LastName != "" {
-		data["last_name"] = req.LastName
-	}
+  data := map[string]string{
+    "id":         strconv.FormatInt(req.ID, 10),
+    "first_name": req.FirstName,
+    "auth_date":  strconv.FormatInt(req.AuthDate, 10),
+  }
+  if req.Username != "" {
+    data["username"] = req.Username
+  }
+  if req.PhotoURL != "" {
+    data["photo_url"] = req.PhotoURL
+  }
+  if req.LastName != "" {
+    data["last_name"] = req.LastName
+  }
 
-	keys := make([]string, 0, len(data))
-	for k := range data {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+  keys := make([]string, 0, len(data))
+  for k := range data {
+    keys = append(keys, k)
+  }
+  sort.Strings(keys)
 
-	parts := make([]string, 0, len(keys))
-	for _, k := range keys {
-		parts = append(parts, k+"="+data[k])
-	}
-	dataString := strings.Join(parts, "\n")
+  parts := make([]string, 0, len(keys))
+  for _, k := range keys {
+    parts = append(parts, k+"="+data[k])
+  }
+  dataString := strings.Join(parts, "\n")
 
-	h := sha256.New()
-	h.Write([]byte(telegramToken))
-	secretKey := h.Sum(nil)
-	mac := hmac.New(sha256.New, secretKey)
-	mac.Write([]byte(dataString))
-	expectedHash := hex.EncodeToString(mac.Sum(nil))
-
-	return expectedHash == req.Hash
+  secretKey := sha256.Sum256([]byte(telegramToken))
+    mac := hmac.New(sha256.New, secretKey[:])
+    mac.Write([]byte(dataString))
+    expectedHash := hex.EncodeToString(mac.Sum(nil))
+  return expectedHash == req.Hash
 }
 
