@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"log/slog"
 	"math/rand"
 	"sort"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 	"github.com/svlynx/messenger/internal/apperrors"
 	"github.com/svlynx/messenger/internal/auth_code"
 	"github.com/svlynx/messenger/internal/auth_jwt"
@@ -30,13 +28,6 @@ type Service struct {
 	emailSender *email.Sender
 	jwtSecret	string
 }
-
-type AuthRepository interface {
-	SaveSession(ctx context.Context, sessionID string) error
-	UpdateSession(ctx context.Context, session *auth_models.Session) error
-	GetSession(ctx context.Context, sessionID string) (*auth_models.Session, error)
-} 
-
 
 func NewService(repo auth_repository.AuthRepository, emailSender *email.Sender, userRepo user_repository.UserRepository, jwtSecret string) *Service {
 	return &Service{
@@ -60,18 +51,21 @@ func (s *Service) InitSession(ctx context.Context) (*auth_models.Session, error)
 }
 
 func (s *Service) SendConfirmationCode(ctx context.Context, sessionID, email string) error {
-	_, err := s.repo.GetSessionEmail(ctx, sessionID)
+	ok, err := s.repo.SessionExists(ctx, sessionID)
     if err != nil {
-        if errors.Is(err, redis.Nil) {
-            return apperrors.ErrSessionNotFound
-        }
-        return apperrors.ErrSessionCreate
+       slog.Warn("error when check session existence")
+	   return apperrors.ErrSessionCreate
     }
+
+	if !ok {
+		slog.Warn("session not exists")
+		return apperrors.ErrSessionNotFound
+	}
 
 	onCooldown, err := s.repo.EmailCooldownExists(ctx, email)
 
 	if err != nil {
-		return apperrors.ErrInternalError
+		return apperrors.ErrInternal
 	}
 
 	if onCooldown {
@@ -82,7 +76,7 @@ func (s *Service) SendConfirmationCode(ctx context.Context, sessionID, email str
 	attempts, err := s.repo.IncrEmailAttempts(ctx, email)
 
 	if err != nil {
-		return apperrors.ErrInternalError
+		return apperrors.ErrInternal
 	}
 
 	if attempts > auth_repository.MaxAttempts {
@@ -93,24 +87,24 @@ func (s *Service) SendConfirmationCode(ctx context.Context, sessionID, email str
 	code, err := auth_code.GenerateSixDigitCode()
 
 	if err != nil {
-		return apperrors.ErrInternalError
+		return apperrors.ErrInternal
 	}
 
 	err = s.repo.SavePending(ctx, sessionID, email)
 
 	if err != nil {
-		return apperrors.ErrInternalError
+		return apperrors.ErrInternal
 	}
 
 	err = s.repo.SaveCode(ctx, email, code)
 
 	if err != nil {
-		return apperrors.ErrInternalError
+		return apperrors.ErrInternal
 	}
 
 	if err := s.repo.SetEmailCooldown(ctx, email); err != nil {
 		slog.Warn("error when setting email cooldown", "email", email)
-		return apperrors.ErrInternalError
+		return apperrors.ErrInternal
 	}
 
 	if err := s.emailSender.SendSixDigitsCode(email, code); err != nil {
@@ -132,7 +126,7 @@ func (s *Service) VerifyCode(ctx context.Context, sessionID, code string) (*auth
 
 	onCooldown, err := s.repo.CodeCooldownExists(ctx, email)
 	if err != nil {
-    return nil, false, apperrors.ErrInternalError
+    return nil, false, apperrors.ErrInternal
 	}
 
 	if onCooldown {
@@ -140,10 +134,10 @@ func (s *Service) VerifyCode(ctx context.Context, sessionID, code string) (*auth
 		return nil, false, apperrors.ErrCodeCooldown
 	}
 
-	attempts, err := s.repo.InrcCodeAttempts(ctx, email)
+	attempts, err := s.repo.IncrCodeAttempts(ctx, email)
 
 	if err != nil {
-		return nil, false, apperrors.ErrInternalError
+		return nil, false, apperrors.ErrInternal
 	}
 
 	if attempts > auth_repository.MaxAttempts {
@@ -162,7 +156,7 @@ func (s *Service) VerifyCode(ctx context.Context, sessionID, code string) (*auth
 
 	if err := s.repo.SetCodeCooldown(ctx, email); err != nil {
 		slog.Warn("error when setting code cooldown", "email", email)
-		return nil, false, apperrors.ErrInternalError
+		return nil, false, apperrors.ErrInternal
 	}
 
 	if savedCode != code {
@@ -176,30 +170,40 @@ func (s *Service) VerifyCode(ctx context.Context, sessionID, code string) (*auth
 	s.repo.ResetEmailAttempts(ctx, email)
 	s.repo.ResetCodeAttempts(ctx, email)
 
-	accessToken, err := auth_jwt.GenerateAccessToken(email, s.jwtSecret)
-	if err != nil{
-		slog.Warn("error when generate acces token", "email", email)
-		return nil, false, apperrors.ErrInternalError
-	}
-
-	refreshToken, err := auth_jwt.GenerateRefreshToken(email, s.jwtSecret)
-	if err != nil {
-		slog.Warn("error when generate refresh token", "email", email)
-		return nil, false, apperrors.ErrInternalError
-	}
-
-	if err := s.repo.SaveRefreshToken(ctx, refreshToken, email); err != nil {
-		slog.Warn("error saving refresh token", "email", email)
-		return nil, false, apperrors.ErrInternalError
-	}
-
 	exists, err := s.userRepo.UserExistsByEmail(ctx, email)
 	if err != nil {
-		slog.Warn("error checking the user existance's", "email", email, "err", err)
-		return nil, false, apperrors.ErrInternalError
+		slog.Warn("error checking the user existance", "email", email, "err", err)
+		return nil, false, apperrors.ErrInternal
 	}
 
-	slog.Info("the user has been successfully logged in", "email", email)
+	if !exists {
+		if err := s.userRepo.SaveUserEmail(ctx, email, "", "", "", ""); err != nil {
+			slog.Warn("error when save the user profile", "email", email, "err", err)
+			return nil, false, apperrors.ErrInternal
+		}
+	}
+
+	user, err := s.userRepo.GetUserByEmail(ctx, email)
+
+	accessToken, err := auth_jwt.GenerateAccessToken(user.ID, s.jwtSecret)
+	if err != nil{
+		slog.Warn("error when generate acces token", "email", email)
+		return nil, false, apperrors.ErrInternal
+	}
+
+	refreshToken, err := auth_jwt.GenerateRefreshToken(user.ID, s.jwtSecret)
+	if err != nil {
+		slog.Warn("error when generate refresh token", "email", email)
+		return nil, false, apperrors.ErrInternal
+	}
+
+	if err := s.repo.SaveRefreshToken(ctx, refreshToken, user.ID); err != nil {
+		slog.Warn("error saving refresh token", "user_id", user.ID)
+		return nil, false, apperrors.ErrInternal
+	}
+
+	slog.Info("the user has been successfully logged in", "user_id", user.ID)
+
 	return &auth_models.TokenPair{
 		AccessToken: accessToken,
 		RefreshToken: refreshToken,
@@ -219,9 +223,16 @@ func (s *Service) GetMe(ctx context.Context, accessToken string) (*user_reposito
 		return nil, apperrors.ErrUnauthorized
 	}
 
-	slog.Info("profile received", "email", claims.Email)
+	userID := claims.Subject
 
-	return s.userRepo.GetUserByEmail(ctx, claims.Email)
+	if userID == "" {
+		slog.Warn("empty subject in access token")
+        return nil, apperrors.ErrUnauthorized
+	}
+
+	slog.Info("profile received", "user_id", userID)
+
+	return s.userRepo.GetUserByUserID(ctx, claims.Subject)
 }
 
 func (s *Service) Refresh(ctx context.Context, refreshToken string) (*auth_models.TokenPair, error) {
@@ -236,7 +247,8 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*auth_model
 		return nil, apperrors.ErrUnauthorized
 	}
 
-	email, err := s.repo.GetRefreshToken(ctx, refreshToken)
+	userID, err := s.repo.GetUserIDByRefreshToken(ctx, refreshToken)
+
 	if err != nil {
 		slog.Warn("refresh token not found in redis", "err", err)
 		return nil, apperrors.ErrUnauthorized
@@ -244,27 +256,27 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*auth_model
 
 	if err := s.repo.DeleteRefreshToken(ctx, refreshToken); err != nil {
 		slog.Warn("error deleting refresh token", "err", err)
-		return nil, apperrors.ErrInternalError
+		return nil, apperrors.ErrInternal
 	}
 
-	accessToken, err := auth_jwt.GenerateAccessToken(email, s.jwtSecret)
+	accessToken, err := auth_jwt.GenerateAccessToken(userID, s.jwtSecret)
 	if err != nil {
 		slog.Warn("error when generate access roken", "err", err)
-		return nil, apperrors.ErrInternalError
+		return nil, apperrors.ErrInternal
 	}
 
-	newRefreshToken, err := auth_jwt.GenerateRefreshToken(email, s.jwtSecret)
+	newRefreshToken, err := auth_jwt.GenerateRefreshToken(userID, s.jwtSecret)
 	if err != nil {
 		slog.Warn("error when generate refresh token", "err", err)
-		return nil, apperrors.ErrInternalError
+		return nil, apperrors.ErrInternal
 	}
 
-	if err := s.repo.SaveRefreshToken(ctx, newRefreshToken, email); err != nil {
+	if err := s.repo.SaveRefreshToken(ctx, newRefreshToken, userID); err != nil {
 		slog.Warn("error saving refresh token", "err", err)
-		return nil, apperrors.ErrInternalError
+		return nil, apperrors.ErrInternal
 	}
 
-	slog.Info("tokon refreshed", "email", email)
+	slog.Info("token refreshed", "user_id", userID)
 	return &auth_models.TokenPair{
 		RefreshToken: newRefreshToken,
 		AccessToken: accessToken,
@@ -287,14 +299,21 @@ func (s *Service) CompleteRegistration(ctx context.Context, accessToken, nicknam
 		slog.Warn("wrong token type", "token_type", claims.TokenType)
 		return apperrors.ErrUnauthorized
 	}
+
+	userID := claims.Subject
+    if userID == "" {
+        slog.Warn("empty subject in access token")
+        return apperrors.ErrUnauthorized
+    }
 	
 	exists, err := s.userRepo.NicknameExists(ctx, nickname)
 	if err != nil {
-		slog.Warn("error checking the existence of username", "username", nickname, "err", err)
-		return apperrors.ErrInternalError
+		slog.Warn("error checking the existence of nickname", "nickname", nickname, "err", err)
+		return apperrors.ErrInternal
 	}
+
 	if exists {
-		slog.Warn("username already exists", "username", nickname)
+		slog.Warn("username already exists", "nickname", nickname)
 		return apperrors.ErrNicknameExists
 	}
 
@@ -305,49 +324,74 @@ func (s *Service) CompleteRegistration(ctx context.Context, accessToken, nicknam
 		status = "Привет!"
 	}
 
-	if err = s.userRepo.SaveUserEmail(ctx, claims.Email, nickname, name, status, avatar_color); err != nil {
-		slog.Error("error when saving the profile", "email", claims.Email, "err", err)
+	if err = s.userRepo.UpdateUserProfile(ctx, userID, nickname, name, status, avatar_color); err != nil {
+		slog.Error("error when saving the profile", "user_id", userID, "err", err)
 		return err
 	}
 
-	slog.Info("profile created", "email", claims.Email, "nickname", nickname)
+	slog.Info("profile created", "user_id", userID, "nickname", nickname)
 	return nil
 }
 
-func (s *Service) TelegramCallback(ctx context.Context, telegramToken string, req *auth_models.TelegramCallbackRequest) (*auth_models.Session, error) {
+func (s *Service) TelegramCallback(ctx context.Context, telegramToken string, req *auth_models.TelegramCallbackRequest) (*auth_models.TokenPair, error) {
 	if !s.verifyHash(telegramToken, req) {
+		slog.Warn("error invalid hash", "telegram_id", req.ID)
 		return nil, apperrors.ErrInvalidHash
-
 	}
 
 	if time.Now().Unix()-req.AuthDate > 86400 {
+		slog.Warn("auth data expired", "telegram_id", req.ID, "auth_date", req.AuthDate)
 		return nil, apperrors.ErrAuthExpired
 	}
 
-	sessionID := req.SessionID
-	if sessionID == "" {
-		sessionID = uuid.New().String()
+	exists, err := s.userRepo.UsernameExists(ctx, req.Username)
+	if err != nil {
+		slog.Warn("error when check username existance", "telegram_id", req.ID, "err", err)
+		return nil, apperrors.ErrInternal
 	}
 
-	session := &auth_models.Session{
-		SessionID:  sessionID,
-		ExpiresAt:  time.Now().Add(auth_repository.SessionTTL),
-		Status:     auth_models.StatusApproved,
-		TelegramID: req.ID,
-		Username:   req.Username,
-		FirstName:  req.FirstName,
-		PhotoURL:   req.PhotoURL,
-		LastName:   req.LastName,
+	if !exists {
+		if err := s.userRepo.SaveUserTelegram(
+			ctx,
+			req.ID,
+			req.Username, 
+			req.FirstName,
+			req.LastName,
+			req.PhotoURL); err != nil {
+				slog.Warn("error when save telegram user", "telegram_id", req.ID, "err", err)
+				return nil, apperrors.ErrInternal
+			}
 	}
 
-	if err := s.repo.UpdateSession(ctx, session); err != nil {
-		return nil, err
+	user, err := s.userRepo.GetUserByTgID(ctx, req.ID)
+	if err != nil {
+		slog.Warn("error when get telegram user", "telegram_id", req.ID, "err", err)
+		return nil, apperrors.ErrInternal
 	}
 
-	return session, nil
+	accessToken, err := auth_jwt.GenerateAccessToken(user.ID, s.jwtSecret)
+	if err != nil {
+		slog.Warn("error when generate access token", "user_id", user.ID ,"err", err)
+		return nil, apperrors.ErrInternal
+	}
+
+	refreshToken, err := auth_jwt.GenerateRefreshToken(user.ID, s.jwtSecret)
+	if err != nil {
+		slog.Warn("error when generate refresh token", "user_id", user.ID ,"err", err)
+		return nil, apperrors.ErrInternal
+	}
+	
+	if err := s.repo.SaveRefreshToken(ctx, refreshToken, user.ID); err != nil {
+		slog.Warn("error when save refresh token","user_id", user.ID, "err", err)
+		return nil, apperrors.ErrInternal
+	}
+
+	return &auth_models.TokenPair{
+		AccessToken: accessToken,
+		RefreshToken: refreshToken,
+	}, nil
 }
 
-// TODO: refactor verifyHash to be more concise
 func (s *Service) verifyHash(telegramToken string, req *auth_models.TelegramCallbackRequest) bool {
 	data := map[string]string{
 		"id":         strconv.FormatInt(req.ID, 10),

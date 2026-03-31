@@ -64,14 +64,7 @@
 </template>
 
 <script>
-const PROD_BASE = 'https://svlynx.site'
-const DEV_BASE = 'http://localhost:8080' // если backend локально, поправь порт при необходимости
-
-// Выбираем базовый URL в зависимости от окружения
-const BASE =
-  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? DEV_BASE
-    : PROD_BASE
+const BASE = '  http://localhost:8080'                                 
 
 export default {
   emits: ['status', 'success'],

@@ -54,7 +54,7 @@ export default {
 
     onTelegramAuth(user) {
       this.status = { type: 'success', message: 'Подключение к серверу...' }
-      fetch('https://svlynx.site/auth/telegram/callback', {
+     fetch('http://localhost:8080/auth/telegram/callback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user)
