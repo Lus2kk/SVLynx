@@ -1,8 +1,12 @@
 <template>
   <BgScene />
   <transition name="fade" mode="out-in">
-    <ProfileSetup v-if="showProfile" key="profile" @done="onProfileDone" />
-    <LoginCard v-else key="login" @show-profile="showProfile = true" />
+    <div v-if="showProfile" key="profile" class="app-view">
+      <ProfileSetup @done="onProfileDone" />
+    </div>
+    <div v-else key="login" class="app-view">
+      <LoginCard @show-profile="showProfile = true" />
+    </div>
   </transition>
 </template>
 
@@ -36,11 +40,16 @@ export default {
 body {
   min-height: 100vh;
   background: #080c14;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   font-family: 'DM Sans', sans-serif;
-  overflow: hidden;
+  overflow-x: hidden; 
+}
+
+.app-view {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .fade-enter-active, .fade-leave-active {

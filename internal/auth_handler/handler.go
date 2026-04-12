@@ -193,7 +193,7 @@ func (h *Handler) VerifyEmailCode() gin.HandlerFunc {
 			return
 		}
 
-		tokens, isNew, err := h.service.VerifyCode(ctx, req.SessionID, req.Code)
+		tokens, needs_profile, err := h.service.VerifyCode(ctx, req.SessionID, req.Code)
 
 		if err != nil {
 			HandlerError(c, err)
@@ -201,9 +201,9 @@ func (h *Handler) VerifyEmailCode() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"access_token": tokens.AccessToken,
+			"access_token":  tokens.AccessToken,
 			"refresh_token": tokens.RefreshToken,
-			"is_new": isNew, // для complete reg
+			"needs_profile": needs_profile, 
 		})
 	}
 }

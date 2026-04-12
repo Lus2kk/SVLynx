@@ -184,6 +184,10 @@ func (s *Service) VerifyCode(ctx context.Context, sessionID, code string) (*auth
 	}
 
 	user, err := s.userRepo.GetUserByEmail(ctx, email)
+	if err != nil {
+		slog.Warn("error when get user by email", "email", email, "err", err)
+		return nil, false, apperrors.ErrInternal
+	}
 
 	accessToken, err := auth_jwt.GenerateAccessToken(user.ID, s.jwtSecret)
 	if err != nil{
@@ -204,10 +208,12 @@ func (s *Service) VerifyCode(ctx context.Context, sessionID, code string) (*auth
 
 	slog.Info("the user has been successfully logged in", "user_id", user.ID)
 
+	needsProfile := !user.ProfileCompleted
+
 	return &auth_models.TokenPair{
 		AccessToken: accessToken,
 		RefreshToken: refreshToken,
-	}, !exists, nil
+	}, needsProfile, nil
 }
 
 func (s *Service) GetMe(ctx context.Context, accessToken string) (*user_repository.User, error) {
