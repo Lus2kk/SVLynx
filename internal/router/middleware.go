@@ -7,7 +7,8 @@ import (
 
 func CorsMiddleware() gin.HandlerFunc {
     return cors.New(cors.Config{
-        AllowOrigins: []string{        
+        AllowOrigins: []string{
+    "http://localhost:5173",      
     "https://svlynx.site",          
     "https://www.svlynx.site",
 },

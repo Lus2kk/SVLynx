@@ -3,14 +3,14 @@ package apperrors
 import "errors"
 
 var (
-	ErrInvalidHash = errors.New("invalid telegram hash signature") 
-	ErrAuthExpired     = errors.New("auth data expired, please try again")
-    ErrInvalidRequest  = errors.New("invalid request body")
-    ErrInternal        = errors.New("internal server error")
+	ErrInvalidHash 	    = errors.New("invalid telegram hash signature") 
+	ErrAuthExpired      = errors.New("auth data expired, please try again")
+    ErrInvalidRequest   = errors.New("invalid request body")
+    ErrInternal         = errors.New("internal server error")
 	ErrSessionNotFound  = errors.New("the session was not found or expired")
 	ErrCodeExpired      = errors.New("the code has expired, request a new one")
 	ErrInvalidCode      = errors.New("invalid code")
-	ErrEmailCooldown    = errors.New("wait 60 seconds before resending the code")
+	ErrEmailCooldown    = errors.New("wait 30 seconds before resending the code")
 	ErrCodeCooldown	    = errors.New("wait 5 seconds before resending the code")
 	ErrTooManyAttempts  = errors.New("exceeded the number of attempts. Try again later")
 	ErrEmailSendFailed  = errors.New("error when sending the code to the mail")
