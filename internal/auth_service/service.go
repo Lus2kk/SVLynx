@@ -177,7 +177,7 @@ func (s *Service) VerifyCode(ctx context.Context, sessionID, code string) (*auth
 	}
 
 	if !exists {
-		if err := s.userRepo.SaveUserEmail(ctx, email, "", "", "", ""); err != nil {
+		if err := s.userRepo.SaveUserEmail(ctx, email, nil, "", "", ""); err != nil {
 			slog.Warn("error when save the user profile", "email", email, "err", err)
 			return nil, false, apperrors.ErrInternal
 		}

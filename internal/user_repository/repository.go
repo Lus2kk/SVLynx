@@ -14,7 +14,7 @@ type UserRepository interface {
 	NicknameExists(ctx context.Context, nickname string) (bool, error)
 
 	SaveUserTelegram(ctx context.Context, telegramID int64, username, firstName, lastName, photoURL string) error
-	SaveUserEmail(ctx context.Context, email, nickname, name, status, avatarColor string) error
+	SaveUserEmail(ctx context.Context, email string, nickname *string, name, status, avatarColor string) error
 
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	GetUserByTgID(ctx context.Context, telegramID int64) (*User, error)
@@ -84,7 +84,7 @@ func (r *Repository) NicknameExists(ctx context.Context, nickname string) (bool,
 	return exists, nil
 }
 
-func (r *Repository) SaveUserEmail(ctx context.Context, email, nickname, name, status, avatarColor string) error {
+func (r *Repository) SaveUserEmail(ctx context.Context, email string, nickname *string, name, status, avatarColor string) error {
 	_, err := r.db.Exec(ctx, `
 		INSERT INTO users (email, nickname, name, status, avatar_color)
 		VALUES ($1, $2, $3, $4, $5)

@@ -111,7 +111,7 @@ export default {
 .card-content {
   width: 100%;
   max-width: 420px;
-  margin: auto auto; /* Безопасное центрирование для мобилок */
+  margin: auto auto; 
   display: flex;
   flex-direction: column;
 }
