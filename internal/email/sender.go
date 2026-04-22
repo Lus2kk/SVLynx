@@ -19,7 +19,7 @@ func NewSender() *Sender {
 
 func (s *Sender) SendSixDigitsCode(receiverEmail, code string) error {
 	params := &resend.SendEmailRequest{
-		From:    "SVLynx <onboarding@resend.dev>",
+		From:    "SVLynx <noreply@svlynx.site>",
 		To:      []string{receiverEmail},
 		Subject: "Код подтверждения SVLynx",
 		Html: fmt.Sprintf(`
