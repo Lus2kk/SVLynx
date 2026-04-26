@@ -342,7 +342,7 @@ export default {
   background: #ffffff;
 }
 .theme-light .sidebar-header {
-  border-bottom: 1px solid #e8eaf0;
+  border-bottom: none;
 }
 .theme-light .brand-main { color: #1a1d2e; }
 .theme-light .brand-accent { color: #5b6aff; }

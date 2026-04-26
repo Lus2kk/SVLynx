@@ -2,6 +2,19 @@
   <section class="chat-window" :class="{ 'theme-light': isLight }">
     <header class="chat-header">
       <div class="chat-user">
+        <!-- Back button (mobile only) -->
+        <button
+          v-if="showBackButton"
+          class="back-btn"
+          type="button"
+          title="Back"
+          @click="$emit('back')"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M15 18l-6-6 6-6"></path>
+          </svg>
+        </button>
+
         <div class="chat-avatar">
           <img v-if="avatarUrl" :src="avatarUrl" alt="" class="chat-avatar-image" />
           <span v-else>{{ avatarLetter }}</span>
@@ -111,10 +124,11 @@ export default {
     currentUserId: { type: [String, Number], default: null },
     recipientId: { type: [String, Number], default: null },
     selectedCompanion: { type: Object, default: null },
-    isLight: { type: Boolean, default: false }
+    isLight: { type: Boolean, default: false },
+    showBackButton: { type: Boolean, default: false }
   },
 
-  emits: ['message-sent'],
+  emits: ['message-sent', 'back'],
 
   data() {
     return {
@@ -595,9 +609,23 @@ export default {
   border: none; color: white; font-size: 13px; cursor: pointer;
 }
 
+.back-btn {
+  width: 34px; height: 34px; border-radius: 11px;
+  display: grid; place-items: center; flex-shrink: 0;
+  color: #a6afd4; background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06); cursor: pointer;
+  margin-right: 2px;
+  transition: all 0.2s;
+}
+.back-btn:hover { background: rgba(255, 255, 255, 0.08); }
+.theme-light .back-btn { color: #7880a0; background: #f3f4f8; border-color: #e4e6f0; }
+.theme-light .back-btn:hover { background: #e8eaf5; }
+
 @media (max-width: 760px) {
-  .chat-header { padding: 12px 16px; }
-  .messages-area { padding: 18px 16px 12px; }
-  .composer-wrap { padding: 10px 16px 16px; }
+  .chat-header { padding: 10px 14px; height: 64px; min-height: 64px; }
+  .messages-area { padding: 14px 12px 10px; }
+  .composer-wrap { padding: 8px 12px 14px; }
+  .composer { height: 50px; border-radius: 16px; padding: 0 10px 0 12px; gap: 8px; }
+  .delete-modal { width: calc(100vw - 48px); max-width: 300px; }
 }
 </style>

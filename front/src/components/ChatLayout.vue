@@ -6,6 +6,7 @@
         :activeId="activeChatId"
         :currentUserId="currentUserId"
         :isLight="isLight"
+        :class="{ 'mobile-hidden': mobileView === 'chat' }"
         @select="selectChat"
         @start-chat="startChat"
         @toggle-theme="toggleTheme"
@@ -13,7 +14,7 @@
       />
 
 
-      <div class="content-area">
+      <div class="content-area" :class="{ 'mobile-hidden': mobileView === 'sidebar' }">
         <ChatWindow
           v-if="activeChat"
           ref="chatWindow"
@@ -24,7 +25,9 @@
           :recipientId="activeRecipientId"
           :presence="activePresence"
           :isLight="isLight"
+          :showBackButton="isMobile"
           @message-sent="updateChatPreview"
+          @back="goBackToSidebar"
         />
 
 
@@ -70,7 +73,9 @@ export default {
     ws: null,
     chatWindowKey: 0,
     reconnectTimer: null,
-    userStatuses: {} 
+    userStatuses: {},
+    mobileView: 'sidebar', // 'sidebar' | 'chat'
+    isMobile: false
   }
 },
 
@@ -90,6 +95,8 @@ export default {
   this.currentUserId = this.parseUserIdFromToken()
   await this.loadDirects()
   this.connectWebSocket()
+  this.checkMobile()
+  window.addEventListener('resize', this.checkMobile)
 },
 
   beforeUnmount() {
@@ -101,6 +108,7 @@ export default {
     this.ws.close()
     this.ws = null
   }
+  window.removeEventListener('resize', this.checkMobile)
 },
 
 
@@ -339,6 +347,21 @@ export default {
   if (recipientId && !this.userStatuses[String(recipientId)]) {
     this.fetchUserStatus(recipientId)
   }
+
+  if (this.isMobile) {
+    this.mobileView = 'chat'
+  }
+},
+
+    goBackToSidebar() {
+  this.mobileView = 'sidebar'
+},
+
+    checkMobile() {
+  this.isMobile = window.innerWidth <= 760
+  if (!this.isMobile) {
+    this.mobileView = 'sidebar' // reset — desktop shows both
+  }
 },
 
     setUserPresence(userId, patch = {}) {
@@ -553,8 +576,20 @@ async fetchUserStatus(userId) {
   .direct-shell { grid-template-columns: 300px 1fr; }
 }
 @media (max-width: 760px) {
-  .direct-page { padding: 10px; }
-  .direct-shell { grid-template-columns: 1fr; border-radius: 20px; }
-  .content-area { display: none; }
+  .direct-page { padding: 0; }
+  .direct-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    border-radius: 0;
+    border: none;
+  }
+  .content-area {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  /* Mobile panel switching */
+  .mobile-hidden {
+    display: none !important;
+  }
 }
 </style>
