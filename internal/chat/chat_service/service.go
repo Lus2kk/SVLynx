@@ -39,6 +39,7 @@ func NewMessageService(repo chat_repository.MessageRepo) *MessageService {
 type CreatedMessage struct {
 	ChatID   uuid.UUID `json:"chat_id"`
 	SenderID uuid.UUID `json:"sender_id"`
+	RecipientID uuid.UUID `json:"recipient_id"`
 	Content  string    `json:"content"`
 }
 
@@ -189,16 +190,10 @@ func (s *DirectService) UpdateLastSeenService(ctx context.Context, userID uuid.U
 	_ = s.user_repo.SetUserOnlineStatus(ctx, userID.String(), true)
 }
 
-func (s *DirectService) SetUserOnline(ctx context.Context, userID uuid.UUID) {
-	err := s.user_repo.SetUserOnlineStatus(ctx, userID.String(), true)
-	if err != nil {
-		fmt.Println("Error setting user online:", err)
-	}
+func (s *DirectService) SetUserOnline(ctx context.Context, userID uuid.UUID) error {
+	return s.user_repo.SetUserOnlineStatus(ctx, userID.String(), true)
 }
 
-func (s *DirectService) SetUserOffline(ctx context.Context, userID uuid.UUID) {
-	err := s.user_repo.SetUserOnlineStatus(ctx, userID.String(), false)
-	if err != nil {
-		fmt.Println("Error setting user offline:", err)
-	}
+func (s *DirectService) SetUserOffline(ctx context.Context, userID uuid.UUID) error {
+	return s.user_repo.SetUserOnlineStatus(ctx, userID.String(), false)
 }

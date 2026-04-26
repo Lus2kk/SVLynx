@@ -52,114 +52,87 @@
 import ChatSidebar from './ChatSidebar.vue'
 import ChatWindow from './ChatWindow.vue'
 
-
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 const WS_BASE = BASE.replace(/^http/, 'ws')
-
 
 export default {
   name: 'ChatLayout',
   components: { ChatSidebar, ChatWindow },
 
-
   data() {
-  return {
-    directs: [],
-    activeChatId: null,
-    activeRecipientId: null,
-    currentUserId: null,
-    loading: false,
-    isLight: localStorage.getItem('svlynx-theme') === 'light',
-    ws: null,
-    chatWindowKey: 0,
-    reconnectTimer: null,
-    userStatuses: {},
-    mobileView: 'sidebar', // 'sidebar' | 'chat'
-    isMobile: false
-  }
-},
+    return {
+      directs: [],
+      activeChatId: null,
+      activeRecipientId: null,
+      currentUserId: null,
+      loading: false,
+      isLight: localStorage.getItem('svlynx-theme') === 'light',
+      ws: null,
+      chatWindowKey: 0,
+      reconnectTimer: null,
+      userStatuses: {},
+      mobileView: 'sidebar',
+      isMobile: false
+    }
+  },
 
   computed: {
     activeChat() {
       return this.directs.find(d => String(d.id) === String(this.activeChatId)) || null
     },
-
     activePresence() {
       const key = String(this.activeRecipientId || '')
       return this.userStatuses[key] || { online: false, lastSeen: null }
     }
   },
 
-
   async mounted() {
-  this.currentUserId = this.parseUserIdFromToken()
-  await this.loadDirects()
-  this.connectWebSocket()
-  this.checkMobile()
-  window.addEventListener('resize', this.checkMobile)
-},
+    this.currentUserId = this.parseUserIdFromToken()
+    await this.loadDirects()
+    this.connectWebSocket()
+    this.checkMobile()
+    window.addEventListener('resize', this.checkMobile)
+  },
 
   beforeUnmount() {
-  if (this.reconnectTimer) {
-    clearTimeout(this.reconnectTimer)
-    this.reconnectTimer = null
-  }
-  if (this.ws) {
-    this.ws.close()
-    this.ws = null
-  }
-  window.removeEventListener('resize', this.checkMobile)
-},
-
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+    if (this.ws) {
+      this.ws.close()
+      this.ws = null
+    }
+    window.removeEventListener('resize', this.checkMobile)
+  },
 
   methods: {
     connectWebSocket() {
-  if (!this.currentUserId) return
+      if (!this.currentUserId) return
+      if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null }
+      if (this.ws) { this.ws.close(); this.ws = null }
 
-  if (this.reconnectTimer) {
-    clearTimeout(this.reconnectTimer)
-    this.reconnectTimer = null
-  }
+      const wsUrl = `${WS_BASE}/ws?user_id=${this.currentUserId}`
+      this.ws = new WebSocket(wsUrl)
 
-  if (this.ws) {
-    this.ws.close()
-    this.ws = null
-  }
-
-  const wsUrl = `${WS_BASE}/ws?user_id=${this.currentUserId}`
-  this.ws = new WebSocket(wsUrl)
-
-  this.ws.onopen = () => {
-    console.log('✅ WebSocket Connected!')
-  }
-
-  this.ws.onmessage = (event) => {
-    console.log('WS RAW:', event.data)
-
-    try {
-      const data = JSON.parse(event.data)
-      console.log('WS PARSED:', data)
-
-      let payload = data.Payload ?? data.payload ?? null
-      let type = data.Type ?? data.type ?? null
-
-      if (!payload && (data.chat_id || data.chatId || data.ChatID || data.content || data.Content)) {
-        payload = data
-        type = 'SendMessage'
-      }
-
-      if (typeof payload === 'string') {
+      this.ws.onopen = () => console.log('✅ WebSocket Connected!')
+      
+      this.ws.onmessage = (event) => {
         try {
-          payload = JSON.parse(payload)
-        } catch {
-          payload = null
-        }
-      }
+          const data = JSON.parse(event.data)
+          let payload = data.Payload ?? data.payload ?? null
+          let type = data.Type ?? data.type ?? null
 
-      if (!type || !payload) return
+          if (!payload && (data.chat_id || data.chatId || data.content)) {
+            payload = data
+            type = 'SendMessage'
+          }
 
-      // new message
-      if (type === 'SendMessage') {
+          if (typeof payload === 'string') {
+            try { payload = JSON.parse(payload) } catch { payload = null }
+          }
+
+                if (type === 'SendMessage' || type === 'send_message' || type === 'new_message') {
         const chatId =
           payload?.chat_id ??
           payload?.chatId ??
@@ -193,76 +166,33 @@ export default {
         return
       }
 
-      // user online
-      if (type === 'user_online') {
-        const userId =
-          payload?.user_id ??
-          payload?.userId ??
-          payload?.userid ??
-          payload?.UserID ??
-          payload?.id
+          if (type === 'user_online') {
+            const userId = payload?.user_id ?? payload?.userId ?? payload?.id
+            if (userId) this.setUserPresence(userId, { online: true, lastSeen: null })
+            return
+          }
 
-        if (userId) {
-          this.setUserPresence(userId, {
-            online: true,
-            lastSeen: null
-          })
+          if (type === 'user_offline') {
+            const userId = payload?.user_id ?? payload?.userId ?? payload?.id
+            const lastSeen = payload?.last_seen ?? payload?.lastSeen ?? new Date().toISOString()
+            if (userId) this.setUserPresence(userId, { online: false, lastSeen })
+            return
+          }
+        } catch (e) {
+          console.error('WS Parse Error:', e)
         }
-
-        return
       }
 
-      // user offline
-      if (type === 'user_offline') {
-        const userId =
-          payload?.user_id ??
-          payload?.userId ??
-          payload?.userid ??
-          payload?.UserID ??
-          payload?.id
-
-        const lastSeen =
-          payload?.last_seen ??
-          payload?.lastSeen ??
-          payload?.lastseen ??
-          payload?.LastSeen ??
-          new Date().toISOString()
-
-        if (userId) {
-          this.setUserPresence(userId, {
-            online: false,
-            lastSeen
-          })
-        }
-
-        return
+      this.ws.onclose = () => {
+        this.ws = null
+        this.reconnectTimer = setTimeout(() => this.connectWebSocket(), 5000)
       }
-
-    } catch (e) {
-      console.error('WS Parse Error:', e)
-    }
-  }
-
-  this.ws.onclose = () => {
-    console.log('❌ WebSocket Disconnected')
-    this.ws = null
-
-    this.reconnectTimer = setTimeout(() => {
-      this.connectWebSocket()
-    }, 5000)
-  }
-
-  this.ws.onerror = (error) => {
-    console.error('⚠️ WebSocket Error:', error)
-  }
-},
-
+    },
 
     toggleTheme() {
       this.isLight = !this.isLight
       localStorage.setItem('svlynx-theme', this.isLight ? 'light' : 'dark')
     },
-
 
     parseJwt(token) {
       try {
@@ -275,19 +205,15 @@ export default {
       } catch { return null }
     },
 
-
     parseUserIdFromToken() {
       try {
         const token = sessionStorage.getItem('access_token')
         if (!token) return null
         const payload = this.parseJwt(token)
         if (!payload) return null
-        const rawId = payload?.user_id ?? payload?.userid ?? payload?.sub ?? payload?.id ?? null
-        if (!rawId) return null
-        return String(rawId).trim()
+        return String(payload?.user_id ?? payload?.sub ?? payload?.id ?? '').trim()
       } catch { return null }
     },
-
 
     async loadDirects() {
       this.loading = true
@@ -295,35 +221,26 @@ export default {
         const userId = String(this.currentUserId || '').trim()
         if (!userId) return
 
-
         const url = new URL(`${BASE}/chat/direct/list`)
         url.searchParams.set('user_id', userId)
-
 
         const res = await fetch(url.toString(), {
           headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
         })
 
-
-        const text = await res.text()
-        if (!res.ok) { console.error('Failed to load directs', res.status, text); return }
-
-
-        const data = JSON.parse(text)
+        if (!res.ok) return
+        const data = await res.json()
         const apiChats = data.directs || data.chats || []
-
 
         const chatMap = new Map()
         this.directs.forEach(c => chatMap.set(c.id, c))
         apiChats.forEach(c => chatMap.set(c.id, c))
 
-
         this.directs = Array.from(chatMap.values()).sort((a, b) => {
-          const dateA = new Date(a.last_message_at || a.updated_at || a.created_at || a.creation_time || 0)
-          const dateB = new Date(b.last_message_at || b.updated_at || b.created_at || b.creation_time || 0)
+          const dateA = new Date(a.last_message_at || a.updated_at || a.created_at || 0)
+          const dateB = new Date(b.last_message_at || b.updated_at || b.created_at || 0)
           return dateB - dateA
         })
-
 
         this.saveChatsToLocal()
       } catch (e) {
@@ -333,71 +250,60 @@ export default {
       }
     },
 
-
     saveChatsToLocal() {
       try { localStorage.setItem('svlynx-saved-chats', JSON.stringify(this.directs)) } catch {}
     },
 
-
     selectChat({ chatId, recipientId }) {
-  this.activeChatId = chatId
-  this.activeRecipientId = recipientId
-  this.chatWindowKey++
+      this.activeChatId = chatId
+      this.activeRecipientId = recipientId
+      this.chatWindowKey++
 
-  if (recipientId && !this.userStatuses[String(recipientId)]) {
-    this.fetchUserStatus(recipientId)
-  }
+      // ИСПРАВЛЕНО: Сбрасываем счетчик непрочитанных при выборе чата
+      const chat = this.directs.find(c => String(c.id) === String(chatId))
+      if (chat) {
+        chat.unread_count = 0
+        chat.unreadcount = 0
+        this.saveChatsToLocal()
+      }
 
-  if (this.isMobile) {
-    this.mobileView = 'chat'
-  }
-},
+      if (recipientId && !this.userStatuses[String(recipientId)]) {
+        this.fetchUserStatus(recipientId)
+      }
+
+      if (this.isMobile) this.mobileView = 'chat'
+    },
 
     goBackToSidebar() {
-  this.mobileView = 'sidebar'
-},
+      this.mobileView = 'sidebar'
+    },
 
     checkMobile() {
-  this.isMobile = window.innerWidth <= 760
-  if (!this.isMobile) {
-    this.mobileView = 'sidebar' // reset — desktop shows both
-  }
-},
+      this.isMobile = window.innerWidth <= 760
+      if (!this.isMobile) this.mobileView = 'sidebar'
+    },
 
     setUserPresence(userId, patch = {}) {
-  const key = String(userId)
-  const prev = this.userStatuses[key] || { online: false, lastSeen: null }
+      const key = String(userId)
+      const prev = this.userStatuses[key] || { online: false, lastSeen: null }
+      this.userStatuses = { ...this.userStatuses, [key]: { ...prev, ...patch } }
+    },
 
-  this.userStatuses = {
-    ...this.userStatuses,
-    [key]: {
-      ...prev,
-      ...patch
-    }
-  }
-},
-
-async fetchUserStatus(userId) {
-  try {
-    const res = await fetch(`${BASE}/users/${userId}/status`, {
-      headers: {
-        Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}`
+    async fetchUserStatus(userId) {
+      try {
+        const res = await fetch(`${BASE}/users/${userId}/status`, {
+          headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        this.setUserPresence(userId, {
+          online: data?.online === true,
+          lastSeen: data?.last_seen ?? data?.lastseen ?? null
+        })
+      } catch (e) {
+        console.error('fetchUserStatus error', e)
       }
-    })
-
-    if (!res.ok) return
-
-    const data = await res.json()
-
-    this.setUserPresence(userId, {
-      online: data?.online === true,
-      lastSeen: data?.last_seen ?? data?.lastseen ?? null
-    })
-  } catch (e) {
-    console.error('fetchUserStatus error', e)
-  }
-},
-
+    },
 
     onChatDeleted(chatId) {
       this.directs = this.directs.filter(d => String(d.id) !== String(chatId))
@@ -408,20 +314,25 @@ async fetchUserStatus(userId) {
       this.saveChatsToLocal()
     },
 
-
-    updateChatPreview({ chatId, content, date }) {
+    updateChatPreview({ chatId, content, date, isIncoming }) {
       const chat = this.directs.find(c => String(c.id) === String(chatId))
       if (!chat) return
+      
       chat.last_message_content = content
       chat.last_message_at = date
+
+      // ИСПРАВЛЕНО: Инкремент счетчика если чат не открыт сейчас
+      if (isIncoming && String(this.activeChatId) !== String(chatId)) {
+        chat.unread_count = (Number(chat.unread_count || chat.unreadcount) || 0) + 1
+      }
+
       this.directs.sort((a, b) => {
-        const dateA = new Date(a.last_message_at || a.updated_at || a.created_at || a.creation_time || 0)
-        const dateB = new Date(b.last_message_at || b.updated_at || b.created_at || b.creation_time || 0)
+        const dateA = new Date(a.last_message_at || a.updated_at || a.created_at || 0)
+        const dateB = new Date(b.last_message_at || b.updated_at || b.created_at || 0)
         return dateB - dateA
       })
       this.saveChatsToLocal()
     },
-
 
     async startChat(userId, nickname) {
       try {
@@ -434,22 +345,18 @@ async fetchUserStatus(userId) {
           body: JSON.stringify({ first_user_id: this.currentUserId, second_user_id: userId })
         })
 
-
         const text = await res.text()
         let data
-        try { data = JSON.parse(text) } catch { console.error('startChat: invalid JSON', text); return }
-        if (!res.ok) { console.error('startChat error', data); return }
-
+        try { data = JSON.parse(text) } catch { return }
+        if (!res.ok) return
 
         const direct = data.direct || data.chat || data
         const exists = this.directs.find(d => String(d.id) === String(direct.id))
-
 
         if (!exists) {
           this.directs.unshift({ ...direct, companion_nickname: nickname || direct.companion_nickname })
           this.saveChatsToLocal()
         }
-
 
         this.activeChatId = direct.id
         this.activeRecipientId = userId

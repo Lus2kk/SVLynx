@@ -1,6 +1,7 @@
 package chat_handler
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -25,10 +26,14 @@ func NewDirectHandler(srvc *chat_service.DirectService) *DirectHandler {
 
 type MessageHandler struct {
 	srvc *chat_service.MessageService
+	hub  *ws.Hub 
 }
 
-func NewMessageHandler(srvc *chat_service.MessageService) *MessageHandler {
-	return &MessageHandler{srvc: srvc}
+func NewMessageHandler(srvc *chat_service.MessageService, hub *ws.Hub) *MessageHandler {
+	return &MessageHandler{
+		srvc: srvc,
+		hub: hub,	
+	}
 }
 
 func (h *DirectHandler) CreateNewDirectHandler(ctx *gin.Context) {
@@ -89,16 +94,42 @@ func (h *DirectHandler) GetListOfDirectsByIDHandler(ctx *gin.Context) {
 }
 
 func (h *MessageHandler) SendMessageHandler(ctx *gin.Context) {
-	var input chat_service.CreatedMessage
+	var input struct {
+		ChatID      uuid.UUID `json:"chat_id" binding:"required"`
+		SenderID    uuid.UUID `json:"sender_id" binding:"required"`
+		RecipientID uuid.UUID `json:"recipient_id" binding:"required"`
+		Content     string    `json:"content" binding:"required"`
+	}
+
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	message, err := h.srvc.SendMessage(ctx.Request.Context(), input)
+	message, err := h.srvc.SendMessage(ctx.Request.Context(), chat_service.CreatedMessage{
+		ChatID:   input.ChatID,
+		SenderID: input.SenderID,
+		Content:  input.Content,
+	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	if h.hub != nil {
+		payload, err := json.Marshal(map[string]any{
+			"type": "send_message",
+			"payload": map[string]any{
+				"id":         message.ID,
+				"chat_id":    message.ChatID,
+				"sender_id":  message.SenderID,
+				"content":    message.Content,
+				"created_at": message.CreatedAT,
+			},
+		})
+		if err == nil {
+			h.hub.SendToUser(input.RecipientID, payload)
+		}
 	}
 
 	ctx.JSON(http.StatusCreated, gin.H{
@@ -222,13 +253,13 @@ func (h *DirectHandler) SearchUsersHandler(ctx *gin.Context) {
 }
 
 func (h *MessageHandler) MarkChatMessagesAsReadHandler(ctx *gin.Context) {
-	chatID, err := uuid.Parse(ctx.Query("chatid"))
+	chatID, err := uuid.Parse(ctx.Query("chat_id"))
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid chatid"})
 		return
 	}
 
-	userIDRaw := ctx.Query("userid")
+	userIDRaw := ctx.Query("user_id")
 	userID, err := uuid.Parse(userIDRaw)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid userid"})

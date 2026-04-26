@@ -64,10 +64,12 @@ func NewServer(cfg *config.Config) *Server {
 	directHandler := chat_handler.NewDirectHandler(directService)
 
 	messageService := chat_service.NewMessageService(postgresRepo)
-	messageHandler := chat_handler.NewMessageHandler(messageService)
 
 	hub := ws.NewHub(messageService, directService)
 	go hub.Run()
+
+	messageHandler := chat_handler.NewMessageHandler(messageService, hub)
+	
 	wsHandler := chat_handler.NewWsHandler(hub)
 
 	Router := gin.Default()

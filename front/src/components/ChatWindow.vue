@@ -2,7 +2,6 @@
   <section class="chat-window" :class="{ 'theme-light': isLight }">
     <header class="chat-header">
       <div class="chat-user">
-        <!-- Back button (mobile only) -->
         <button
           v-if="showBackButton"
           class="back-btn"
@@ -21,12 +20,10 @@
         </div>
         <div class="chat-user-meta">
           <div class="chat-username">{{ chatTitle }}</div>
-          <div class="chat-status" :class="{ online: isOnline, offline: !isOnline }">
-            <span class="status-dot"></span>
-            <span v-if="isOnline">Online</span>
-            <span v-else-if="lastSeen">{{ formatLastSeen(lastSeen) }}</span>
-            <span v-else>Offline</span>
-          </div>
+         <div class="chat-status" :class="{ online: presence.online, offline: !presence.online }">
+          <span class="status-dot"></span>
+          <span>{{ presenceText }}</span>
+        </div>
         </div>
       </div>
 
@@ -61,7 +58,6 @@
         />
       </div>
 
-      <!-- Модалка подтверждения удаления сообщения -->
       <div v-if="deleteModalOpen" class="delete-modal-overlay">
         <div class="delete-modal">
           <h3>Delete message?</h3>
@@ -112,7 +108,6 @@
 import MessageBubble from './MessageBubble.vue'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
-const STATUS_POLL_INTERVAL = 5000 // 5 сек вместо 20, статус живее
 
 export default {
   name: 'ChatWindow',
@@ -125,7 +120,9 @@ export default {
     recipientId: { type: [String, Number], default: null },
     selectedCompanion: { type: Object, default: null },
     isLight: { type: Boolean, default: false },
-    showBackButton: { type: Boolean, default: false }
+    showBackButton: { type: Boolean, default: false },
+    // ДОБАВЛЕНО: проп для получения статуса напрямую из ChatLayout (WebSockets)
+    presence: { type: Object, default: () => ({ online: false, lastSeen: null }) }
   },
 
   emits: ['message-sent', 'back'],
@@ -137,11 +134,23 @@ export default {
       deleteModalOpen: false,
       messageToDelete: null,
       loading: false,
-      isOnline: false,
-      lastSeen: null,
-      statusPollTimer: null
+      nowTick: Date.now(),
+      presenceTimer: null
     }
   },
+
+  mounted() {
+      this.presenceTimer = setInterval(() => {
+        this.nowTick = Date.now()
+      }, 5000)
+    },
+
+    beforeUnmount() {
+      if (this.presenceTimer) {
+        clearInterval(this.presenceTimer)
+        this.presenceTimer = null
+      }
+    },
 
   computed: {
     chatTitle() {
@@ -167,6 +176,14 @@ export default {
 
     avatarLetter() {
       return this.chatTitle?.[0]?.toUpperCase() || ''
+    },
+
+    presenceText() {
+      void this.nowTick
+
+      if (this.presence?.online) return 'Online'
+      if (this.presence?.lastSeen) return this.formatLastSeen(this.presence.lastSeen)
+      return 'Offline'
     }
   },
 
@@ -174,79 +191,18 @@ export default {
     chatId: {
       immediate: true,
       async handler(value) {
-        // сбрасываем старый статус при смене чата
-        this.isOnline = false
-        this.lastSeen = null
-
         if (value) {
           await this.loadMessages()
-          this.startStatusPolling()
         } else {
           this.messages = []
-          this.stopStatusPolling()
-        }
-      }
-    },
-
-    recipientId: {
-      immediate: true,
-      handler(value) {
-        // сбрасываем статус при смене собеседника
-        this.isOnline = false
-        this.lastSeen = null
-
-        if (value) {
-          this.fetchStatus()
         }
       }
     }
   },
 
-  beforeUnmount() {
-    this.stopStatusPolling()
-  },
-
   methods: {
-    startStatusPolling() {
-      this.stopStatusPolling()
-      this.fetchStatus()
-      this.statusPollTimer = setInterval(() => {
-        this.fetchStatus()
-      }, STATUS_POLL_INTERVAL)
-    },
-
-    stopStatusPolling() {
-      if (this.statusPollTimer) {
-        clearInterval(this.statusPollTimer)
-        this.statusPollTimer = null
-      }
-    },
-
-    async fetchStatus() {
-      const targetId =
-        this.recipientId ||
-        this.selectedCompanion?.id ||
-        this.chat?.companion_id ||
-        this.chat?.companionid
-
-      if (!targetId) return
-
-      try {
-        const res = await fetch(`${BASE}/users/${targetId}/status`, {
-          headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
-        })
-        if (!res.ok) return
-        const data = await res.json()
-        this.isOnline = data.online === true
-        this.lastSeen = data.lastseen || data.last_seen || null
-      } catch {
-        // не ломаем UI
-      }
-    },
-
     formatLastSeen(raw) {
       if (!raw) return 'Offline'
-
       const normalized = raw.endsWith('Z') || raw.includes('+') ? raw : raw + 'Z'
       const date = new Date(normalized)
       if (isNaN(date.getTime())) return 'Offline'
@@ -256,15 +212,9 @@ export default {
       if (diff < 60) return `last seen ${diff}s ago`
       if (diff < 3600) return `last seen ${Math.floor(diff / 60)}m ago`
       if (diff < 86400)
-        return `last seen today at ${date.toLocaleTimeString('en', {
-          hour: '2-digit',
-          minute: '2-digit'
-        })}`
+        return `last seen today at ${date.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}`
       if (diff < 172800)
-        return `last seen yesterday at ${date.toLocaleTimeString('en', {
-          hour: '2-digit',
-          minute: '2-digit'
-        })}`
+        return `last seen yesterday at ${date.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}`
       return `last seen ${date.toLocaleDateString('en', { day: 'numeric', month: 'short' })}`
     },
 
@@ -288,10 +238,7 @@ export default {
           headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
         })
 
-        if (!res.ok) {
-          console.error('Failed to fetch messages, status', res.status)
-          return
-        }
+        if (!res.ok) return
 
         const data = await res.json()
         const apiMessages = Array.isArray(data.messages) ? data.messages : []
@@ -309,6 +256,17 @@ export default {
       }
     },
 
+    // ДОБАВЛЕНО: метод, который вызывает ChatLayout при входящем WS событии
+    handleIncomingMessage(rawPayload) {
+      const msg = this.normalizeMessage(rawPayload)
+      // Защита от дублей
+      if (this.messages.find(m => String(m.id) === String(msg.id))) return 
+      
+      this.messages.push(msg)
+      this.scrollToBottom()
+      this.markIncomingAsRead()
+    },
+
     async markIncomingAsRead() {
       if (!this.chatId || !this.currentUserId) return
       const hasUnread = this.messages.some(
@@ -317,8 +275,8 @@ export default {
       if (!hasUnread) return
       try {
         const url = new URL(`${BASE}/chat/messages/read`)
-        url.searchParams.set('chatid', this.chatId)
-        url.searchParams.set('userid', this.currentUserId)
+        url.searchParams.set('chat_id', this.chatId)
+        url.searchParams.set('user_id', this.currentUserId)
 
         const res = await fetch(url.toString(), {
           method: 'PATCH',
@@ -351,7 +309,7 @@ export default {
         sender_id: this.currentUserId,
         content: text,
         created_at: new Date().toISOString(),
-        status: 'delivered'
+        status: 'sent' // ИСПРАВЛЕНО: изначально статус sent, а не delivered
       }
 
       this.messages.push(optimistic)
@@ -374,14 +332,12 @@ export default {
           body: JSON.stringify({
             chat_id: this.chatId,
             sender_id: this.currentUserId,
+            recipient_id: this.recipientId,
             content: text
           })
         })
 
-        if (!res.ok) {
-          console.error('Failed to send message, status', res.status)
-          return
-        }
+        if (!res.ok) throw new Error('Network response was not ok')
 
         const data = await res.json()
         const savedRaw = data.message || null
@@ -394,10 +350,12 @@ export default {
             m.id === optimistic.id ? { ...m, status: 'delivered' } : m
           )
         }
-
-        await this.loadMessages()
       } catch (e) {
         console.error('Failed to send message', e)
+        // ИСПРАВЛЕНО: помечаем как failed, чтобы юзер видел, что сообщение не ушло
+        this.messages = this.messages.map(m =>
+          m.id === optimistic.id ? { ...m, status: 'failed' } : m
+        )
       }
     },
 
@@ -422,12 +380,7 @@ export default {
           headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
         })
 
-        if (!res.ok) {
-          const text = await res.text()
-          console.error('Delete message failed', res.status, text)
-          return
-        }
-
+        if (!res.ok) return
         this.messages = this.messages.filter(m => m.id !== messageId)
       } catch (e) {
         console.error('Delete message error', e)

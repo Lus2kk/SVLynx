@@ -152,4 +152,5 @@ export default {
 }
 .theme-light .delete-btn { color: #9098b8; background: #f0f1f8; border-color: #e4e6f0; }
 .delete-btn:hover { color: #ff4d6d; background: rgba(255, 77, 109, 0.1); border-color: rgba(255, 77, 109, 0.2); }
+.message-status.failed { color: #ff4d6d; opacity: 1; }
 </style>
