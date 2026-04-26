@@ -324,6 +324,7 @@ export default {
 .chat-sidebar {
   width: 100%;
   height: 100%;
+  overflow: hidden;
   background: transparent;
   font-family: 'Satoshi', sans-serif;
   position: relative;
@@ -334,6 +335,7 @@ export default {
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: linear-gradient(180deg, rgba(8, 12, 26, 0.98), rgba(7, 10, 22, 0.98));
 }
 
@@ -465,10 +467,14 @@ export default {
   align-items: center;
   gap: 6px;
   margin-bottom: 6px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .chat-item {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
   display: flex; align-items: center; gap: 11px;
   padding: 11px 10px;
   border-radius: 16px;
@@ -507,12 +513,12 @@ export default {
 .avatar-image { width: 100%; height: 100%; object-fit: cover; }
 .chat-body { flex: 1; min-width: 0; }
 .chat-topline, .chat-bottomline {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; overflow: hidden;
 }
 .chat-topline { margin-bottom: 3px; }
 .chat-name { color: #eef2ff; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chat-time { flex-shrink: 0; color: #7580a6; font-size: 10.5px; font-weight: 600; }
-.chat-preview { color: #8590b4; font-size: 11.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-preview { color: #8590b4; font-size: 11.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; flex: 1; min-width: 0; }
 .unread-badge {
   min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
   display: inline-grid; place-items: center; flex-shrink: 0;
@@ -571,9 +577,20 @@ export default {
   color: #a6afd4; font-size: 13px; cursor: pointer;
 }
 .theme-light .btn-cancel { background: #f3f4f8; border-color: #e2e4ee; color: #7880a0; }
-.btn-delete {
-  padding: 8px 14px; border-radius: 10px;
-  background: linear-gradient(135deg, #ff4d6d, #d93856);
-  border: none; color: white; font-size: 13px; cursor: pointer;
+
+@media (max-width: 760px) {
+  .chat-sidebar {
+    border-radius: 0;
+    height: 100%;
+    width: 100%;
+  }
+  .sidebar-header {
+    height: 64px;
+    padding: 12px 14px 10px;
+  }
+  .search-wrap { padding: 0 12px 10px; }
+  .sidebar-tabs { padding: 0 12px 12px; }
+  .sidebar-list { padding: 2px 8px 12px; }
+  .confirm-modal { width: calc(100vw - 48px); max-width: 280px; }
 }
 </style>
