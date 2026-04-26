@@ -42,7 +42,7 @@ import EmailAuth from './EmailAuth.vue'
 
 export default {
   components: { Logo, StatusMsg, TgButton, EmailAuth },
-  emits: ['show-profile'],
+  emits: ['show-profile', 'show-chat'],
 
   data() {
     return {
@@ -54,6 +54,8 @@ export default {
     onEmailSuccess({ needsProfile }) {
       if (needsProfile) {
         setTimeout(() => this.$emit('show-profile'), 100)
+      } else {
+        setTimeout(() => this.$emit('show-chat'), 100)
       }
     },
 
@@ -67,10 +69,12 @@ export default {
       })
         .then(res => res.json())
         .then(data => {
-          if (data.status === 'approved') {
+          if (data.status === 'approved' || data.access_token) {
             this.status = { type: 'success', message: 'Вы вошли! Переход в SVLynx...' }
+            // Переходим в чат после успешной авторизации через ТГ
+            setTimeout(() => this.$emit('show-chat'), 500)
           } else {
-            this.status = { type: 'error', message: 'Ошибка: ' + data.error }
+            this.status = { type: 'error', message: 'Ошибка: ' + (data.error || 'Неизвестная ошибка') }
           }
         })
         .catch(() => {

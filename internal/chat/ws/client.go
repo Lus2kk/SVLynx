@@ -11,8 +11,8 @@ import (
 
 
 const (
-	MaxMessageSize = 512
-	PongWaitingTimeout = 60 
+	MaxMessageSize     = 512
+	PongWaitingTimeout = 60 * time.Second
 )
 
 
@@ -73,10 +73,11 @@ func (client *Client) ReadPump () {
 					 return
 				 }
 
-			case <-ticker.C: 
+			case <-ticker.C:
+				if err := client.connection.WriteMessage(websocket.PingMessage, nil); err != nil {
+					return
+				}
 
-
-				
 			}
 		}
 

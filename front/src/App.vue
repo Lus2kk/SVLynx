@@ -1,11 +1,14 @@
 <template>
   <BgScene />
   <transition name="fade" mode="out-in">
-    <div v-if="showProfile" key="profile" class="app-view">
+    <div v-if="showChat" key="chat" class="app-view">
+      <ChatLayout />
+    </div>
+    <div v-else-if="showProfile" key="profile" class="app-view">
       <ProfileSetup @done="onProfileDone" />
     </div>
     <div v-else key="login" class="app-view">
-      <LoginCard @show-profile="showProfile = true" />
+      <LoginCard @show-profile="showProfile = true" @show-chat="showChat = true" />
     </div>
   </transition>
 </template>
@@ -14,19 +17,38 @@
 import BgScene from './components/BgScene.vue'
 import LoginCard from './components/LoginCard.vue'
 import ProfileSetup from './components/ProfileSetup.vue'
+import ChatLayout from './components/ChatLayout.vue'
 
 export default {
-  components: { BgScene, LoginCard, ProfileSetup },
+  components: { 
+    BgScene, 
+    LoginCard, 
+    ProfileSetup,
+    ChatLayout 
+  },
 
   data() {
     return {
-      showProfile: false
+      showProfile: false,
+      showChat: false
+    }
+  },
+
+  mounted() {
+    // Если пользователь уже авторизован и у него есть токен (и он не требует заполнения профиля),
+    // можно сразу показывать чат.
+    const token = sessionStorage.getItem('access_token')
+    if (token) {
+      // Здесь можно добавить проверку профиля на бэкенде, 
+      // но для начала просто покажем чат, если есть токен
+      this.showChat = true
     }
   },
 
   methods: {
     onProfileDone() {
       this.showProfile = false
+      this.showChat = true
     }
   }
 }

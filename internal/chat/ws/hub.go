@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"sync"
+
 	"github.com/google/uuid"
 	"github.com/svlynx/messenger/internal/chat/chat_service"
 )
@@ -21,15 +22,19 @@ type Hub struct {
 	Dservice  *chat_service.DirectService
 }
 
-func NewHub (Mservice *chat_service.MessageService, Dservice *chat_service.DirectService) *Hub {
+func NewHub(Mservice *chat_service.MessageService, Dservice *chat_service.DirectService) *Hub {
 	return &Hub{
 		clients:    make(map[uuid.UUID]*Client),
-        register:   make(chan *Client),
-        unregister: make(chan *Client),
-        broadcast:  make(chan []byte),
+		register:   make(chan *Client),
+		unregister: make(chan *Client),
+		broadcast:  make(chan []byte),
 		Mservice:   Mservice,
 		Dservice:   Dservice,
 	}
+}
+
+func (h *Hub) Register(c *Client) {
+	h.register <- c
 }
 
 
@@ -42,7 +47,7 @@ func (h *Hub) Run() {
 			h.mutex.Lock()
 			h.clients[client.id] = client
 			h.mutex.Unlock()
-
+			go h.Dservice.UpdateLastSeenService(context.Background(), client.id)
             
         case client := <-h.unregister:
     h.mutex.Lock()
@@ -51,6 +56,7 @@ func (h *Hub) Run() {
         close(client.send)
     }
     h.mutex.Unlock()
+	go h.Dservice.SetUserOffline(context.Background(), client.id)
 
             
         case message := <-h.broadcast:

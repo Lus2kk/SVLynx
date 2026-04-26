@@ -14,6 +14,7 @@ import (
 	"github.com/svlynx/messenger/internal/chat/chat_repository"
 	"github.com/svlynx/messenger/internal/chat/chat_routes"
 	"github.com/svlynx/messenger/internal/chat/chat_service"
+	"github.com/svlynx/messenger/internal/chat/ws"
 	"github.com/svlynx/messenger/internal/config"
 	"github.com/svlynx/messenger/internal/email"
 	"github.com/svlynx/messenger/internal/migration"
@@ -59,19 +60,23 @@ func NewServer(cfg *config.Config) *Server {
 
 	postgresRepo := chat_repository.NewPostgresRepo(db)
 
-	directService := chat_service.NewDirectService(postgresRepo)
+	directService := chat_service.NewDirectService(postgresRepo, userRepo)
 	directHandler := chat_handler.NewDirectHandler(directService)
 
 	messageService := chat_service.NewMessageService(postgresRepo)
 	messageHandler := chat_handler.NewMessageHandler(messageService)
 
+	hub := ws.NewHub(messageService, directService)
+	go hub.Run()
+	wsHandler := chat_handler.NewWsHandler(hub)
+
 	Router := gin.Default()
+	Router.Use(router.CorsMiddleware())
 	chat_routes.SetupRoutes(Router)
 	chat_routes.DirectRouter(Router, directHandler)
 	chat_routes.MessageRouter(Router, messageHandler)
+	chat_routes.WsRouter(Router, wsHandler)
 
-	
-	Router.Use(router.CorsMiddleware())
 	router.RegisterRoutes(Router, handler)
 
 	return &Server{

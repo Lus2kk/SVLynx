@@ -63,7 +63,7 @@
 </template>
 
 <script>
-const BASE = 'https://svlynx.site'
+const BASE = 'http://localhost:8080'
 
 export default {
   emits: ['status', 'success'],

@@ -2,6 +2,7 @@ package user_repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -22,6 +23,12 @@ type UserRepository interface {
 
 	UpdateUserProfile(ctx context.Context, id, nickname, name, status, avatarColor string) error
 	UpdateTelegramUser(ctx context.Context, telegramID int64, username, firstName, lastName, photoURL string) error
+
+	SearchUsers(ctx context.Context, currentUserID string, query string, limit int) ([]*User, error)
+	GetUserLastSeen(ctx context.Context, userID string) (time.Time, error)
+	UpdateUserLastSeen(ctx context.Context, userID string) error
+	GetUserStatus(ctx context.Context, userID string) (isOnline bool, lastSeen time.Time, err error)
+	SetUserOnlineStatus(ctx context.Context, userID string, isOnline bool) error
 }
 
 type Repository struct {
@@ -238,5 +245,131 @@ func (r *Repository) UpdateTelegramUser(ctx context.Context, telegramID int64, u
 		WHERE telegram_id = $1
 	`, telegramID, username, firstName, lastName, photoURL)
 
+	return err
+}
+
+func (r *Repository) SearchUsers(
+    ctx context.Context,
+    currentUserID string,
+    query string,
+    limit int,
+) ([]*User, error) {
+    rows, err := r.db.Query(ctx, `
+        SELECT
+            id,
+            COALESCE(telegram_id, 0),
+            COALESCE(username, ''),
+            COALESCE(first_name, ''),
+            COALESCE(last_name, ''),
+            COALESCE(photo_url, ''),
+            COALESCE(email, ''),
+            COALESCE(nickname, ''),
+            COALESCE(name, ''),
+            COALESCE(avatar_color, ''),
+            COALESCE(status, ''),
+            profile_completed
+        FROM users
+        WHERE id != $1
+          AND (
+            nickname ILIKE '%' || $2 || '%'
+            OR username ILIKE '%' || $2 || '%'
+            OR name ILIKE '%' || $2 || '%'
+          )
+        ORDER BY
+          CASE
+            WHEN nickname ILIKE $2 || '%' THEN 0
+            WHEN username ILIKE $2 || '%' THEN 1
+            WHEN name ILIKE $2 || '%' THEN 2
+            ELSE 3
+          END,
+          nickname ASC
+        LIMIT $3
+    `, currentUserID, query, limit)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var users []*User
+    for rows.Next() {
+        u := &User{}
+        if err := rows.Scan(
+            &u.ID,
+            &u.TelegramID,
+            &u.Username,
+            &u.FirstName,
+            &u.LastName,
+            &u.PhotoURL,
+            &u.Email,
+            &u.Nickname,
+            &u.Name,
+            &u.AvatarColor,
+            &u.Status,
+            &u.ProfileCompleted,
+        ); err != nil {
+            return nil, err
+        }
+        users = append(users, u)
+    }
+
+    if err := rows.Err(); err != nil {
+        return nil, err
+    }
+
+    return users, nil
+}
+
+func (r *Repository) GetUserLastSeen(ctx context.Context, userID string) (time.Time, error) {
+    var lastSeen *time.Time 
+
+    err := r.db.QueryRow(ctx, `
+        SELECT last_seen FROM users WHERE id = $1
+    `, userID).Scan(&lastSeen)
+
+    if err != nil {
+        return time.Time{}, err
+    }
+
+    if lastSeen == nil {
+        return time.Time{}, nil 
+    }
+
+    return *lastSeen, nil
+}
+
+func (r *Repository) UpdateUserLastSeen(ctx context.Context, userID string) error {
+	_, err := r.db.Exec(ctx, `
+        UPDATE users SET last_seen = NOW() WHERE id = $1
+    `, userID)
+	return err
+}
+
+func (r *Repository) GetUserStatus(ctx context.Context, userID string) (bool, time.Time, error) {
+	var isOnline bool
+	var lastSeen *time.Time
+
+	err := r.db.QueryRow(ctx, `
+		SELECT is_online, last_seen FROM users WHERE id = $1
+	`, userID).Scan(&isOnline, &lastSeen)
+	if err != nil {
+		return false, time.Time{}, err
+	}
+
+	if lastSeen == nil {
+		return isOnline, time.Time{}, nil
+	}
+	return isOnline, *lastSeen, nil
+}
+
+func (r *Repository) SetUserOnlineStatus(ctx context.Context, userID string, isOnline bool) error {
+	if isOnline {
+		_, err := r.db.Exec(ctx, `
+			UPDATE users SET is_online = TRUE WHERE id = $1
+		`, userID)
+		return err
+	}
+	_, err := r.db.Exec(ctx, `
+		UPDATE users SET is_online = FALSE, last_seen = NOW() WHERE id = $1
+	`, userID)
 	return err
 }

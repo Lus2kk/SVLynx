@@ -91,38 +91,67 @@ func (repo *PostgresRepo) GetDirectByIdRepo(ctx context.Context, MyId uuid.UUID,
 	return &direct, nil
 }
 
-func (repo *PostgresRepo) GetListOfDirectsListByIDRepo(ctx context.Context, userId uuid.UUID) ([]*chat_models.Direct, error) {
+func (repo *PostgresRepo) GetListOfDirectsListByIDRepo(ctx context.Context, userId uuid.UUID) ([]*chat_models.DirectListItem, error) {
 	rows, err := repo.db.Query(ctx, `
-		SELECT c.id, c.creation_time,
-			m1.user_id as first_user_id, m1.joined_time as first_joined,
-			m2.user_id as second_user_id, m2.joined_time as second_joined
+		SELECT
+			c.id,
+			c.creation_time,
+			m1.user_id AS first_user_id,
+			m2.user_id AS second_user_id,
+			u.id AS companion_id,
+			COALESCE(u.name, '') AS companion_name,
+			COALESCE(u.nickname, '') AS companion_nickname,
+			COALESCE(u.photo_url, '') AS companion_photo_url,
+			COALESCE(msg.content, '') AS last_message_content,
+			msg.created_at AS last_message_at
 		FROM chats c
-		JOIN chat_members m1 ON m1.chat_id = c.id AND m1.user_id = $1
-		JOIN chat_members m2 ON m2.chat_id = c.id AND m2.user_id != $1`,
-		userId,
-	)
+		JOIN chat_members m1
+			ON m1.chat_id = c.id AND m1.user_id = $1
+		JOIN chat_members m2
+			ON m2.chat_id = c.id AND m2.user_id != $1
+		LEFT JOIN users u
+			ON u.id = m2.user_id
+		LEFT JOIN LATERAL (
+			SELECT content, created_at
+			FROM messages
+			WHERE chat_id = c.id
+			ORDER BY created_at DESC
+			LIMIT 1
+		) msg ON true
+		ORDER BY COALESCE(msg.created_at, c.creation_time) DESC
+	`, userId)
 	if err != nil {
 		return nil, fmt.Errorf("query directs error: %w", err)
 	}
 	defer rows.Close()
 
-	var directs []*chat_models.Direct
+	var directs []*chat_models.DirectListItem
+
 	for rows.Next() {
-		var direct chat_models.Direct
+		var item chat_models.DirectListItem
+		var lastMessageAt *time.Time
+
 		err := rows.Scan(
-			&direct.Id,
-			&direct.CreationTime,
-			&direct.FirstMember.UserId,
-			&direct.FirstMember.JoinedTime,
-			&direct.SecondMember.UserId,
-			&direct.SecondMember.JoinedTime,
+			&item.Id,
+			&item.CreationTime,
+			&item.FirstUserId,
+			&item.SecondUserId,
+			&item.CompanionId,
+			&item.CompanionName,
+			&item.CompanionNickname,
+			&item.CompanionPhotoURL,
+			&item.LastMessageContent,
+			&lastMessageAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan direct error: %w", err)
 		}
-		direct.FirstMember.ChatId = direct.Id
-		direct.SecondMember.ChatId = direct.Id
-		directs = append(directs, &direct)
+
+		if lastMessageAt != nil {
+			item.LastMessageAt = *lastMessageAt
+		}
+
+		directs = append(directs, &item)
 	}
 
 	if err = rows.Err(); err != nil {
@@ -131,6 +160,7 @@ func (repo *PostgresRepo) GetListOfDirectsListByIDRepo(ctx context.Context, user
 
 	return directs, nil
 }
+
 
 func (repo *PostgresRepo) SendMessageRepo(ctx context.Context, message *chat_models.Message) (*chat_models.Message, error) {
 	_, err := repo.db.Exec(ctx, `
@@ -243,4 +273,47 @@ func (repo *PostgresRepo) DeleteMessageRepo(ctx context.Context, message_id uuid
 		return fmt.Errorf("message not found")
 	}
 	return nil
+}
+
+func (repo *PostgresRepo) MarkChatMessagesAsReadRepo(ctx context.Context, chatID uuid.UUID, userID uuid.UUID) error {
+	_, err := repo.db.Exec(ctx, `
+		UPDATE messages
+		SET status = 'read'
+		WHERE chat_id = $1
+		  AND sender_id != $2
+		  AND status != 'read'
+	`, chatID, userID)
+	if err != nil {
+		return fmt.Errorf("mark chat messages as read error: %w", err)
+	}
+	return nil
+}
+
+func (repo *PostgresRepo) DeleteDirectRepo(ctx context.Context, chatID uuid.UUID) error {
+	tx, err := repo.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+ 
+	_, err = tx.Exec(ctx, `DELETE FROM messages WHERE chat_id = $1`, chatID)
+	if err != nil {
+		return fmt.Errorf("delete messages error: %w", err)
+	}
+ 
+	_, err = tx.Exec(ctx, `DELETE FROM chat_members WHERE chat_id = $1`, chatID)
+	if err != nil {
+		return fmt.Errorf("delete chat_members error: %w", err)
+	}
+ 
+	res, err := tx.Exec(ctx, `DELETE FROM chats WHERE id = $1`, chatID)
+	if err != nil {
+		return fmt.Errorf("delete chat error: %w", err)
+	}
+	
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("chat not found")
+	}
+ 
+	return tx.Commit(ctx)
 }
