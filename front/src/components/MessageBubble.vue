@@ -83,6 +83,18 @@ export default {
 .message-bubble {
   padding: 14px 16px 12px;
   border-radius: 14px; position: relative; width: 100%;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .message-bubble-wrapper {
+    max-width: calc(100% - 44px); /* оставляем место под кнопку удаления */
+  }
+  .message-row.theirs .message-bubble-wrapper {
+    max-width: 85%;
+  }
 }
 
 /* Dark - theirs */
@@ -114,7 +126,7 @@ export default {
   box-shadow: 0 8px 20px rgba(91, 106, 255, 0.25);
 }
 
-.message-text { font-size: 14px; line-height: 1.6; font-weight: 500; white-space: pre-wrap; }
+.message-text { font-size: 14px; line-height: 1.6; font-weight: 500; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
 
 .message-meta {
   margin-top: 8px; display: flex; justify-content: flex-end; align-items: center; gap: 6px;
