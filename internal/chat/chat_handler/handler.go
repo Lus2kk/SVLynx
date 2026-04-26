@@ -266,6 +266,8 @@ func (h *DirectHandler) GetUserStatusHandler(ctx *gin.Context) {
     }
 
     online, lastSeen, err := h.srvc.GetUserStatusService(ctx.Request.Context(), userID)
+    slog.Info("get status", "user", userID, "online", online, "lastSeen", lastSeen, "err", err)
+
     if err != nil {
         ctx.JSON(http.StatusOK, gin.H{"online": false, "last_seen": nil})
         return
@@ -276,10 +278,10 @@ func (h *DirectHandler) GetUserStatusHandler(ctx *gin.Context) {
         lastSeenResp = lastSeen
     }
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"online":    online,
-		"last_seen": lastSeenResp,
-	})
+    ctx.JSON(http.StatusOK, gin.H{
+        "online":    online,
+        "last_seen": lastSeenResp,
+    })
 }
 
 type WsHandler struct {
@@ -297,21 +299,26 @@ func NewWsHandler(hub *ws.Hub) *WsHandler {
 }
 
 func (h *WsHandler) ServeWs(ctx *gin.Context) {
-	userID, err := uuid.Parse(ctx.Query("user_id"))
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id"})
-		return
-	}
+    rawUserID := ctx.Query("userid")
+    if rawUserID == "" {
+        rawUserID = ctx.Query("user_id")
+    }
 
-	conn, err := h.upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
-	if err != nil {
-		slog.Error("ws upgrade error", "error", err)
-		return
-	}
+    userID, err := uuid.Parse(rawUserID)
+    if err != nil {
+        ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid userid"})
+        return
+    }
 
-	client := ws.NewClient(userID, conn, make(chan []byte, 256), h.hub)
-	h.hub.Register(client)
+    conn, err := h.upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
+    if err != nil {
+        slog.Error("ws upgrade error", "error", err)
+        return
+    }
 
-	go client.WritePump()
-	go client.ReadPump()
+    client := ws.NewClient(userID, conn, make(chan []byte, 256), h.hub)
+    h.hub.Register(client)
+
+    go client.WritePump()
+    go client.ReadPump()
 }

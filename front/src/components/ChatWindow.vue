@@ -99,7 +99,7 @@
 import MessageBubble from './MessageBubble.vue'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
-const STATUS_POLL_INTERVAL = 20000 // 20 сек
+const STATUS_POLL_INTERVAL = 5000 // 5 сек вместо 20, статус живее
 
 export default {
   name: 'ChatWindow',
@@ -143,7 +143,12 @@ export default {
     },
 
     avatarUrl() {
-      return this.selectedCompanion?.photo_url || this.chat?.companion_photo_url || this.chat?.photo_url || null
+      return (
+        this.selectedCompanion?.photo_url ||
+        this.chat?.companion_photo_url ||
+        this.chat?.photo_url ||
+        null
+      )
     },
 
     avatarLetter() {
@@ -155,6 +160,10 @@ export default {
     chatId: {
       immediate: true,
       async handler(value) {
+        // сбрасываем старый статус при смене чата
+        this.isOnline = false
+        this.lastSeen = null
+
         if (value) {
           await this.loadMessages()
           this.startStatusPolling()
@@ -168,6 +177,10 @@ export default {
     recipientId: {
       immediate: true,
       handler(value) {
+        // сбрасываем статус при смене собеседника
+        this.isOnline = false
+        this.lastSeen = null
+
         if (value) {
           this.fetchStatus()
         }
@@ -196,36 +209,50 @@ export default {
     },
 
     async fetchStatus() {
-      if (!this.recipientId) return
+      const targetId =
+        this.recipientId ||
+        this.selectedCompanion?.id ||
+        this.chat?.companion_id ||
+        this.chat?.companionid
+
+      if (!targetId) return
+
       try {
-        const res = await fetch(`${BASE}/users/${this.recipientId}/status`, {
+        const res = await fetch(`${BASE}/users/${targetId}/status`, {
           headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
         })
         if (!res.ok) return
         const data = await res.json()
         this.isOnline = data.online === true
-        this.lastSeen = data.last_seen || null
+        this.lastSeen = data.lastseen || data.last_seen || null
       } catch {
-        // Не ломаем UI если эндпоинт не отвечает
+        // не ломаем UI
       }
     },
 
     formatLastSeen(raw) {
-  if (!raw) return 'Offline'
+      if (!raw) return 'Offline'
 
-  // Добавляем Z если нет — чтобы браузер парсил как UTC
-  const normalized = raw.endsWith('Z') || raw.includes('+') ? raw : raw + 'Z'
-  const date = new Date(normalized)
-  if (isNaN(date.getTime())) return 'Offline'
+      const normalized = raw.endsWith('Z') || raw.includes('+') ? raw : raw + 'Z'
+      const date = new Date(normalized)
+      if (isNaN(date.getTime())) return 'Offline'
 
-  const diff = Math.floor((Date.now() - date.getTime()) / 1000)
+      const diff = Math.floor((Date.now() - date.getTime()) / 1000)
 
-  if (diff < 60)     return `last seen ${diff}s ago`
-  if (diff < 3600)   return `last seen ${Math.floor(diff / 60)}m ago`
-  if (diff < 86400)  return `last seen today at ${date.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}`
-  if (diff < 172800) return `last seen yesterday at ${date.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}`
-  return `last seen ${date.toLocaleDateString('en', { day: 'numeric', month: 'short' })}`
-},
+      if (diff < 60) return `last seen ${diff}s ago`
+      if (diff < 3600) return `last seen ${Math.floor(diff / 60)}m ago`
+      if (diff < 86400)
+        return `last seen today at ${date.toLocaleTimeString('en', {
+          hour: '2-digit',
+          minute: '2-digit'
+        })}`
+      if (diff < 172800)
+        return `last seen yesterday at ${date.toLocaleTimeString('en', {
+          hour: '2-digit',
+          minute: '2-digit'
+        })}`
+      return `last seen ${date.toLocaleDateString('en', { day: 'numeric', month: 'short' })}`
+    },
 
     normalizeMessage(message) {
       return {
@@ -247,7 +274,10 @@ export default {
           headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
         })
 
-        if (!res.ok) { console.error('Failed to fetch messages, status', res.status); return }
+        if (!res.ok) {
+          console.error('Failed to fetch messages, status', res.status)
+          return
+        }
 
         const data = await res.json()
         const apiMessages = Array.isArray(data.messages) ? data.messages : []
@@ -267,8 +297,8 @@ export default {
 
     async markIncomingAsRead() {
       if (!this.chatId || !this.currentUserId) return
-      const hasUnread = this.messages.some(m =>
-        String(m.sender_id) !== String(this.currentUserId) && m.status !== 'read'
+      const hasUnread = this.messages.some(
+        m => String(m.sender_id) !== String(this.currentUserId) && m.status !== 'read'
       )
       if (!hasUnread) return
       try {
@@ -314,7 +344,11 @@ export default {
       this.newMessage = ''
       this.scrollToBottom()
 
-      this.$emit('message-sent', { chatId: this.chatId, content: text, date: optimistic.created_at })
+      this.$emit('message-sent', {
+        chatId: this.chatId,
+        content: text,
+        date: optimistic.created_at
+      })
 
       try {
         const res = await fetch(`${BASE}/chat/messages`, {
@@ -323,17 +357,24 @@ export default {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}`
           },
-          body: JSON.stringify({ chat_id: this.chatId, sender_id: this.currentUserId, content: text })
+          body: JSON.stringify({
+            chat_id: this.chatId,
+            sender_id: this.currentUserId,
+            content: text
+          })
         })
 
-        if (!res.ok) { console.error('Failed to send message, status', res.status); return }
+        if (!res.ok) {
+          console.error('Failed to send message, status', res.status)
+          return
+        }
 
         const data = await res.json()
         const savedRaw = data.message || null
 
         if (savedRaw) {
           const saved = this.normalizeMessage(savedRaw)
-          this.messages = this.messages.map(m => m.id === optimistic.id ? saved : m)
+          this.messages = this.messages.map(m => (m.id === optimistic.id ? saved : m))
         } else {
           this.messages = this.messages.map(m =>
             m.id === optimistic.id ? { ...m, status: 'delivered' } : m

@@ -190,9 +190,15 @@ func (s *DirectService) UpdateLastSeenService(ctx context.Context, userID uuid.U
 }
 
 func (s *DirectService) SetUserOnline(ctx context.Context, userID uuid.UUID) {
-	_ = s.user_repo.SetUserOnlineStatus(ctx, userID.String(), true)
+	err := s.user_repo.SetUserOnlineStatus(ctx, userID.String(), true)
+	if err != nil {
+		fmt.Println("Error setting user online:", err)
+	}
 }
 
 func (s *DirectService) SetUserOffline(ctx context.Context, userID uuid.UUID) {
-	_ = s.user_repo.SetUserOnlineStatus(ctx, userID.String(), false)
+	err := s.user_repo.SetUserOnlineStatus(ctx, userID.String(), false)
+	if err != nil {
+		fmt.Println("Error setting user offline:", err)
+	}
 }

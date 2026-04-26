@@ -12,16 +12,21 @@
         @chat-deleted="onChatDeleted"
       />
 
+
       <div class="content-area">
         <ChatWindow
           v-if="activeChat"
+          ref="chatWindow"
+          :key="`${activeChatId}-${activeRecipientId}-${chatWindowKey}`"
           :chat="activeChat"
           :chatId="activeChatId"
           :currentUserId="currentUserId"
           :recipientId="activeRecipientId"
+          :presence="activePresence"
           :isLight="isLight"
           @message-sent="updateChatPreview"
         />
+
 
         <div v-else class="empty-chat">
           <div class="empty-card">
@@ -39,43 +44,217 @@
   </div>
 </template>
 
+
 <script>
 import ChatSidebar from './ChatSidebar.vue'
 import ChatWindow from './ChatWindow.vue'
 
+
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+const WS_BASE = BASE.replace(/^http/, 'ws')
+
 
 export default {
   name: 'ChatLayout',
   components: { ChatSidebar, ChatWindow },
 
+
   data() {
-    return {
-      directs: [],
-      activeChatId: null,
-      activeRecipientId: null,
-      currentUserId: null,
-      loading: false,
-      isLight: localStorage.getItem('svlynx-theme') === 'light'
-    }
-  },
+  return {
+    directs: [],
+    activeChatId: null,
+    activeRecipientId: null,
+    currentUserId: null,
+    loading: false,
+    isLight: localStorage.getItem('svlynx-theme') === 'light',
+    ws: null,
+    chatWindowKey: 0,
+    reconnectTimer: null,
+    userStatuses: {} 
+  }
+},
 
   computed: {
     activeChat() {
       return this.directs.find(d => String(d.id) === String(this.activeChatId)) || null
+    },
+
+    activePresence() {
+      const key = String(this.activeRecipientId || '')
+      return this.userStatuses[key] || { online: false, lastSeen: null }
     }
   },
 
+
   async mounted() {
-    this.currentUserId = this.parseUserIdFromToken()
-    await this.loadDirects()
-  },
+  this.currentUserId = this.parseUserIdFromToken()
+  await this.loadDirects()
+  this.connectWebSocket()
+},
+
+  beforeUnmount() {
+  if (this.reconnectTimer) {
+    clearTimeout(this.reconnectTimer)
+    this.reconnectTimer = null
+  }
+  if (this.ws) {
+    this.ws.close()
+    this.ws = null
+  }
+},
+
 
   methods: {
+    connectWebSocket() {
+  if (!this.currentUserId) return
+
+  if (this.reconnectTimer) {
+    clearTimeout(this.reconnectTimer)
+    this.reconnectTimer = null
+  }
+
+  if (this.ws) {
+    this.ws.close()
+    this.ws = null
+  }
+
+  const wsUrl = `${WS_BASE}/ws?user_id=${this.currentUserId}`
+  this.ws = new WebSocket(wsUrl)
+
+  this.ws.onopen = () => {
+    console.log('✅ WebSocket Connected!')
+  }
+
+  this.ws.onmessage = (event) => {
+    console.log('WS RAW:', event.data)
+
+    try {
+      const data = JSON.parse(event.data)
+      console.log('WS PARSED:', data)
+
+      let payload = data.Payload ?? data.payload ?? null
+      let type = data.Type ?? data.type ?? null
+
+      if (!payload && (data.chat_id || data.chatId || data.ChatID || data.content || data.Content)) {
+        payload = data
+        type = 'SendMessage'
+      }
+
+      if (typeof payload === 'string') {
+        try {
+          payload = JSON.parse(payload)
+        } catch {
+          payload = null
+        }
+      }
+
+      if (!type || !payload) return
+
+      // new message
+      if (type === 'SendMessage') {
+        const chatId =
+          payload?.chat_id ??
+          payload?.chatId ??
+          payload?.chatid ??
+          payload?.ChatID
+
+        const content =
+          payload?.content ??
+          payload?.Content ??
+          ''
+
+        const createdAt =
+          payload?.created_at ??
+          payload?.createdAt ??
+          payload?.createdat ??
+          payload?.CreatedAT ??
+          new Date().toISOString()
+
+        if (chatId) {
+          this.updateChatPreview({
+            chatId,
+            content,
+            date: createdAt
+          })
+
+          if (String(this.activeChatId) === String(chatId)) {
+            this.$refs.chatWindow?.handleIncomingMessage?.(payload)
+          }
+        }
+
+        return
+      }
+
+      // user online
+      if (type === 'user_online') {
+        const userId =
+          payload?.user_id ??
+          payload?.userId ??
+          payload?.userid ??
+          payload?.UserID ??
+          payload?.id
+
+        if (userId) {
+          this.setUserPresence(userId, {
+            online: true,
+            lastSeen: null
+          })
+        }
+
+        return
+      }
+
+      // user offline
+      if (type === 'user_offline') {
+        const userId =
+          payload?.user_id ??
+          payload?.userId ??
+          payload?.userid ??
+          payload?.UserID ??
+          payload?.id
+
+        const lastSeen =
+          payload?.last_seen ??
+          payload?.lastSeen ??
+          payload?.lastseen ??
+          payload?.LastSeen ??
+          new Date().toISOString()
+
+        if (userId) {
+          this.setUserPresence(userId, {
+            online: false,
+            lastSeen
+          })
+        }
+
+        return
+      }
+
+    } catch (e) {
+      console.error('WS Parse Error:', e)
+    }
+  }
+
+  this.ws.onclose = () => {
+    console.log('❌ WebSocket Disconnected')
+    this.ws = null
+
+    this.reconnectTimer = setTimeout(() => {
+      this.connectWebSocket()
+    }, 5000)
+  }
+
+  this.ws.onerror = (error) => {
+    console.error('⚠️ WebSocket Error:', error)
+  }
+},
+
+
     toggleTheme() {
       this.isLight = !this.isLight
       localStorage.setItem('svlynx-theme', this.isLight ? 'light' : 'dark')
     },
+
 
     parseJwt(token) {
       try {
@@ -87,6 +266,7 @@ export default {
         return JSON.parse(atob(padded))
       } catch { return null }
     },
+
 
     parseUserIdFromToken() {
       try {
@@ -100,34 +280,42 @@ export default {
       } catch { return null }
     },
 
+
     async loadDirects() {
       this.loading = true
       try {
         const userId = String(this.currentUserId || '').trim()
         if (!userId) return
 
+
         const url = new URL(`${BASE}/chat/direct/list`)
         url.searchParams.set('user_id', userId)
+
 
         const res = await fetch(url.toString(), {
           headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
         })
 
+
         const text = await res.text()
         if (!res.ok) { console.error('Failed to load directs', res.status, text); return }
+
 
         const data = JSON.parse(text)
         const apiChats = data.directs || data.chats || []
 
+
         const chatMap = new Map()
         this.directs.forEach(c => chatMap.set(c.id, c))
         apiChats.forEach(c => chatMap.set(c.id, c))
+
 
         this.directs = Array.from(chatMap.values()).sort((a, b) => {
           const dateA = new Date(a.last_message_at || a.updated_at || a.created_at || a.creation_time || 0)
           const dateB = new Date(b.last_message_at || b.updated_at || b.created_at || b.creation_time || 0)
           return dateB - dateA
         })
+
 
         this.saveChatsToLocal()
       } catch (e) {
@@ -137,14 +325,56 @@ export default {
       }
     },
 
+
     saveChatsToLocal() {
       try { localStorage.setItem('svlynx-saved-chats', JSON.stringify(this.directs)) } catch {}
     },
 
+
     selectChat({ chatId, recipientId }) {
-      this.activeChatId = chatId
-      this.activeRecipientId = recipientId
-    },
+  this.activeChatId = chatId
+  this.activeRecipientId = recipientId
+  this.chatWindowKey++
+
+  if (recipientId && !this.userStatuses[String(recipientId)]) {
+    this.fetchUserStatus(recipientId)
+  }
+},
+
+    setUserPresence(userId, patch = {}) {
+  const key = String(userId)
+  const prev = this.userStatuses[key] || { online: false, lastSeen: null }
+
+  this.userStatuses = {
+    ...this.userStatuses,
+    [key]: {
+      ...prev,
+      ...patch
+    }
+  }
+},
+
+async fetchUserStatus(userId) {
+  try {
+    const res = await fetch(`${BASE}/users/${userId}/status`, {
+      headers: {
+        Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}`
+      }
+    })
+
+    if (!res.ok) return
+
+    const data = await res.json()
+
+    this.setUserPresence(userId, {
+      online: data?.online === true,
+      lastSeen: data?.last_seen ?? data?.lastseen ?? null
+    })
+  } catch (e) {
+    console.error('fetchUserStatus error', e)
+  }
+},
+
 
     onChatDeleted(chatId) {
       this.directs = this.directs.filter(d => String(d.id) !== String(chatId))
@@ -154,6 +384,7 @@ export default {
       }
       this.saveChatsToLocal()
     },
+
 
     updateChatPreview({ chatId, content, date }) {
       const chat = this.directs.find(c => String(c.id) === String(chatId))
@@ -168,6 +399,7 @@ export default {
       this.saveChatsToLocal()
     },
 
+
     async startChat(userId, nickname) {
       try {
         const res = await fetch(`${BASE}/chat/direct`, {
@@ -179,21 +411,26 @@ export default {
           body: JSON.stringify({ first_user_id: this.currentUserId, second_user_id: userId })
         })
 
+
         const text = await res.text()
         let data
         try { data = JSON.parse(text) } catch { console.error('startChat: invalid JSON', text); return }
         if (!res.ok) { console.error('startChat error', data); return }
 
+
         const direct = data.direct || data.chat || data
         const exists = this.directs.find(d => String(d.id) === String(direct.id))
+
 
         if (!exists) {
           this.directs.unshift({ ...direct, companion_nickname: nickname || direct.companion_nickname })
           this.saveChatsToLocal()
         }
 
+
         this.activeChatId = direct.id
         this.activeRecipientId = userId
+        this.chatWindowKey++ 
       } catch (e) {
         console.error('startChat crash:', e)
       }
@@ -202,8 +439,10 @@ export default {
 }
 </script>
 
+
 <style scoped>
 @import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap');
+
 
 .direct-page {
   height: 100vh; width: 100vw;
@@ -217,6 +456,7 @@ export default {
   transition: background 0.3s;
 }
 
+
 /* Light page background */
 .direct-page.theme-light {
   background:
@@ -224,6 +464,7 @@ export default {
     radial-gradient(circle at 85% 88%, rgba(108, 86, 255, 0.06), transparent 26%),
     linear-gradient(180deg, #eef0fb 0%, #e8ebf8 100%);
 }
+
 
 .direct-page::before {
   content: '';
@@ -243,6 +484,7 @@ export default {
   opacity: 1;
 }
 
+
 .direct-shell {
   position: relative; z-index: 1;
   width: 100%; max-width: 1600px; height: 100%; min-height: 0;
@@ -255,11 +497,13 @@ export default {
   transition: background 0.3s, border-color 0.3s;
 }
 
+
 .direct-shell.theme-light {
   background: #ffffff;
   border-color: rgba(91, 106, 255, 0.15);
   box-shadow: 0 20px 60px rgba(91, 106, 200, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
+
 
 .content-area {
   min-width: 0; height: 100%; min-height: 0;
@@ -273,10 +517,12 @@ export default {
   border-left-color: #e4e6f0;
 }
 
+
 .empty-chat {
   flex: 1; min-height: 0;
   display: flex; align-items: center; justify-content: center; padding: 24px;
 }
+
 
 .empty-card {
   width: 100%; max-width: 480px; padding: 34px 26px;
@@ -290,6 +536,7 @@ export default {
   box-shadow: 0 8px 30px rgba(91, 106, 200, 0.08);
 }
 
+
 .empty-logo {
   width: 68px; height: 68px; margin: 0 auto 18px;
   border-radius: 18px; display: grid; place-items: center; color: #e9edff;
@@ -300,6 +547,7 @@ export default {
 .empty-text { color: #8d96ba; font-size: 14px; line-height: 1.7; max-width: 34ch; margin: 0 auto; }
 .direct-shell.theme-light .empty-title { color: #1a1d2e; }
 .direct-shell.theme-light .empty-text { color: #7880a0; }
+
 
 @media (max-width: 980px) {
   .direct-shell { grid-template-columns: 300px 1fr; }

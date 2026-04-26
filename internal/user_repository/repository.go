@@ -345,20 +345,25 @@ func (r *Repository) UpdateUserLastSeen(ctx context.Context, userID string) erro
 }
 
 func (r *Repository) GetUserStatus(ctx context.Context, userID string) (bool, time.Time, error) {
-	var isOnline bool
+	var isOnline *bool
 	var lastSeen *time.Time
 
-	err := r.db.QueryRow(ctx, `
-		SELECT is_online, last_seen FROM users WHERE id = $1
-	`, userID).Scan(&isOnline, &lastSeen)
+	err := r.db.QueryRow(ctx, `SELECT is_online, last_seen FROM users WHERE id = $1`, userID).Scan(&isOnline, &lastSeen)
 	if err != nil {
 		return false, time.Time{}, err
 	}
 
-	if lastSeen == nil {
-		return isOnline, time.Time{}, nil
+	online := false
+	if isOnline != nil {
+		online = *isOnline
 	}
-	return isOnline, *lastSeen, nil
+
+	var seen time.Time
+	if lastSeen != nil {
+		seen = *lastSeen
+	}
+
+	return online, seen, nil
 }
 
 func (r *Repository) SetUserOnlineStatus(ctx context.Context, userID string, isOnline bool) error {

@@ -24,5 +24,6 @@ func CorsMiddleware() gin.HandlerFunc {
     },
         ExposeHeaders:    []string{"Content-Length"},
         AllowCredentials: true,
+         AllowWebSockets:  true,
     })
 }
