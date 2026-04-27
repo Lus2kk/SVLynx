@@ -298,18 +298,18 @@ export default {
     async confirmDeleteChat() {
       if (!this.chatToDelete) return
       const chatId = this.chatToDelete.id
+      const recipientId = this.getRecipientId(this.chatToDelete)
       this.chatToDelete = null
 
       try {
-        const res = await fetch(`${BASE}/chat/direct/${chatId}`, {
+        const url = new URL(`${BASE}/chat/direct/${chatId}`)
+        url.searchParams.set('recipient_id', recipientId)  // ← добавь
+
+        const res = await fetch(url.toString(), {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
         })
-        if (!res.ok) {
-          const text = await res.text()
-          console.error('Delete chat failed', res.status, text)
-          return
-        }
+        if (!res.ok) return
         this.$emit('chat-deleted', chatId)
         this.deleteMode = false
       } catch (e) {

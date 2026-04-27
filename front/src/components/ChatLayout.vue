@@ -27,6 +27,8 @@
           :isLight="isLight"
           :showBackButton="isMobile"
           @message-sent="updateChatPreview"
+          @message-deleted="onMessageDeleted"
+          @mark-as-read="onMarkAsRead"
           @back="goBackToSidebar"
         />
 
@@ -51,6 +53,7 @@
 <script>
 import ChatSidebar from './ChatSidebar.vue'
 import ChatWindow from './ChatWindow.vue'
+
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 const WS_BASE = BASE.replace(/^http/, 'ws')
@@ -118,10 +121,10 @@ export default {
       this.ws.onopen = () => console.log('✅ WebSocket Connected!')
       
       this.ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          let payload = data.Payload ?? data.payload ?? null
-          let type = data.Type ?? data.type ?? null
+      try {
+        const data = JSON.parse(event.data)
+        let payload = data.Payload ?? data.payload ?? null
+        let type = data.Type ?? data.type ?? null
 
           if (!payload && (data.chat_id || data.chatId || data.content)) {
             payload = data
@@ -178,9 +181,38 @@ export default {
             if (userId) this.setUserPresence(userId, { online: false, lastSeen })
             return
           }
-        } catch (e) {
-          console.error('WS Parse Error:', e)
-        }
+
+          if (type === 'new_chat') {
+            
+            this.loadDirects()
+            return
+          }
+
+          if (type === 'delete_message') {
+            const msgId = payload?.id ?? payload?.message_id
+            if (msgId) {
+              this.$refs.chatWindow?.handleDeleteMessage?.(payload)
+            }
+            return
+          }
+
+          if (type === 'delete_chat') {
+            const chatId = payload?.chat_id
+            if (chatId) this.onChatDeleted(chatId)
+            return
+          }
+
+          if (type === 'mark_as_read') {
+            const chatId = payload?.chat_id
+            if (chatId && String(this.activeChatId) === String(chatId)) {
+              this.$refs.chatWindow?.handleMessagesRead?.()
+            }
+            return
+          }
+
+          } catch (e) { 
+            console.error('WS Parse Error:', e)
+          }
       }
 
       this.ws.onclose = () => {
@@ -259,7 +291,6 @@ export default {
       this.activeRecipientId = recipientId
       this.chatWindowKey++
 
-      // ИСПРАВЛЕНО: Сбрасываем счетчик непрочитанных при выборе чата
       const chat = this.directs.find(c => String(c.id) === String(chatId))
       if (chat) {
         chat.unread_count = 0
@@ -267,11 +298,24 @@ export default {
         this.saveChatsToLocal()
       }
 
-      if (recipientId && !this.userStatuses[String(recipientId)]) {
+      if (recipientId) {
         this.fetchUserStatus(recipientId)
       }
 
       if (this.isMobile) this.mobileView = 'chat'
+    },
+
+    onMessageDeleted({ id, chat_id, recipient_id }) {
+      console.log('onMessageDeleted called', { id, chat_id, recipient_id }) // ← добавь
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        console.log('WS not open:', this.ws?.readyState) // ← и это
+        return
+      }
+      const msg = JSON.stringify({
+        type: 'delete_message',
+        payload: { id, chat_id, recipient_id }
+      })
+      this.ws.send(msg)
     },
 
     goBackToSidebar() {
@@ -286,7 +330,9 @@ export default {
     setUserPresence(userId, patch = {}) {
       const key = String(userId)
       const prev = this.userStatuses[key] || { online: false, lastSeen: null }
-      this.userStatuses = { ...this.userStatuses, [key]: { ...prev, ...patch } }
+      this.$set 
+        ? this.$set(this.userStatuses, key, { ...prev, ...patch })
+        : (this.userStatuses = { ...this.userStatuses, [key]: { ...prev, ...patch } })
     },
 
     async fetchUserStatus(userId) {
@@ -312,6 +358,14 @@ export default {
         this.activeRecipientId = null
       }
       this.saveChatsToLocal()
+    },
+
+    onMarkAsRead({ chat_id, user_id, recipient_id }) {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
+      this.ws.send(JSON.stringify({
+        type: 'mark_as_read',
+        payload: { chat_id, user_id, recipient_id }
+      }))
     },
 
     updateChatPreview({ chatId, content, date, isIncoming }) {
@@ -361,6 +415,8 @@ export default {
         this.activeChatId = direct.id
         this.activeRecipientId = userId
         this.chatWindowKey++ 
+
+        this.fetchUserStatus(userId)
       } catch (e) {
         console.error('startChat crash:', e)
       }

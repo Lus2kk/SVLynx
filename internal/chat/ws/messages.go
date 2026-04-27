@@ -16,7 +16,26 @@ const (
 	DeleteMessage       EventType = "delete_message"
 	NewMessage          EventType = "new_message"
 	ErrorEvent          EventType = "error"
+	MarkAsRead          EventType = "mark_as_read"
+	NewChat             EventType = "new_chat"
+	DeleteChat          EventType = "delete_chat"
 )
+
+type DeleteChatPayload struct {
+    ChatID      uuid.UUID `json:"chat_id"`
+    RecipientID uuid.UUID `json:"recipient_id"`
+}
+
+type NewChatPayload struct {
+	ChatID      uuid.UUID `json:"chat_id"`
+	RecipientID uuid.UUID `json:"recipient_id"`
+}
+
+type MarkAsReadPayload struct {
+	ChatID      uuid.UUID `json:"chat_id"`
+	UserID      uuid.UUID `json:"user_id"`
+	RecipientID uuid.UUID `json:"recipient_id"`
+}
 
 type BaseMessagePayload struct {
 	Type    EventType       `json:"type"`
@@ -40,6 +59,7 @@ type SendMessagePayload struct {
 
 type DeleteMessagePayload struct {
 	ID          uuid.UUID `json:"id"`
+	ChatID      uuid.UUID `json:"chat_id"`
 	RecipientID uuid.UUID `json:"recipient_id"`
 }
 
@@ -48,7 +68,6 @@ type UpdateMessageStatusPayload struct {
 	RecipientID uuid.UUID                 `json:"recipient_id"`
 	Status      chat_models.MessageStatus `json:"status"`
 }
-
 
 type UserOfflinePayload struct {
 	UserID   uuid.UUID `json:"user_id"`

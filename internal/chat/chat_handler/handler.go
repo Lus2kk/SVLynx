@@ -18,10 +18,14 @@ import (
 
 type DirectHandler struct {
 	srvc *chat_service.DirectService
+	hub  *ws.Hub 
 }
 
-func NewDirectHandler(srvc *chat_service.DirectService) *DirectHandler {
-	return &DirectHandler{srvc: srvc}
+func NewDirectHandler(srvc *chat_service.DirectService, hub *ws.Hub) *DirectHandler {
+	return &DirectHandler{
+		srvc: srvc,
+		hub: hub,
+	}
 }
 
 type MessageHandler struct {
@@ -37,22 +41,34 @@ func NewMessageHandler(srvc *chat_service.MessageService, hub *ws.Hub) *MessageH
 }
 
 func (h *DirectHandler) CreateNewDirectHandler(ctx *gin.Context) {
-	var input chat_service.CreatedDirect
-	if err := ctx.ShouldBindJSON(&input); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+    var input chat_service.CreatedDirect
+    if err := ctx.ShouldBindJSON(&input); err != nil {
+        ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
 
-	chat, err := h.srvc.CreateNewDirectService(ctx.Request.Context(), input)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+    chat, err := h.srvc.CreateNewDirectService(ctx.Request.Context(), input)
+    if err != nil {
+        ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
 
-	ctx.JSON(http.StatusCreated, gin.H{
-		"message": "direct created",
-		"direct":  chat,
-	})
+    if h.hub != nil {
+        rawPayload, _ := json.Marshal(map[string]any{
+            "chat_id":      chat.Id,
+            "recipient_id": input.SecondUserID,
+        })
+        responsePayload, _ := json.Marshal(map[string]any{
+            "type":    "new_chat",
+            "payload": json.RawMessage(rawPayload),
+        })
+        h.hub.SendToUser(input.SecondUserID, responsePayload)
+    }
+
+    ctx.JSON(http.StatusCreated, gin.H{
+        "message": "direct created",
+        "direct":  chat,
+    })
 }
 
 func (h *DirectHandler) GetDirectByIdHandler(ctx *gin.Context) {
@@ -275,18 +291,32 @@ func (h *MessageHandler) MarkChatMessagesAsReadHandler(ctx *gin.Context) {
 }
 
 func (h *DirectHandler) DeleteDirectHandler(ctx *gin.Context) {
-	chatID, err := uuid.Parse(ctx.Param("id"))
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid chat_id"})
-		return
-	}
- 
-	if err := h.srvc.DeleteDirectService(ctx.Request.Context(), chatID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
- 
-	ctx.JSON(http.StatusOK, gin.H{"message": "chat deleted"})
+    chatID, err := uuid.Parse(ctx.Param("id"))
+    if err != nil {
+        ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid chat_id"})
+        return
+    }
+
+    recipientIDStr := ctx.Query("recipient_id")
+    recipientID, _ := uuid.Parse(recipientIDStr)
+
+    if err := h.srvc.DeleteDirectService(ctx.Request.Context(), chatID); err != nil {
+        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    if h.hub != nil && recipientID != uuid.Nil {
+        rawPayload, _ := json.Marshal(map[string]any{
+            "chat_id": chatID,
+        })
+        responsePayload, _ := json.Marshal(map[string]any{
+            "type":    "delete_chat",
+            "payload": json.RawMessage(rawPayload),
+        })
+        h.hub.SendToUser(recipientID, responsePayload)
+    }
+
+    ctx.JSON(http.StatusOK, gin.H{"message": "chat deleted"})
 }
 
 func (h *DirectHandler) GetUserStatusHandler(ctx *gin.Context) {

@@ -61,7 +61,6 @@ func NewServer(cfg *config.Config) *Server {
 	postgresRepo := chat_repository.NewPostgresRepo(db)
 
 	directService := chat_service.NewDirectService(postgresRepo, userRepo)
-	directHandler := chat_handler.NewDirectHandler(directService)
 
 	messageService := chat_service.NewMessageService(postgresRepo)
 
@@ -69,7 +68,8 @@ func NewServer(cfg *config.Config) *Server {
 	go hub.Run()
 
 	messageHandler := chat_handler.NewMessageHandler(messageService, hub)
-	
+	directHandler := chat_handler.NewDirectHandler(directService, hub)
+
 	wsHandler := chat_handler.NewWsHandler(hub)
 
 	Router := gin.Default()

@@ -125,7 +125,7 @@ export default {
     presence: { type: Object, default: () => ({ online: false, lastSeen: null }) }
   },
 
-  emits: ['message-sent', 'back'],
+  emits: ['message-sent', 'message-deleted', 'mark-as-read', 'back'],
 
   data() {
     return {
@@ -142,7 +142,7 @@ export default {
   mounted() {
       this.presenceTimer = setInterval(() => {
         this.nowTick = Date.now()
-      }, 5000)
+      }, 6000)
     },
 
     beforeUnmount() {
@@ -209,7 +209,7 @@ export default {
 
       const diff = Math.floor((Date.now() - date.getTime()) / 1000)
 
-      if (diff < 60) return `last seen ${diff}s ago`
+      if (diff < 60) return `last seen just now`
       if (diff < 3600) return `last seen ${Math.floor(diff / 60)}m ago`
       if (diff < 86400)
         return `last seen today at ${date.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}`
@@ -256,15 +256,29 @@ export default {
       }
     },
 
-    // ДОБАВЛЕНО: метод, который вызывает ChatLayout при входящем WS событии
+    
     handleIncomingMessage(rawPayload) {
       const msg = this.normalizeMessage(rawPayload)
-      // Защита от дублей
+      
       if (this.messages.find(m => String(m.id) === String(msg.id))) return 
       
       this.messages.push(msg)
       this.scrollToBottom()
       this.markIncomingAsRead()
+    },
+
+    handleDeleteMessage(payload) {
+      const id = payload?.id ?? payload?.message_id
+      if (!id) return
+      this.messages = this.messages.filter(m => String(m.id) !== String(id))
+    },
+
+    handleMessagesRead() {
+      this.messages = this.messages.map(m =>
+        String(m.sender_id) === String(this.currentUserId)
+          ? { ...m, status: 'read' }
+          : m
+      )
     },
 
     async markIncomingAsRead() {
@@ -273,20 +287,18 @@ export default {
         m => String(m.sender_id) !== String(this.currentUserId) && m.status !== 'read'
       )
       if (!hasUnread) return
-      try {
-        const url = new URL(`${BASE}/chat/messages/read`)
-        url.searchParams.set('chat_id', this.chatId)
-        url.searchParams.set('user_id', this.currentUserId)
 
-        const res = await fetch(url.toString(), {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
-        })
-        if (!res.ok) return
-        await this.loadMessages(true)
-      } catch (e) {
-        console.error('markIncomingAsRead error', e)
-      }
+      this.$emit('mark-as-read', {
+        chat_id: this.chatId,
+        user_id: this.currentUserId,
+        recipient_id: this.recipientId
+      })
+
+      this.messages = this.messages.map(m =>
+        String(m.sender_id) !== String(this.currentUserId)
+          ? { ...m, status: 'read' }
+          : m
+      )
     },
 
     scrollToBottom() {
@@ -369,7 +381,7 @@ export default {
       this.messageToDelete = null
     },
 
-    async executeDelete() {
+   async executeDelete() {
       if (!this.messageToDelete) return
       const messageId = this.messageToDelete
       this.closeDeleteModal()
@@ -379,15 +391,21 @@ export default {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
         })
-
         if (!res.ok) return
-        this.messages = this.messages.filter(m => m.id !== messageId)
+
+        this.messages = this.messages.filter(m => String(m.id) !== String(messageId))
+
+        this.$emit('message-deleted', {
+          id: messageId,
+          chat_id: this.chatId,
+          recipient_id: this.recipientId
+        })
       } catch (e) {
         console.error('Delete message error', e)
       }
-    }
-  }
-}
+    }  
+  }     
+}       
 </script>
 
 <style scoped>
@@ -462,12 +480,26 @@ export default {
 .messages-area-wrapper {
   flex: 1; min-height: 0; overflow: hidden;
   position: relative; display: flex; flex-direction: column;
+  
+  /* СЕТКА (ТЁМНАЯ ТЕМА) */
+  background-color: transparent;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 48px 48px; /* Шаг сетки как на макете */
+}
+.theme-light .messages-area-wrapper {
+  background-image: 
+    linear-gradient(rgba(91, 106, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(91, 106, 255, 0.04) 1px, transparent 1px);
 }
 .messages-area {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
   padding: 22px 28px 18px;
   display: flex; flex-direction: column; gap: 6px;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  /* Важно: убираем фон отсюда, чтобы было видно фон враппера */
+  background: transparent;
 }
 .messages-area::-webkit-scrollbar { width: 6px; }
 .messages-area::-webkit-scrollbar-thumb { background: rgba(148, 159, 212, 0.16); border-radius: 999px; }

@@ -121,11 +121,13 @@ func (h *Hub) Run() {
 			}
 
 		case message := <-h.broadcast:
+			slog.Info("broadcast received", "raw", string(message))
 			var event BaseMessagePayload
 			if err := json.Unmarshal(message, &event); err != nil {
 				slog.Error("error unmarshal payload", "error", err)
 				continue
 			}
+			slog.Info("event type", "type", event.Type)
 
 			switch event.Type {
 			case SendMessage:
@@ -166,6 +168,60 @@ func (h *Hub) Run() {
 				})
 				if err != nil {
 					slog.Error("error marshaling base message payload", "error", err)
+					continue
+				}
+
+				h.SendToUser(payload.RecipientID, responsePayload)
+
+			case DeleteMessage:
+				slog.Info("delete case hit")
+				var payload DeleteMessagePayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal delete_message payload", "error", err)
+					continue
+				}
+
+				ctx := context.Background()
+				if err := h.Mservice.DeleteMessageService(ctx, payload.ID); err != nil {
+					slog.Warn("message already deleted or not found, still notifying recipient", "error", err)
+				}
+
+				rawPayload, err := json.Marshal(payload)
+				if err != nil {
+					slog.Error("error marshaling delete payload", "error", err)
+					continue
+				}
+
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    DeleteMessage,
+					Payload: rawPayload,
+				})
+				if err != nil {
+					slog.Error("error marshaling base delete payload", "error", err)
+					continue
+				}
+
+				h.SendToUser(payload.RecipientID, responsePayload)
+
+			case MarkAsRead:
+				var payload MarkAsReadPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal mark_as_read payload", "error", err)
+					continue
+				}
+
+				ctx := context.Background()
+				if err := h.Mservice.MarkChatMessagesAsReadService(ctx, payload.ChatID, payload.UserID); err != nil {
+					slog.Error("error marking messages as read", "error", err)
+					continue
+				}
+
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    MarkAsRead,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling mark_as_read response", "error", err)
 					continue
 				}
 
