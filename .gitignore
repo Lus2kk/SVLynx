@@ -1,14 +1,6 @@
 .env
-<<<<<<< HEAD
-.postman
-.DS_Store
-.vscode
-.vite
-postman
-test.go
-=======
 .DS_Store
 
 
 
->>>>>>> origin/main
+app

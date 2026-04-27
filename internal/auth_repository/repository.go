@@ -3,18 +3,15 @@ package auth_repository
 import (
 	"context"
 	"log/slog"
-	"encoding/json"
 	"time"
-
 	"github.com/redis/go-redis/v9"
-	"github.com/svlynx/messenger/internal/auth_models"
 )
 
 const (
 	SessionTTL = 10 * time.Minute
 	CodeTTL          = 3 * time.Minute
 	PendingTTL       = 10 * time.Minute
-	EmailCooldownTTL = 1 * time.Minute
+	EmailCooldownTTL = 30 * time.Second
 	CodeCooldownTTL  = 5 * time.Second
 	AttemptsTTL      = 15 * time.Minute
 	RefreshTokenTTL  = 30 * 24 * time.Hour
@@ -24,10 +21,8 @@ const (
 
 type AuthRepository interface {
 	SaveSession(ctx context.Context, sessionID string) error
-	GetSessionEmail(ctx context.Context, sessionID string) (string, error)
-	GetSessionTG(ctx context.Context, sesionID string) (*auth_models.Session, error)
+	SessionExists(ctx context.Context, sessionID string) (bool, error)
 	DeleteSession(ctx context.Context, sessionID string) error
-	UpdateSession(ctx context.Context, session *auth_models.Session) error
 
 	SaveCode(ctx context.Context, email string, code string) error
 	GetCode(ctx context.Context, email string) (string, error)
@@ -46,11 +41,11 @@ type AuthRepository interface {
 	IncrEmailAttempts(ctx context.Context, email string) (int64, error)
 	ResetEmailAttempts(ctx context.Context, email string) error
 
-	InrcCodeAttempts(ctx context.Context, email string) (int64, error)
+	IncrCodeAttempts(ctx context.Context, email string) (int64, error)
 	ResetCodeAttempts(ctx context.Context, email string) error
 
-	SaveRefreshToken(ctx context.Context, token, email string) error
-	GetRefreshToken(ctx context.Context, token string) (string, error) 
+	SaveRefreshToken(ctx context.Context, token, userID string) error
+	GetUserIDByRefreshToken(ctx context.Context, token string) (string, error) 
 	DeleteRefreshToken(ctx context.Context, token string) error
 }
 
@@ -63,11 +58,12 @@ func NewRepository(redis *redis.Client) *Repository {
 }
 
 func (r *Repository) SaveSession(ctx context.Context, sessionID string) error {
-	return r.redis.Set(ctx, "session_id:"+sessionID, sessionID, SessionTTL).Err()
+	return r.redis.Set(ctx, "session_id:"+sessionID, 1, SessionTTL).Err()
 }
 
-func (r *Repository) GetSessionEmail(ctx context.Context, sessionID string) (string, error) {
-	return r.redis.Get(ctx, "session_id:"+sessionID).Result()
+func (r *Repository) SessionExists(ctx context.Context, sessionID string) (bool, error) {
+	n, err := r.redis.Exists(ctx, "session_id:"+sessionID).Result()
+	return n > 0, err
 }
 
 func (r *Repository) DeleteSession(ctx context.Context, sessionID string) error {
@@ -124,7 +120,7 @@ func (r *Repository) IncrEmailAttempts(ctx context.Context, email string) (int64
 	}
 
 	if count == 1 {
-		if err := r.redis.Expire(ctx, "email_attempts:"+email, AttemptsTTL); err != nil {
+		if err := r.redis.Expire(ctx, "email_attempts:"+email, AttemptsTTL).Err(); err != nil {
 			slog.Warn("couldn't set TTL for email attempts", "email", email, "err", err)
 		}
 	}
@@ -136,16 +132,14 @@ func (r *Repository) ResetEmailAttempts(ctx context.Context, email string) error
 	return r.redis.Del(ctx, "email_attempts:"+email).Err()
 }
 
-func (r *Repository) InrcCodeAttempts(ctx context.Context, email string) (int64, error) {
+func (r *Repository) IncrCodeAttempts(ctx context.Context, email string) (int64, error) {
 	count, err := r.redis.Incr(ctx, "code_attempts:"+email).Result()
-
-
 	if err != nil {
 		return 0, err
 	}
 
 	if count == 1 {
-		if err := r.redis.Expire(ctx, "code_attempts:"+email, AttemptsTTL); err != nil {
+		if err := r.redis.Expire(ctx, "code_attempts:"+email, AttemptsTTL).Err(); err != nil {
 			slog.Warn("couldn't set TTl for code attempts", "email", email)
 		}
 	}
@@ -157,11 +151,11 @@ func (r *Repository) ResetCodeAttempts(ctx context.Context, email string) error 
 	return r.redis.Del(ctx, "code_attempts:"+email).Err()
 }
 
-func (r *Repository) SaveRefreshToken(ctx context.Context, token, email string) error {
-	return r.redis.Set(ctx, "refresh:"+token, email, RefreshTokenTTL).Err()
+func (r *Repository) SaveRefreshToken(ctx context.Context, token, userID string) error {
+	return r.redis.Set(ctx, "refresh:"+token, userID, RefreshTokenTTL).Err()
 }
 
-func (r *Repository) GetRefreshToken(ctx context.Context, token string) (string, error){
+func (r *Repository) GetUserIDByRefreshToken(ctx context.Context, token string) (string, error){
 	return r.redis.Get(ctx, "refresh:"+token).Result()
 }
 
@@ -169,27 +163,4 @@ func (r *Repository) DeleteRefreshToken(ctx context.Context, token string) error
 	return r.redis.Del(ctx, "refresh:"+token).Err()
 }
 
-func (r *Repository) UpdateSession(ctx context.Context, session *auth_models.Session) error {
 
-	data, err := json.Marshal(session)
-	if err != nil {
-		return err
-	}
-	return r.redis.Set(ctx, "session:"+session.SessionID, data, SessionTTL).Err()
-}
-
-func (r *Repository) GetSessionTG(ctx context.Context, sessionID string) (*auth_models.Session, error) {
-
-	data, err := r.redis.Get(ctx, "session:"+sessionID).Bytes()
-
-	if err != nil {
-		return nil, err
-	}
-
-	var session auth_models.Session
-	if err := json.Unmarshal(data, &session); err != nil{
-		return nil, err
-	}
-	return &session, nil
-
-}

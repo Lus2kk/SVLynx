@@ -12,7 +12,8 @@ import (
 type DirectRepo interface {
 	CreateNewDirectRepo(ctx context.Context, chat *chat_models.Direct) (*chat_models.Direct, error)
 	GetDirectByIdRepo(ctx context.Context, MYid uuid.UUID, CompanionId uuid.UUID) (*chat_models.Direct, error)
-	GetListOfDirectsListByIDRepo(ctx context.Context, user_id uuid.UUID) ([]*chat_models.Direct, error)
+	GetListOfDirectsListByIDRepo(ctx context.Context, user_id uuid.UUID) ([]*chat_models.DirectListItem, error)
+	DeleteDirectRepo(ctx context.Context, chatID uuid.UUID) error
 }
 
 type MessageRepo interface {
@@ -21,4 +22,5 @@ type MessageRepo interface {
 	SearchMesageRepo(ctx context.Context, chat_id uuid.UUID, content string) ([]*chat_models.Message, error)
 	UpdateMessageStatusRepo(ctx context.Context, message_id uuid.UUID, status chat_models.MessageStatus) error
 	DeleteMessageRepo(ctx context.Context, message_id uuid.UUID) error
+	MarkChatMessagesAsReadRepo(ctx context.Context, chatID uuid.UUID, userID uuid.UUID) error
 }

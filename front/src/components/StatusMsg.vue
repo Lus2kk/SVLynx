@@ -23,28 +23,42 @@ export default {
   border-radius: 12px;
   font-size: 13.5px;
   margin-bottom: 16px;
+  width: 100%;
+  box-sizing: border-box;
 }
+
 .status.success {
   background: rgba(52,211,153,0.1);
   border: 1px solid rgba(52,211,153,0.2);
   color: #34d399;
 }
+
 .status.error {
   background: rgba(248,113,113,0.1);
   border: 1px solid rgba(248,113,113,0.2);
   color: #f87171;
 }
+
 .status-dot {
-  width: 8px; height: 8px;
+  width: 8px; 
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
   animation: pulse 1.5s ease-in-out infinite;
 }
+
 .status.success .status-dot { background: #34d399; }
 .status.error .status-dot   { background: #f87171; }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.5; transform: scale(0.8); }
+  50%      { opacity: 0.5; transform: scale(0.8); }
+}
+
+@media (max-width: 480px) {
+  .status {
+    font-size: 13px;
+    padding: 12px 14px;
+  }
 }
 </style>
