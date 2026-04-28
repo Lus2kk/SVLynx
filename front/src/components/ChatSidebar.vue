@@ -284,10 +284,11 @@ export default {
     },
 
     getChatTime(direct) {
-      const raw = direct.last_message_at || direct.updated_at || direct.created_at || direct.creation_time
+      const raw = direct.last_message_at || direct.updated_at || direct.created_at
       if (!raw) return ''
       const date = new Date(raw)
       if (Number.isNaN(date.getTime())) return ''
+      if (date.getFullYear() < 2000) return ''
       return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
     },
 
@@ -592,5 +593,10 @@ export default {
   .sidebar-tabs { padding: 0 12px 12px; }
   .sidebar-list { padding: 2px 8px 12px; }
   .confirm-modal { width: calc(100vw - 48px); max-width: 280px; }
+}
+.btn-delete {
+  padding: 8px 14px; border-radius: 10px;
+  background: linear-gradient(135deg, #ff4d6d, #d93856);
+  border: none; color: white; font-size: 13px; cursor: pointer;
 }
 </style>

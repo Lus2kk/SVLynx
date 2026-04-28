@@ -46,6 +46,7 @@
 
     <div class="messages-area-wrapper">
       <div class="messages-area" ref="messagesArea">
+        <div class="top-sentinel"></div>
         <div v-if="messages.length === 0" class="day-separator">Today</div>
 
         <MessageBubble
@@ -129,6 +130,8 @@ export default {
 
   data() {
     return {
+      hasMore: true,
+      loadingMore: false,
       messages: [],
       newMessage: '',
       deleteModalOpen: false,
@@ -143,6 +146,11 @@ export default {
       this.presenceTimer = setInterval(() => {
         this.nowTick = Date.now()
       }, 6000)
+      this.$nextTick(() => {
+        if (this.$refs.topSentinel) {
+          this.observer.observe(this.$refs.topSentinel)
+        }
+      })
     },
 
     beforeUnmount() {
@@ -150,6 +158,8 @@ export default {
         clearInterval(this.presenceTimer)
         this.presenceTimer = null
       }
+      const area = this.$refs.messagesArea
+      if (area) area.removeEventListener('scroll', this.onScroll)
     },
 
   computed: {
@@ -228,6 +238,7 @@ export default {
     },
 
     async loadMessages(skipReadPatch = false) {
+      this.hasMore = true
       if (!this.chatId) return
       this.loading = true
       try {
@@ -279,6 +290,14 @@ export default {
           ? { ...m, status: 'read' }
           : m
       )
+    },
+
+    onScroll() {
+      const area = this.$refs.messagesArea
+      if (!area) return
+      if (area.scrollTop < 100 && this.hasMore && !this.loadingMore) {
+        this.loadMoreMessages()
+      }
     },
 
     async markIncomingAsRead() {
@@ -380,6 +399,50 @@ export default {
       this.deleteModalOpen = false
       this.messageToDelete = null
     },
+
+    async loadMoreMessages() {
+  if (!this.chatId || this.loadingMore || !this.hasMore) return
+  this.loadingMore = true
+
+  try {
+    const oldest = this.messages[0]?.created_at
+    if (!oldest) return
+
+    const url = new URL(`${BASE}/chat/messages`)
+    url.searchParams.set('chat_id', this.chatId)
+    url.searchParams.set('before', oldest)
+    url.searchParams.set('limit', '50')
+
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
+    })
+    if (!res.ok) return
+
+    const data = await res.json()
+    const older = Array.isArray(data.messages) ? data.messages : []
+
+    if (older.length === 0) {
+      this.hasMore = false
+      return
+    }
+
+    const area = this.$refs.messagesArea
+    const prevScrollHeight = area.scrollHeight
+
+    this.messages = [
+      ...older.map(this.normalizeMessage).sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
+      ...this.messages
+    ]
+
+    this.$nextTick(() => {
+      area.scrollTop = area.scrollHeight - prevScrollHeight
+    })
+  } catch (e) {
+    console.error('loadMoreMessages error', e)
+  } finally {
+    this.loadingMore = false
+  }
+},
 
    async executeDelete() {
       if (!this.messageToDelete) return
