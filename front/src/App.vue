@@ -2,11 +2,7 @@
   <BgScene />
   <transition name="fade" mode="out-in">
     <div v-if="showChat" key="chat" class="app-view">
-<<<<<<< HEAD
-      <ChatLayout />
-=======
       <ChatLayout @theme-changed="onThemeChanged" />
->>>>>>> origin/velickoa087-alt_working_branch
     </div>
     <div v-else-if="showProfile" key="profile" class="app-view">
       <ProfileSetup @done="onProfileDone" />
@@ -24,35 +20,12 @@ import ProfileSetup from './components/ProfileSetup.vue'
 import ChatLayout from './components/ChatLayout.vue'
 
 export default {
-<<<<<<< HEAD
-  components: { 
-    BgScene, 
-    LoginCard, 
-    ProfileSetup,
-    ChatLayout 
-  },
-=======
   components: { BgScene, LoginCard, ProfileSetup, ChatLayout },
->>>>>>> origin/velickoa087-alt_working_branch
 
   data() {
     return {
       showProfile: false,
       showChat: false
-<<<<<<< HEAD
-    }
-  },
-
-  mounted() {
-    // Если пользователь уже авторизован и у него есть токен (и он не требует заполнения профиля),
-    // можно сразу показывать чат.
-    const token = sessionStorage.getItem('access_token')
-    if (token) {
-      // Здесь можно добавить проверку профиля на бэкенде, 
-      // но для начала просто покажем чат, если есть токен
-      this.showChat = true
-=======
->>>>>>> origin/velickoa087-alt_working_branch
     }
   },
 
@@ -91,19 +64,7 @@ body {
   min-height: 100vh;
   background: #080c14;
   font-family: 'DM Sans', sans-serif;
-<<<<<<< HEAD
-  overflow-x: hidden; 
-}
-
-.app-view {
-  width: 100%;
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-=======
   overflow-x: hidden;
->>>>>>> origin/velickoa087-alt_working_branch
 }
 .app-view {
   width: 100%;

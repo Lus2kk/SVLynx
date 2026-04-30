@@ -13,10 +13,6 @@
           </div>
         </div>
 
-<<<<<<< HEAD
-        <!-- Карандаш = режим удаления чатов -->
-=======
->>>>>>> origin/velickoa087-alt_working_branch
         <button
           class="header-btn"
           :class="{ 'delete-mode-active': deleteMode }"
