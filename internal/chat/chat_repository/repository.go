@@ -99,7 +99,11 @@ func (repo *PostgresRepo) GetListOfDirectsListByIDRepo(ctx context.Context, user
 			m1.user_id AS first_user_id,
 			m2.user_id AS second_user_id,
 			u.id AS companion_id,
+<<<<<<< HEAD
 			COALESCE(u.name, '') AS companion_name,
+=======
+			COALESCE(NULLIF(u.name, ''), NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.username, '') AS companion_name,
+>>>>>>> origin/velickoa087-alt_working_branch
 			COALESCE(u.nickname, '') AS companion_nickname,
 			COALESCE(u.photo_url, '') AS companion_photo_url,
 			COALESCE(msg.content, '') AS last_message_content,

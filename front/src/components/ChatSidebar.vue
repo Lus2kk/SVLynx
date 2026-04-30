@@ -13,7 +13,10 @@
           </div>
         </div>
 
+<<<<<<< HEAD
         <!-- Карандаш = режим удаления чатов -->
+=======
+>>>>>>> origin/velickoa087-alt_working_branch
         <button
           class="header-btn"
           :class="{ 'delete-mode-active': deleteMode }"
@@ -51,38 +54,34 @@
       </div>
 
       <div class="sidebar-list">
-        <!-- Поиск пользователей -->
         <template v-if="search.trim().length > 0">
           <div v-if="isSearching" class="list-state">Searching...</div>
 
-          <button
+          <div
             v-else
             v-for="user in searchResults"
             :key="user.id"
             class="chat-item"
-            type="button"
-            @click="$emit('start-chat', user.id, user.nickname)"
+            @click="handleStartChat(user.id, user.nickname)"
+            @touchend.prevent="handleStartChat(user.id, user.nickname)"
           >
             <div class="chat-avatar">
               <img v-if="user.photo_url" :src="user.photo_url" alt="" class="avatar-image" />
-              <span v-else>{{ (user.name || user.nickname)?.[0]?.toUpperCase() || '?' }}</span>
+              <span v-else>{{ (user.name || user.first_name || user.nickname)?.[0]?.toUpperCase() || '?' }}</span>
             </div>
             <div class="chat-body">
               <div class="chat-topline">
-                <!-- Верхняя строка: имя пользователя (name или nickname) -->
-                <span class="chat-name">{{ user.name || user.nickname || 'Unknown' }}</span>
+                <span class="chat-name">{{ user.name || (user.first_name ? (user.first_name + (user.last_name ? ' ' + user.last_name : '')) : null) || user.nickname || user.username || 'Unknown' }}</span>
               </div>
               <div class="chat-bottomline">
-                <!-- Нижняя строка: @nickname -->
                 <span class="chat-preview">@{{ user.nickname || user.username || '' }}</span>
               </div>
             </div>
-          </button>
+          </div>
 
           <div v-if="!isSearching && searchResults.length === 0" class="list-state">No users found</div>
         </template>
 
-        <!-- Список диалогов -->
         <template v-else>
           <div
             v-for="direct in filteredDirects"
@@ -112,7 +111,6 @@
               </div>
             </button>
 
-            <!-- Кнопка удаления чата (только в режиме deleteMode) -->
             <button
               v-if="deleteMode"
               class="delete-chat-btn"
@@ -144,7 +142,6 @@
             </svg>
           </button>
 
-          <!-- Кнопка переключения темы -->
           <button class="footer-btn" title="Toggle theme" type="button" @click="toggleTheme">
             <svg v-if="!isLight" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
@@ -163,9 +160,9 @@
           </button>
         </div>
       </footer>
+       <div class="theme-fill"></div>
     </div>
 
-    <!-- Модалка подтверждения удаления чата -->
     <div v-if="chatToDelete" class="modal-overlay" @click.self="chatToDelete = null">
       <div class="confirm-modal">
         <h3>Delete chat?</h3>
@@ -231,9 +228,21 @@ export default {
 
   methods: {
     toggleTheme() {
-      this.$emit('toggle-theme')
+  this.$emit('toggle-theme')
+  this.$nextTick(() => {
+    const isLight = localStorage.getItem('svlynx-theme') === 'light'
+    const color = isLight ? '#ffffff' : 'rgb(8, 12, 26)'
+    document.body.style.background = color
+    document.documentElement.style.background = color
+    const fill = document.getElementById('safe-area-fill')
+    if (fill) fill.style.background = color
+  })
+},
+    handleStartChat(userId, nickname) {
+    this.search = ''
+    this.searchResults = []
+    this.$emit('start-chat', userId, nickname)
     },
-
     async fetchUsers(query) {
       this.isSearching = true
       try {
@@ -284,13 +293,13 @@ export default {
     },
 
     getChatTime(direct) {
-      const raw = direct.last_message_at || direct.updated_at || direct.created_at
-      if (!raw) return ''
-      const date = new Date(raw)
-      if (Number.isNaN(date.getTime())) return ''
-      if (date.getFullYear() < 2000) return ''
-      return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-    },
+    const raw = direct.last_message_at || direct.updated_at || direct.created_at || direct.creation_time
+    if (!raw) return ''
+    const date = new Date(raw)
+    if (Number.isNaN(date.getTime())) return ''
+    if (date.getFullYear() < 2000) return ''
+    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+   },
 
     askDeleteChat(direct) {
       this.chatToDelete = direct
@@ -304,7 +313,7 @@ export default {
 
       try {
         const url = new URL(`${BASE}/chat/direct/${chatId}`)
-        url.searchParams.set('recipient_id', recipientId)  // ← добавь
+        url.searchParams.set('recipient_id', recipientId)
 
         const res = await fetch(url.toString(), {
           method: 'DELETE',
@@ -331,7 +340,6 @@ export default {
   position: relative;
 }
 
-/* ===== DARK (default) ===== */
 .sidebar-shell {
   height: 100%;
   display: flex;
@@ -340,58 +348,28 @@ export default {
   background: linear-gradient(180deg, rgba(8, 12, 26, 0.98), rgba(7, 10, 22, 0.98));
 }
 
-/* ===== LIGHT THEME ===== */
-.theme-light .sidebar-shell {
-  background: #ffffff;
-}
-.theme-light .sidebar-header {
-  border-bottom: none;
-}
+.theme-light .sidebar-shell { background: #ffffff; }
+.theme-light .sidebar-header { border-bottom: none; }
 .theme-light .brand-main { color: #1a1d2e; }
 .theme-light .brand-accent { color: #5b6aff; }
-.theme-light .brand-mark {
-  background: linear-gradient(135deg, #5b6aff, #7b68ff);
-}
-.theme-light .header-btn {
-  color: #5b6aff;
-  background: rgba(91, 106, 255, 0.08);
-  border-color: rgba(91, 106, 255, 0.15);
-}
-.theme-light .search-box {
-  background: #f3f4f8;
-  border-color: #e2e4ee;
-}
+.theme-light .brand-mark { background: linear-gradient(135deg, #5b6aff, #7b68ff); }
+.theme-light .header-btn { color: #5b6aff; background: rgba(91, 106, 255, 0.08); border-color: rgba(91, 106, 255, 0.15); }
+.theme-light .search-box { background: #f3f4f8; border-color: #e2e4ee; }
 .theme-light .search-icon { color: #9098b8; }
 .theme-light .search-input { color: #1a1d2e; }
 .theme-light .search-input::placeholder { color: #aab0cc; }
 .theme-light .tab-btn { color: #8890b4; }
-.theme-light .tab-btn.active {
-  color: #1a1d2e;
-  background: rgba(91, 106, 255, 0.1);
-  border-color: rgba(91, 106, 255, 0.18);
-}
+.theme-light .tab-btn.active { color: #1a1d2e; background: rgba(91, 106, 255, 0.1); border-color: rgba(91, 106, 255, 0.18); }
 .theme-light .chat-item:hover { background: #f3f4f8; }
-.theme-light .chat-item.active {
-  background: linear-gradient(180deg, rgba(91, 106, 255, 0.1), rgba(91, 106, 255, 0.07));
-  border-color: rgba(91, 106, 255, 0.22);
-}
+.theme-light .chat-item.active { background: linear-gradient(180deg, rgba(91, 106, 255, 0.1), rgba(91, 106, 255, 0.07)); border-color: rgba(91, 106, 255, 0.22); }
 .theme-light .chat-name { color: #1a1d2e; }
 .theme-light .chat-time { color: #9098b8; }
 .theme-light .chat-preview { color: #7880a0; }
 .theme-light .list-state { color: #9098b8; }
-.theme-light .sidebar-footer { border-top-color: #e8eaf0; }
-.theme-light .footer-btn {
-  color: #7880a0;
-  background: #f3f4f8;
-  border-color: #e2e4ee;
-}
-.theme-light .delete-chat-btn {
-  background: rgba(255, 60, 80, 0.06);
-  border-color: rgba(255, 60, 80, 0.15);
-  color: #ff3c50;
-}
+.theme-light .sidebar-footer { border-top-color: #e8eaf0; background: #ffffff; }
+.theme-light .footer-btn { color: #7880a0; background: #f3f4f8; border-color: #e2e4ee; }
+.theme-light .delete-chat-btn { background: rgba(255, 60, 80, 0.06); border-color: rgba(255, 60, 80, 0.15); color: #ff3c50; }
 
-/* ===== HEADER ===== */
 .sidebar-header {
   height: 78px;
   padding: 18px 16px 14px;
@@ -402,10 +380,8 @@ export default {
 
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand-mark {
-  width: 31px; height: 31px;
-  border-radius: 10px;
-  display: grid; place-items: center;
-  color: #ffffff;
+  width: 31px; height: 31px; border-radius: 10px;
+  display: grid; place-items: center; color: #ffffff;
   background: linear-gradient(135deg, #6675ff, #7b68ff);
   box-shadow: 0 8px 18px rgba(90, 98, 255, 0.22);
 }
@@ -414,22 +390,14 @@ export default {
 .brand-accent { color: #92a0ff; }
 
 .header-btn {
-  width: 32px; height: 32px;
-  border-radius: 10px;
+  width: 32px; height: 32px; border-radius: 10px;
   display: grid; place-items: center;
-  color: #98a2ca;
-  background: rgba(255, 255, 255, 0.02);
+  color: #98a2ca; background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.04);
-  cursor: pointer;
-  transition: all 0.2s;
+  cursor: pointer; transition: all 0.2s;
 }
-.header-btn.delete-mode-active {
-  color: #ff4d6d;
-  background: rgba(255, 77, 109, 0.12);
-  border-color: rgba(255, 77, 109, 0.25);
-}
+.header-btn.delete-mode-active { color: #ff4d6d; background: rgba(255, 77, 109, 0.12); border-color: rgba(255, 77, 109, 0.25); }
 
-/* ===== SEARCH ===== */
 .search-wrap { padding: 0 16px 12px; }
 .search-box {
   height: 40px; display: flex; align-items: center; gap: 9px; padding: 0 12px;
@@ -440,11 +408,10 @@ export default {
 .search-icon { color: #7480a8; }
 .search-input {
   flex: 1; min-width: 0; background: transparent; border: none; outline: none;
-  color: #eef1ff; font-size: 13px; font-weight: 500;
+  color: #eef1ff; font-size: 16px; font-weight: 500;
 }
 .search-input::placeholder { color: #6d7798; }
 
-/* ===== TABS ===== */
 .sidebar-tabs { display: flex; gap: 8px; padding: 0 16px 14px; overflow-x: auto; }
 .sidebar-tabs::-webkit-scrollbar { display: none; }
 .tab-btn {
@@ -452,34 +419,21 @@ export default {
   color: #7d87ab; font-size: 11px; font-weight: 700;
   background: transparent; border: 1px solid transparent; cursor: pointer; transition: all 0.2s;
 }
-.tab-btn.active {
-  color: #f1f4ff;
-  background: rgba(96, 108, 255, 0.14);
-  border-color: rgba(114, 126, 255, 0.16);
-}
+.tab-btn.active { color: #f1f4ff; background: rgba(96, 108, 255, 0.14); border-color: rgba(114, 126, 255, 0.16); }
 
-/* ===== LIST ===== */
 .sidebar-list { flex: 1; overflow-y: auto; min-height: 0; padding: 2px 10px 12px; }
 .sidebar-list::-webkit-scrollbar { width: 6px; }
 .sidebar-list::-webkit-scrollbar-thumb { background: rgba(147, 158, 211, 0.16); border-radius: 999px; }
 
 .chat-item-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
-  min-width: 0;
-  overflow: hidden;
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 6px; min-width: 0; overflow: hidden;
 }
 
 .chat-item {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
+  flex: 1; min-width: 0; overflow: hidden;
   display: flex; align-items: center; gap: 11px;
-  padding: 11px 10px;
-  border-radius: 16px;
-  text-align: left;
+  padding: 11px 10px; border-radius: 16px; text-align: left;
   background: transparent; border: 1px solid transparent;
   transition: all 0.16s ease; cursor: pointer;
 }
@@ -491,19 +445,13 @@ export default {
 }
 
 .delete-chat-btn {
-  flex-shrink: 0;
-  width: 30px; height: 30px;
-  border-radius: 10px;
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 10px;
   display: grid; place-items: center;
-  color: #ff4d6d;
-  background: rgba(255, 77, 109, 0.1);
+  color: #ff4d6d; background: rgba(255, 77, 109, 0.1);
   border: 1px solid rgba(255, 77, 109, 0.2);
-  cursor: pointer;
-  transition: all 0.15s;
+  cursor: pointer; transition: all 0.15s;
 }
-.delete-chat-btn:hover {
-  background: rgba(255, 77, 109, 0.2);
-}
+.delete-chat-btn:hover { background: rgba(255, 77, 109, 0.2); }
 
 .chat-avatar {
   width: 42px; height: 42px; border-radius: 14px; flex-shrink: 0;
@@ -513,9 +461,7 @@ export default {
 }
 .avatar-image { width: 100%; height: 100%; object-fit: cover; }
 .chat-body { flex: 1; min-width: 0; }
-.chat-topline, .chat-bottomline {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px; overflow: hidden;
-}
+.chat-topline, .chat-bottomline { display: flex; align-items: center; justify-content: space-between; gap: 8px; overflow: hidden; }
 .chat-topline { margin-bottom: 3px; }
 .chat-name { color: #eef2ff; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chat-time { flex-shrink: 0; color: #7580a6; font-size: 10.5px; font-weight: 600; }
@@ -528,30 +474,23 @@ export default {
 }
 .list-state { padding: 26px 12px; text-align: center; color: #7c86ad; font-size: 12px; }
 
-/* ===== FOOTER ===== */
-.sidebar-footer {
-  padding: 12px 16px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
-}
+.sidebar-footer { padding: 12px 16px 14px; border-top: 1px solid rgba(255, 255, 255, 0.03); }
 .footer-actions { display: flex; gap: 10px; }
 .footer-btn {
   width: 34px; height: 34px; border-radius: 11px;
   display: grid; place-items: center;
-  color: #97a2c8;
-  background: rgba(255, 255, 255, 0.02);
+  color: #97a2c8; background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.04);
   cursor: pointer; transition: all 0.2s;
 }
 .footer-btn:hover { background: rgba(255, 255, 255, 0.05); }
 
-/* ===== MODAL ===== */
 .modal-overlay {
   position: absolute; inset: 0;
   background: rgba(5, 8, 20, 0.55);
   backdrop-filter: blur(4px);
   display: grid; place-items: center;
-  z-index: 20;
-  border-radius: inherit;
+  z-index: 20; border-radius: inherit;
 }
 .theme-light .modal-overlay { background: rgba(200, 205, 230, 0.5); }
 
@@ -559,14 +498,9 @@ export default {
   background: linear-gradient(180deg, rgba(22, 28, 52, 0.97), rgba(16, 20, 38, 0.99));
   border: 1px solid rgba(132, 144, 224, 0.15);
   border-radius: 16px; padding: 24px; width: 260px;
-  text-align: center;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.4);
 }
-.theme-light .confirm-modal {
-  background: #ffffff;
-  border-color: #dde1f0;
-  box-shadow: 0 12px 40px rgba(90, 106, 200, 0.15);
-}
+.theme-light .confirm-modal { background: #ffffff; border-color: #dde1f0; box-shadow: 0 12px 40px rgba(90, 106, 200, 0.15); }
 .confirm-modal h3 { color: #eef2ff; font-size: 15px; margin-bottom: 8px; }
 .confirm-modal p { color: #8d96ba; font-size: 12px; line-height: 1.6; margin-bottom: 20px; }
 .theme-light .confirm-modal h3 { color: #1a1d2e; }
@@ -578,25 +512,46 @@ export default {
   color: #a6afd4; font-size: 13px; cursor: pointer;
 }
 .theme-light .btn-cancel { background: #f3f4f8; border-color: #e2e4ee; color: #7880a0; }
-
-@media (max-width: 760px) {
-  .chat-sidebar {
-    border-radius: 0;
-    height: 100%;
-    width: 100%;
-  }
-  .sidebar-header {
-    height: 64px;
-    padding: 12px 14px 10px;
-  }
-  .search-wrap { padding: 0 12px 10px; }
-  .sidebar-tabs { padding: 0 12px 12px; }
-  .sidebar-list { padding: 2px 8px 12px; }
-  .confirm-modal { width: calc(100vw - 48px); max-width: 280px; }
-}
 .btn-delete {
   padding: 8px 14px; border-radius: 10px;
   background: linear-gradient(135deg, #ff4d6d, #d93856);
   border: none; color: white; font-size: 13px; cursor: pointer;
+} 
+
+@media (max-width: 760px) {
+  .chat-sidebar {
+    border-radius: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .sidebar-shell {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: linear-gradient(180deg, rgba(8, 12, 26, 0.98), rgba(7, 10, 22, 0.98));
+  }
+
+  .theme-light .sidebar-shell {
+    background: #ffffff;
+  }
+
+  .sidebar-header { height: 64px; padding: 12px 14px 10px; }
+  .search-wrap { padding: 0 12px 10px; }
+  .sidebar-tabs { padding: 0 12px 12px; }
+  .sidebar-list { padding: 2px 8px 12px; }
+  .confirm-modal { width: calc(100vw - 48px); max-width: 280px; }
+  .sidebar-footer { padding-bottom: env(safe-area-inset-bottom, 14px); }
+}
+.theme-fill {
+  flex-shrink: 0;
+  height: env(safe-area-inset-bottom);
+  background: rgba(7, 10, 22, 0.98);
+}
+.theme-light .theme-fill {
+  background: #ffffff;
 }
 </style>

@@ -97,9 +97,10 @@ export default {
   }
 }
 
+/* Dark - theirs */
 .message-bubble.theirs {
-  background: #1e2340;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.075);
+  border: 1px solid rgba(255, 255, 255, 0.035);
   color: #eef1fb;
   border-bottom-left-radius: 8px;
 }

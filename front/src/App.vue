@@ -2,7 +2,11 @@
   <BgScene />
   <transition name="fade" mode="out-in">
     <div v-if="showChat" key="chat" class="app-view">
+<<<<<<< HEAD
       <ChatLayout />
+=======
+      <ChatLayout @theme-changed="onThemeChanged" />
+>>>>>>> origin/velickoa087-alt_working_branch
     </div>
     <div v-else-if="showProfile" key="profile" class="app-view">
       <ProfileSetup @done="onProfileDone" />
@@ -20,17 +24,22 @@ import ProfileSetup from './components/ProfileSetup.vue'
 import ChatLayout from './components/ChatLayout.vue'
 
 export default {
+<<<<<<< HEAD
   components: { 
     BgScene, 
     LoginCard, 
     ProfileSetup,
     ChatLayout 
   },
+=======
+  components: { BgScene, LoginCard, ProfileSetup, ChatLayout },
+>>>>>>> origin/velickoa087-alt_working_branch
 
   data() {
     return {
       showProfile: false,
       showChat: false
+<<<<<<< HEAD
     }
   },
 
@@ -42,10 +51,31 @@ export default {
       // Здесь можно добавить проверку профиля на бэкенде, 
       // но для начала просто покажем чат, если есть токен
       this.showChat = true
+=======
+>>>>>>> origin/velickoa087-alt_working_branch
     }
   },
 
+  mounted() {
+    const token = sessionStorage.getItem('access_token')
+    if (token) this.showChat = true
+    this.applyTheme()
+  },
+
   methods: {
+    applyTheme() {
+      const isLight = localStorage.getItem('svlynx-theme') === 'light'
+      const color = isLight ? '#ffffff' : 'rgb(8, 12, 26)'
+      document.documentElement.style.background = color
+      document.body.style.background = color
+      const meta = document.querySelector('meta[name="theme-color"]')
+      if (meta) meta.setAttribute('content', color)
+    },
+
+    onThemeChanged() {
+      this.applyTheme()
+    },
+
     onProfileDone() {
       this.showProfile = false
       this.showChat = true
@@ -56,13 +86,12 @@ export default {
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap');
-
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
 body {
   min-height: 100vh;
   background: #080c14;
   font-family: 'DM Sans', sans-serif;
+<<<<<<< HEAD
   overflow-x: hidden; 
 }
 
@@ -72,11 +101,18 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
+=======
+  overflow-x: hidden;
+>>>>>>> origin/velickoa087-alt_working_branch
 }
-
-.fade-enter-active, .fade-leave-active {
-  transition: all 0.35s ease;
+.app-view {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
+.fade-enter-active, .fade-leave-active { transition: all 0.35s ease; }
 .fade-enter-from { opacity: 0; transform: translateY(16px) scale(0.98); }
 .fade-leave-to { opacity: 0; transform: translateY(-16px) scale(0.98); }
 </style>

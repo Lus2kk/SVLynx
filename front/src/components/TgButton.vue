@@ -1,13 +1,12 @@
 <template>
   <div class="tg-wrapper" ref="wrapper"></div>
 </template>
-
 <script>
 export default {
   emits: ['auth', 'error'],
-
   mounted() {
     window.onTelegramAuth = async (user) => {
+      console.log('Telegram user data:', JSON.stringify(user))
       try {
         const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/telegram/callback`, {
           method: 'POST',
@@ -16,23 +15,18 @@ export default {
           },
           body: JSON.stringify(user)
         })
-
         const data = await response.json()
-
         if (!response.ok) {
           throw new Error(data.error || 'Telegram auth failed')
         }
-
         sessionStorage.setItem('access_token', data.access_token)
         sessionStorage.setItem('refresh_token', data.refresh_token)
-
         this.$emit('auth', data)
       } catch (err) {
         console.error('Telegram auth failed', err)
         this.$emit('error', err)
       }
     }
-
     const script = document.createElement('script')
     script.src = 'https://telegram.org/js/telegram-widget.js?22'
     script.setAttribute('data-telegram-login', 'svlynx_auth_bot')
@@ -46,13 +40,11 @@ export default {
 
     this.$refs.wrapper.appendChild(script)
   },
-
   beforeUnmount() {
     delete window.onTelegramAuth
   }
 }
 </script>
-
 <style scoped>
 .tg-wrapper {
   display: flex;
@@ -61,7 +53,6 @@ export default {
   width: 100%;
   margin-bottom: 32px;
 }
-
 .tg-wrapper :deep(iframe),
 .tg-wrapper :deep(span),
 .tg-wrapper :deep(a) {

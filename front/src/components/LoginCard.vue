@@ -59,28 +59,16 @@ export default {
       }
     },
 
-    onTelegramAuth(user) {
-      this.status = { type: 'success', message: 'Подключение к серверу...' }
-
-      fetch('https://svlynx.site/auth/telegram/callback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(user)
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.status === 'approved' || data.access_token) {
-            this.status = { type: 'success', message: 'Вы вошли! Переход в SVLynx...' }
-            // Переходим в чат после успешной авторизации через ТГ
-            setTimeout(() => this.$emit('show-chat'), 500)
-          } else {
-            this.status = { type: 'error', message: 'Ошибка: ' + (data.error || 'Неизвестная ошибка') }
-          }
-        })
-        .catch(() => {
-          this.status = { type: 'error', message: 'Не удалось подключиться к серверу' }
-        })
-    }
+    onTelegramAuth(data) {
+  if (data.access_token) {
+    sessionStorage.setItem('access_token', data.access_token)
+    sessionStorage.setItem('refresh_token', data.refresh_token)
+    this.status = { type: 'success', message: 'Вы вошли! Переход в SVLynx...' }
+    setTimeout(() => this.$emit('show-chat'), 500)
+  } else {
+    this.status = { type: 'error', message: data.error || 'Ошибка авторизации' }
+  }
+}
   }
 }
 </script>
@@ -238,6 +226,18 @@ export default {
 
   .desktop-break {
     display: inline;
+  }
+}
+@media (max-width: 760px) {
+  .login-wrapper {
+    min-height: 100dvh;
+    background: hwb(224 5% 87%);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .card {
+    min-height: 100dvh;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
   }
 }
 </style>
