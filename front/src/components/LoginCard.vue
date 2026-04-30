@@ -228,4 +228,16 @@ export default {
     display: inline;
   }
 }
+@media (max-width: 760px) {
+  .login-wrapper {
+    min-height: 100dvh;
+    background: hwb(224 5% 87%);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .card {
+    min-height: 100dvh;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+}
 </style>

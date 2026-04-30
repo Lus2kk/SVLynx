@@ -88,14 +88,22 @@ export default {
       return this.userStatuses[key] || { online: false, lastSeen: null }
     }
   },
-
+  watch: {
+  isLight(val) {
+    this.$nextTick(() => {
+      this.updateThemeColor()
+    })
+  }
+},
   async mounted() {
-    this.currentUserId = this.parseUserIdFromToken()
-    await this.loadDirects()
-    this.connectWebSocket()
-    this.checkMobile()
-    window.addEventListener('resize', this.checkMobile)
-  },
+  this.currentUserId = this.parseUserIdFromToken()
+  this.updateThemeColor()
+  
+  await this.loadDirects()
+  this.connectWebSocket()
+  this.checkMobile()
+  window.addEventListener('resize', this.checkMobile)
+},
 
   beforeUnmount() {
     if (this.reconnectTimer) {
@@ -221,10 +229,22 @@ export default {
       }
     },
 
-    toggleTheme() {
-      this.isLight = !this.isLight
-      localStorage.setItem('svlynx-theme', this.isLight ? 'light' : 'dark')
-    },
+  toggleTheme() {
+  this.isLight = !this.isLight
+  localStorage.setItem('svlynx-theme', this.isLight ? 'light' : 'dark')
+  this.updateThemeColor()
+  this.$emit('theme-changed')
+},
+
+updateThemeColor() {
+  const color = this.isLight ? '#ffffff' : 'rgb(8, 12, 26)'
+  document.body.style.background = color
+  document.body.style.backgroundColor = color
+  document.documentElement.style.background = color
+  document.documentElement.style.backgroundColor = color
+  const meta = document.querySelector('meta[name="theme-color"]')
+  if (meta) meta.setAttribute('content', color)
+},
 
     parseJwt(token) {
       try {
@@ -407,16 +427,16 @@ export default {
         const direct = data.direct || data.chat || data
         const exists = this.directs.find(d => String(d.id) === String(direct.id))
 
-        if (!exists) {
-          this.directs.unshift({ ...direct, companion_nickname: nickname || direct.companion_nickname })
-          this.saveChatsToLocal()
-        }
-
+        await this.loadDirects()
         this.activeChatId = direct.id
         this.activeRecipientId = userId
-        this.chatWindowKey++ 
-
+        this.chatWindowKey++
         this.fetchUserStatus(userId)
+        if (this.isMobile) this.mobileView = 'chat'
+        await this.loadDirects()
+        if (updated) {
+        this.activeChatId = updated.id
+        }
       } catch (e) {
         console.error('startChat crash:', e)
       }
@@ -431,16 +451,20 @@ export default {
 
 
 .direct-page {
-  height: 100vh; width: 100vw;
-  min-height: 0; display: flex; align-items: center; justify-content: center;
-  padding: 24px; box-sizing: border-box; position: relative; overflow: hidden;
-  background:
-    radial-gradient(circle at 12% 20%, rgba(70, 90, 255, 0.1), transparent 22%),
-    radial-gradient(circle at 85% 88%, rgba(108, 86, 255, 0.1), transparent 26%),
-    linear-gradient(180deg, #070b17 0%, #060914 100%);
+  height: 100svh;
+  width: 100vw;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+  background: rgba(8, 12, 26, 0.98);
   font-family: 'Satoshi', sans-serif;
   transition: background 0.3s;
-}
+} 
 
 
 /* Light page background */
@@ -539,18 +563,44 @@ export default {
   .direct-shell { grid-template-columns: 300px 1fr; }
 }
 @media (max-width: 760px) {
-  .direct-page { padding: 0; }
+  .direct-page {
+    padding: 0;
+    align-items: stretch;
+    position: fixed;
+    inset: 0;
+    background: rgb(8, 12, 26);
+  }
+  .direct-page.theme-light {
+    background: #ffffff;
+  }
+
   .direct-shell {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr;
+    flex: 1;
+    height: 100%;
+    min-height: 0;
     border-radius: 0;
     border: none;
+    padding-top: env(safe-area-inset-top);
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    align-items: stretch;
   }
+
+  .direct-shell.theme-light {
+    background: #ffffff;
+  }
+
   .content-area {
     grid-column: 1;
     grid-row: 1;
+    height: 100%;
+    overflow: hidden;
   }
-  /* Mobile panel switching */
+
+  .direct-shell.theme-light .content-area {
+    background: #ffffff;
+  }
+
   .mobile-hidden {
     display: none !important;
   }
