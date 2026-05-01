@@ -1,3 +1,4 @@
+
 <template>
   <div class="login-wrapper">
     <div class="card">
@@ -60,15 +61,15 @@ export default {
     },
 
     onTelegramAuth(data) {
-  if (data.access_token) {
-    sessionStorage.setItem('access_token', data.access_token)
-    sessionStorage.setItem('refresh_token', data.refresh_token)
-    this.status = { type: 'success', message: 'Вы вошли! Переход в SVLynx...' }
-    setTimeout(() => this.$emit('show-chat'), 500)
-  } else {
-    this.status = { type: 'error', message: data.error || 'Ошибка авторизации' }
-  }
-}
+      if (data.access_token) {
+        sessionStorage.setItem('access_token', data.access_token)
+        sessionStorage.setItem('refresh_token', data.refresh_token)
+        this.status = { type: 'success', message: 'Вы вошли! Переход в SVLynx...' }
+        setTimeout(() => this.$emit('show-chat'), 500)
+      } else {
+        this.status = { type: 'error', message: data.error || 'Ошибка авторизации' }
+      }
+    }
   }
 }
 </script>
@@ -103,7 +104,7 @@ export default {
 .card-content {
   width: 100%;
   max-width: 420px;
-  margin: auto auto; 
+  margin: auto auto;
   display: flex;
   flex-direction: column;
 }
@@ -228,16 +229,24 @@ export default {
     display: inline;
   }
 }
+
 @media (max-width: 760px) {
   .login-wrapper {
     min-height: 100dvh;
     background: hwb(224 5% 87%);
-    padding-bottom: env(safe-area-inset-bottom);
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 0;
   }
-  
+
   .card {
+    flex: 1;
     min-height: 100dvh;
+    padding-top: calc(24px + env(safe-area-inset-top));
     padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    background: hwb(224 5% 87%);
+    position: sticky;
+    bottom: 0;
   }
 }
 </style>

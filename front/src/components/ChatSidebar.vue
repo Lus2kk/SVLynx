@@ -156,7 +156,6 @@
           </button>
         </div>
       </footer>
-       <div class="theme-fill"></div>
     </div>
 
     <div v-if="chatToDelete" class="modal-overlay" @click.self="chatToDelete = null">
@@ -225,14 +224,6 @@ export default {
   methods: {
     toggleTheme() {
   this.$emit('toggle-theme')
-  this.$nextTick(() => {
-    const isLight = localStorage.getItem('svlynx-theme') === 'light'
-    const color = isLight ? '#ffffff' : 'rgb(8, 12, 26)'
-    document.body.style.background = color
-    document.documentElement.style.background = color
-    const fill = document.getElementById('safe-area-fill')
-    if (fill) fill.style.background = color
-  })
 },
     handleStartChat(userId, nickname) {
     this.search = ''
@@ -362,7 +353,11 @@ export default {
 .theme-light .chat-time { color: #9098b8; }
 .theme-light .chat-preview { color: #7880a0; }
 .theme-light .list-state { color: #9098b8; }
-.theme-light .sidebar-footer { border-top-color: #e8eaf0; background: #ffffff; }
+.theme-light .sidebar-footer { 
+  border-top-color: #e8eaf0; 
+  background: #ffffff;
+  transition: none;
+}
 .theme-light .footer-btn { color: #7880a0; background: #f3f4f8; border-color: #e2e4ee; }
 .theme-light .delete-chat-btn { background: rgba(255, 60, 80, 0.06); border-color: rgba(255, 60, 80, 0.15); color: #ff3c50; }
 
@@ -470,7 +465,13 @@ export default {
 }
 .list-state { padding: 26px 12px; text-align: center; color: #7c86ad; font-size: 12px; }
 
-.sidebar-footer { padding: 12px 16px 14px; border-top: 1px solid rgba(255, 255, 255, 0.03); }
+.sidebar-footer { 
+  padding: 12px 16px 14px; 
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  position: sticky;
+  bottom: 0;
+  background: rgba(7, 10, 22, 0.98);
+}
 .footer-actions { display: flex; gap: 10px; }
 .footer-btn {
   width: 34px; height: 34px; border-radius: 11px;
@@ -542,12 +543,5 @@ export default {
   .confirm-modal { width: calc(100vw - 48px); max-width: 280px; }
   .sidebar-footer { padding-bottom: env(safe-area-inset-bottom, 14px); }
 }
-.theme-fill {
-  flex-shrink: 0;
-  height: env(safe-area-inset-bottom);
-  background: rgba(7, 10, 22, 0.98);
-}
-.theme-light .theme-fill {
-  background: #ffffff;
-}
+
 </style>
