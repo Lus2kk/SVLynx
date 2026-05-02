@@ -159,21 +159,20 @@ export default {
 
 @media (max-width: 760px) {
   .message-bubble-wrapper {
-    max-width: calc(100% - 44px); /* оставляем место под кнопку удаления */
+    max-width: calc(100% - 44px);
   }
   .message-row.theirs .message-bubble-wrapper {
     max-width: 85%;
   }
 }
 
-/* Dark - theirs */
 .message-bubble.theirs {
   background: rgba(255, 255, 255, 0.075);
   border: 1px solid rgba(255, 255, 255, 0.035);
   color: #eef1fb;
   border-bottom-left-radius: 8px;
 }
-/* Dark - mine */
+
 .message-bubble.mine {
   background: linear-gradient(180deg, rgba(108, 118, 255, 0.9), rgba(93, 104, 240, 0.92));
   color: #f9fbff;
@@ -181,14 +180,13 @@ export default {
   box-shadow: 0 10px 22px rgba(70, 80, 210, 0.16);
 }
 
-/* Light - theirs */
 .theme-light .message-bubble.theirs {
   background: #ffffff;
   border-color: #e4e6f0;
   color: #1a1d2e;
   box-shadow: 0 2px 8px rgba(91, 106, 200, 0.06);
 }
-/* Light - mine */
+
 .theme-light .message-bubble.mine {
   background: linear-gradient(180deg, #5b6aff, #6e79ff);
   color: #ffffff;
@@ -200,6 +198,7 @@ export default {
 .message-meta {
   margin-top: 8px; display: flex; justify-content: flex-end; align-items: center; gap: 6px;
 }
+
 .message-time { font-size: 11px; opacity: 0.72; }
 .message-status { display: inline-flex; align-items: center; color: rgba(255, 255, 255, 0.72); opacity: 0.95; }
 .message-status.read { color: #4f8ef7; opacity: 1; }
@@ -223,30 +222,20 @@ export default {
 .delete-btn:hover { color: #ff4d6d; background: rgba(255, 77, 109, 0.1); border-color: rgba(255, 77, 109, 0.2); }
 .message-status.failed { color: #ff4d6d; opacity: 1; }
 
-.voice-player {
-  display: flex; align-items: center; gap: 10px;
-  min-width: 180px;
+.message-row {
+  animation: msgFade 0.2s ease-out both;
 }
-.play-btn {
-  width: 32px; height: 32px; border-radius: 50%;
-  display: grid; place-items: center; flex-shrink: 0;
-  background: rgba(255,255,255,0.15); border: none; cursor: pointer;
-  color: inherit;
-  transition: background 0.2s;
+
+.message-row.mine {
+  animation: msgFade 0.2s ease-out both;
 }
-.play-btn:hover { background: rgba(255,255,255,0.25); }
-.voice-progress {
-  flex: 1; cursor: pointer; padding: 8px 0;
+
+.message-row.theirs {
+  animation: msgFade 0.2s ease-out both;
 }
-.voice-bar {
-  height: 3px; border-radius: 999px;
-  background: rgba(255,255,255,0.2); position: relative;
-}
-.voice-fill {
-  height: 100%; border-radius: 999px;
-  background: currentColor; transition: width 0.1s linear;
-}
-.voice-duration {
-  font-size: 11px; opacity: 0.7; flex-shrink: 0; min-width: 32px;
+
+@keyframes msgFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 </style>

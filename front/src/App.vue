@@ -30,6 +30,10 @@ export default {
   },
 
   mounted() {
+    document.addEventListener('gesturestart', e => e.preventDefault())
+    document.addEventListener('gesturechange', e => e.preventDefault())
+    document.addEventListener('gestureend', e => e.preventDefault())
+
     const token = sessionStorage.getItem('access_token')
     if (token) this.showChat = true
     this.applyTheme()
@@ -72,6 +76,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
+  background: #080c14;
 }
 .fade-enter-active, .fade-leave-active { transition: all 0.35s ease; }
 .fade-enter-from { opacity: 0; transform: translateY(16px) scale(0.98); }

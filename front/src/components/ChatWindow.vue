@@ -40,13 +40,13 @@
       <div class="messages-area" ref="messagesArea" @scroll="onScroll">
         <div v-if="messages.length === 0" class="day-separator">Today</div>
         <MessageBubble
-          v-for="message in messages"
-          :key="message.id"
-          :message="message"
-          :isMine="isMine(message)"
-          :isLight="isLight"
-          @delete="confirmDelete"
-        />
+  v-for="message in messages"
+  :key="message.id"
+  :message="message"
+  :isMine="isMine(message)"
+  :isLight="isLight"
+  @delete="confirmDelete"
+/>
       </div>
       <div v-if="deleteModalOpen" class="delete-modal-overlay">
         <div class="delete-modal">
@@ -587,5 +587,11 @@ beforeUnmount() {
   .composer { height: 50px; border-radius: 16px; padding: 0 10px 0 12px; gap: 8px; }
   .delete-modal { width: calc(100vw - 48px); max-width: 300px; }
   .messages-area { padding: 14px 12px 80px; }
+}
+
+.messages-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 </style>
