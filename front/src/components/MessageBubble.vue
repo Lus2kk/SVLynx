@@ -24,7 +24,25 @@
       </button>
 
       <div class="message-bubble" :class="{ mine: isMine, theirs: !isMine }">
-        <div class="message-text">{{ message.content }}</div>
+        <div v-if="message.type !== 'voice'" class="message-text">{{ message.content }}</div>
+
+        <div v-else class="voice-player">
+          <button type="button" class="play-btn" @click="togglePlay">
+            <svg v-if="!isPlaying" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M5 3l14 9-14 9V3z"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M6 4h4v16H6zM14 4h4v16h-4z"/>
+            </svg>
+          </button>
+          <div class="voice-progress" @click="seek">
+            <div class="voice-bar">
+              <div class="voice-fill" :style="{ width: progress + '%' }"></div>
+            </div>
+          </div>
+          <span class="voice-duration">{{ durationText }}</span>
+          <audio ref="audio" :src="message.content" @timeupdate="onTimeUpdate" @ended="onEnded" @loadedmetadata="onMeta"></audio>
+        </div>
 
         <div class="message-meta">
           <span class="message-time">
@@ -56,10 +74,61 @@ export default {
     isLight: { type: Boolean, default: false }
   },
   emits: ['delete'],
+  computed: {
+    durationText() {
+      const t = this.isPlaying
+        ? (this.$refs.audio?.currentTime || 0)
+        : this.duration
+      const m = Math.floor(t / 60).toString().padStart(2, '0')
+      const s = Math.floor(t % 60).toString().padStart(2, '0')
+      return `${m}:${s}`
+    }
+  },
+
   data() {
-    return { showActions: false }
+    return { 
+    showActions: false,
+    isPlaying: false,
+    progress: 0,
+    duration: 0
+     }
   },
   methods: {
+    togglePlay() {
+    const audio = this.$refs.audio
+    if (!audio) return
+    if (this.isPlaying) {
+      audio.pause()
+      this.isPlaying = false
+    } else {
+      audio.play()
+      this.isPlaying = true
+    }
+  },
+
+  onTimeUpdate() {
+    const audio = this.$refs.audio
+    if (!audio || !audio.duration) return
+    this.progress = (audio.currentTime / audio.duration) * 100
+  },
+
+  onEnded() {
+    this.isPlaying = false
+    this.progress = 0
+  },
+
+  onMeta() {
+    this.duration = this.$refs.audio?.duration || 0
+  },
+
+  seek(e) {
+    const audio = this.$refs.audio
+    if (!audio) return
+    const bar = e.currentTarget
+    const rect = bar.getBoundingClientRect()
+    const ratio = (e.clientX - rect.left) / rect.width
+    audio.currentTime = ratio * audio.duration
+  },
     formatTime(dateStr) {
       if (!dateStr) return ''
       const d = new Date(dateStr)
@@ -153,4 +222,31 @@ export default {
 .theme-light .delete-btn { color: #9098b8; background: #f0f1f8; border-color: #e4e6f0; }
 .delete-btn:hover { color: #ff4d6d; background: rgba(255, 77, 109, 0.1); border-color: rgba(255, 77, 109, 0.2); }
 .message-status.failed { color: #ff4d6d; opacity: 1; }
+
+.voice-player {
+  display: flex; align-items: center; gap: 10px;
+  min-width: 180px;
+}
+.play-btn {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: grid; place-items: center; flex-shrink: 0;
+  background: rgba(255,255,255,0.15); border: none; cursor: pointer;
+  color: inherit;
+  transition: background 0.2s;
+}
+.play-btn:hover { background: rgba(255,255,255,0.25); }
+.voice-progress {
+  flex: 1; cursor: pointer; padding: 8px 0;
+}
+.voice-bar {
+  height: 3px; border-radius: 999px;
+  background: rgba(255,255,255,0.2); position: relative;
+}
+.voice-fill {
+  height: 100%; border-radius: 999px;
+  background: currentColor; transition: width 0.1s linear;
+}
+.voice-duration {
+  font-size: 11px; opacity: 0.7; flex-shrink: 0; min-width: 32px;
+}
 </style>

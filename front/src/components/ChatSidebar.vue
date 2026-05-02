@@ -281,6 +281,7 @@ export default {
     },
 
     getChatPreview(direct) {
+      console.log(this.directs)
       return direct.last_message_content || ''
     },
 

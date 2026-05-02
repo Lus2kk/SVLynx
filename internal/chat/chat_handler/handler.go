@@ -18,57 +18,57 @@ import (
 
 type DirectHandler struct {
 	srvc *chat_service.DirectService
-	hub  *ws.Hub 
+	hub  *ws.Hub
 }
 
 func NewDirectHandler(srvc *chat_service.DirectService, hub *ws.Hub) *DirectHandler {
 	return &DirectHandler{
 		srvc: srvc,
-		hub: hub,
+		hub:  hub,
 	}
 }
 
 type MessageHandler struct {
 	srvc *chat_service.MessageService
-	hub  *ws.Hub 
+	hub  *ws.Hub
 }
 
 func NewMessageHandler(srvc *chat_service.MessageService, hub *ws.Hub) *MessageHandler {
 	return &MessageHandler{
 		srvc: srvc,
-		hub: hub,	
+		hub:  hub,
 	}
 }
 
 func (h *DirectHandler) CreateNewDirectHandler(ctx *gin.Context) {
-    var input chat_service.CreatedDirect
-    if err := ctx.ShouldBindJSON(&input); err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	var input chat_service.CreatedDirect
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    chat, err := h.srvc.CreateNewDirectService(ctx.Request.Context(), input)
-    if err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	chat, err := h.srvc.CreateNewDirectService(ctx.Request.Context(), input)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    if h.hub != nil {
-        rawPayload, _ := json.Marshal(map[string]any{
-            "chat_id":      chat.Id,
-            "recipient_id": input.SecondUserID,
-        })
-        responsePayload, _ := json.Marshal(map[string]any{
-            "type":    "new_chat",
-            "payload": json.RawMessage(rawPayload),
-        })
-        h.hub.SendToUser(input.SecondUserID, responsePayload)
-    }
+	if h.hub != nil {
+		rawPayload, _ := json.Marshal(map[string]any{
+			"chat_id":      chat.Id,
+			"recipient_id": input.SecondUserID,
+		})
+		responsePayload, _ := json.Marshal(map[string]any{
+			"type":    "new_chat",
+			"payload": json.RawMessage(rawPayload),
+		})
+		h.hub.SendToUser(input.SecondUserID, responsePayload)
+	}
 
-    ctx.JSON(http.StatusCreated, gin.H{
-        "message": "direct created",
-        "direct":  chat,
-    })
+	ctx.JSON(http.StatusCreated, gin.H{
+		"message": "direct created",
+		"direct":  chat,
+	})
 }
 
 func (h *DirectHandler) GetDirectByIdHandler(ctx *gin.Context) {
@@ -102,6 +102,7 @@ func (h *DirectHandler) GetListOfDirectsByIDHandler(ctx *gin.Context) {
 
 	directs, err := h.srvc.GetListOfDirectsByIDService(ctx.Request.Context(), userID)
 	if err != nil {
+		slog.Error("get directs error", "error", err.Error())
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -111,10 +112,11 @@ func (h *DirectHandler) GetListOfDirectsByIDHandler(ctx *gin.Context) {
 
 func (h *MessageHandler) SendMessageHandler(ctx *gin.Context) {
 	var input struct {
-		ChatID      uuid.UUID `json:"chat_id" binding:"required"`
-		SenderID    uuid.UUID `json:"sender_id" binding:"required"`
-		RecipientID uuid.UUID `json:"recipient_id" binding:"required"`
-		Content     string    `json:"content" binding:"required"`
+		ChatID      uuid.UUID               `json:"chat_id" binding:"required"`
+		SenderID    uuid.UUID               `json:"sender_id" binding:"required"`
+		RecipientID uuid.UUID               `json:"recipient_id" binding:"required"`
+		Content     string                  `json:"content" binding:"required"`
+		Type        chat_models.MessageType `json:"type"`
 	}
 
 	if err := ctx.ShouldBindJSON(&input); err != nil {
@@ -126,6 +128,7 @@ func (h *MessageHandler) SendMessageHandler(ctx *gin.Context) {
 		ChatID:   input.ChatID,
 		SenderID: input.SenderID,
 		Content:  input.Content,
+		Type:     input.Type,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -141,6 +144,7 @@ func (h *MessageHandler) SendMessageHandler(ctx *gin.Context) {
 				"sender_id":  message.SenderID,
 				"content":    message.Content,
 				"created_at": message.CreatedAT,
+				"type":       message.Type,
 			},
 		})
 		if err == nil {
@@ -291,58 +295,58 @@ func (h *MessageHandler) MarkChatMessagesAsReadHandler(ctx *gin.Context) {
 }
 
 func (h *DirectHandler) DeleteDirectHandler(ctx *gin.Context) {
-    chatID, err := uuid.Parse(ctx.Param("id"))
-    if err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid chat_id"})
-        return
-    }
+	chatID, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid chat_id"})
+		return
+	}
 
-    recipientIDStr := ctx.Query("recipient_id")
-    recipientID, _ := uuid.Parse(recipientIDStr)
+	recipientIDStr := ctx.Query("recipient_id")
+	recipientID, _ := uuid.Parse(recipientIDStr)
 
-    if err := h.srvc.DeleteDirectService(ctx.Request.Context(), chatID); err != nil {
-        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
+	if err := h.srvc.DeleteDirectService(ctx.Request.Context(), chatID); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-    if h.hub != nil && recipientID != uuid.Nil {
-        rawPayload, _ := json.Marshal(map[string]any{
-            "chat_id": chatID,
-        })
-        responsePayload, _ := json.Marshal(map[string]any{
-            "type":    "delete_chat",
-            "payload": json.RawMessage(rawPayload),
-        })
-        h.hub.SendToUser(recipientID, responsePayload)
-    }
+	if h.hub != nil && recipientID != uuid.Nil {
+		rawPayload, _ := json.Marshal(map[string]any{
+			"chat_id": chatID,
+		})
+		responsePayload, _ := json.Marshal(map[string]any{
+			"type":    "delete_chat",
+			"payload": json.RawMessage(rawPayload),
+		})
+		h.hub.SendToUser(recipientID, responsePayload)
+	}
 
-    ctx.JSON(http.StatusOK, gin.H{"message": "chat deleted"})
+	ctx.JSON(http.StatusOK, gin.H{"message": "chat deleted"})
 }
 
 func (h *DirectHandler) GetUserStatusHandler(ctx *gin.Context) {
-    userID, err := uuid.Parse(ctx.Param("id"))
-    if err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id"})
-        return
-    }
+	userID, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id"})
+		return
+	}
 
-    online, lastSeen, err := h.srvc.GetUserStatusService(ctx.Request.Context(), userID)
-    slog.Info("get status", "user", userID, "online", online, "lastSeen", lastSeen, "err", err)
+	online, lastSeen, err := h.srvc.GetUserStatusService(ctx.Request.Context(), userID)
+	slog.Info("get status", "user", userID, "online", online, "lastSeen", lastSeen, "err", err)
 
-    if err != nil {
-        ctx.JSON(http.StatusOK, gin.H{"online": false, "last_seen": nil})
-        return
-    }
+	if err != nil {
+		ctx.JSON(http.StatusOK, gin.H{"online": false, "last_seen": nil})
+		return
+	}
 
-    var lastSeenResp interface{}
-    if !lastSeen.IsZero() {
-        lastSeenResp = lastSeen
-    }
+	var lastSeenResp interface{}
+	if !lastSeen.IsZero() {
+		lastSeenResp = lastSeen
+	}
 
-    ctx.JSON(http.StatusOK, gin.H{
-        "online":    online,
-        "last_seen": lastSeenResp,
-    })
+	ctx.JSON(http.StatusOK, gin.H{
+		"online":    online,
+		"last_seen": lastSeenResp,
+	})
 }
 
 type WsHandler struct {
@@ -360,26 +364,70 @@ func NewWsHandler(hub *ws.Hub) *WsHandler {
 }
 
 func (h *WsHandler) ServeWs(ctx *gin.Context) {
-    rawUserID := ctx.Query("userid")
-    if rawUserID == "" {
-        rawUserID = ctx.Query("user_id")
+	rawUserID := ctx.Query("userid")
+	if rawUserID == "" {
+		rawUserID = ctx.Query("user_id")
+	}
+
+	userID, err := uuid.Parse(rawUserID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid userid"})
+		return
+	}
+
+	conn, err := h.upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
+	if err != nil {
+		slog.Error("ws upgrade error", "error", err)
+		return
+	}
+
+	client := ws.NewClient(userID, conn, make(chan []byte, 256), h.hub)
+	h.hub.Register(client)
+
+	go client.WritePump()
+	go client.ReadPump()
+}
+
+func (h *MessageHandler) SendVoiceMessageHandler(ctx *gin.Context) {
+    var input struct {
+        ChatID      uuid.UUID `json:"chat_id" binding:"required"`
+        SenderID    uuid.UUID `json:"sender_id" binding:"required"`
+        RecipientID uuid.UUID `json:"recipient_id" binding:"required"`
+        AudioURL    string    `json:"audio_url" binding:"required"`
     }
 
-    userID, err := uuid.Parse(rawUserID)
-    if err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid userid"})
+    if err := ctx.ShouldBindJSON(&input); err != nil {
+		slog.Error("voice send error", "error", err.Error())
+        ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
     }
 
-    conn, err := h.upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
+    message, err := h.srvc.SendMessage(ctx.Request.Context(), chat_service.CreatedMessage{
+        ChatID:   input.ChatID,
+        SenderID: input.SenderID,
+        Content:  input.AudioURL,
+        Type:     chat_models.VoiceMessage,
+    })
     if err != nil {
-        slog.Error("ws upgrade error", "error", err)
+		slog.Error("voice send error", "error", err.Error())
+        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
         return
     }
 
-    client := ws.NewClient(userID, conn, make(chan []byte, 256), h.hub)
-    h.hub.Register(client)
+    if h.hub != nil {
+        payload, _ := json.Marshal(map[string]any{
+            "type": "send_message",
+            "payload": map[string]any{
+                "id":         message.ID,
+                "chat_id":    message.ChatID,
+                "sender_id":  message.SenderID,
+                "content":    message.Content,
+                "type":       message.Type,
+                "created_at": message.CreatedAT,
+            },
+        })
+        h.hub.SendToUser(input.RecipientID, payload)
+    }
 
-    go client.WritePump()
-    go client.ReadPump()
+    ctx.JSON(http.StatusCreated, gin.H{"message": message})
 }

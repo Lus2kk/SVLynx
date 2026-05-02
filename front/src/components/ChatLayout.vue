@@ -425,18 +425,15 @@ updateThemeColor() {
         if (!res.ok) return
 
         const direct = data.direct || data.chat || data
-        const exists = this.directs.find(d => String(d.id) === String(direct.id))
 
         await this.loadDirects()
+
         this.activeChatId = direct.id
         this.activeRecipientId = userId
         this.chatWindowKey++
         this.fetchUserStatus(userId)
+
         if (this.isMobile) this.mobileView = 'chat'
-        await this.loadDirects()
-        if (updated) {
-        this.activeChatId = updated.id
-        }
       } catch (e) {
         console.error('startChat crash:', e)
       }

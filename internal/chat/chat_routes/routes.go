@@ -30,6 +30,7 @@ func DirectRouter(engine *gin.Engine, handler *chat_handler.DirectHandler) {
 func MessageRouter(engine *gin.Engine, handler *chat_handler.MessageHandler) {
 	message := engine.Group("/chat/messages")
 	message.POST("", handler.SendMessageHandler)
+	message.POST("/voice", handler.SendVoiceMessageHandler)
 	message.GET("", handler.GetMessagesByChatIdHandler)
 	message.GET("/search", handler.SearchMessageHandler)
 	message.PATCH("/:id/status", handler.UpdateMessageStatusHandler)

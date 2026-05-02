@@ -62,11 +62,13 @@
 
     <div class="composer-wrap">
       <form class="composer" @submit.prevent="sendMessage">
-        <button type="button" class="composer-side-btn" title="Attach">
-          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M21.44 11.05l-8.49 8.49a5.5 5.5 0 0 1-7.78-7.78l9.2-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.19 9.2a1.5 1.5 0 0 1-2.12-2.13l8.49-8.48"></path>
-          </svg>
-        </button>
+        <<VoiceRecorder
+          :chatId="String(chatId)"
+          :senderId="String(currentUserId)"
+          :recipientId="String(recipientId)"
+          :isLight="isLight"
+          @voice-sent="onVoiceSent"
+        />
         <input v-model="newMessage" type="text" class="message-input" placeholder="Type a message..." ref="messageInput" />
         <button type="button" class="composer-side-btn" title="Emoji">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -88,12 +90,13 @@
 
 <script>
 import MessageBubble from './MessageBubble.vue'
+import VoiceRecorder from './VoiceRecorder.vue'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
 export default {
   name: 'ChatWindow',
-  components: { MessageBubble },
+  components: { MessageBubble, VoiceRecorder },
 
   props: {
     chat: { type: Object, default: null },
@@ -175,6 +178,18 @@ beforeUnmount() {
   },
 
   methods: {
+    onVoiceSent(message) {
+    if (!message) return
+    const msg = this.normalizeMessage(message)
+    if (this.messages.find(m => String(m.id) === String(msg.id))) return
+    this.messages.push(msg)
+    this.scrollToBottom()
+    this.$emit('message-sent', {
+      chatId: this.chatId,
+      content: '🎤 Voice message',
+      date: msg.created_at
+    })
+  },
     onScroll() {
       const area = this.$refs.messagesArea
       if (!area) return
