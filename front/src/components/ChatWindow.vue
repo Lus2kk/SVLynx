@@ -40,13 +40,13 @@
       <div class="messages-area" ref="messagesArea" @scroll="onScroll">
         <div v-if="messages.length === 0" class="day-separator">Today</div>
         <MessageBubble
-  v-for="message in messages"
-  :key="message.id"
-  :message="message"
-  :isMine="isMine(message)"
-  :isLight="isLight"
-  @delete="confirmDelete"
-/>
+      v-for="message in messages"
+      :key="message.id"
+      :message="message"
+      :isMine="isMine(message)"
+      :isLight="isLight"
+      @delete="confirmDelete"
+    />
       </div>
       <div v-if="deleteModalOpen" class="delete-modal-overlay">
         <div class="delete-modal">
@@ -62,14 +62,20 @@
 
     <div class="composer-wrap">
       <form class="composer" @submit.prevent="sendMessage">
-        <<VoiceRecorder
-          :chatId="String(chatId)"
-          :senderId="String(currentUserId)"
-          :recipientId="String(recipientId)"
-          :isLight="isLight"
-          @voice-sent="onVoiceSent"
+        <button type="button" class="composer-side-btn" title="Attach">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21.44 11.05l-8.49 8.49a5.5 5.5 0 0 1-7.78-7.78l9.2-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.19 9.2a1.5 1.5 0 0 1-2.12-2.13l8.49-8.48"></path>
+          </svg>
+        </button>
+
+        <input
+          v-model="newMessage"
+          type="text"
+          class="message-input"
+          placeholder="Type a message..."
+          ref="messageInput"
         />
-        <input v-model="newMessage" type="text" class="message-input" placeholder="Type a message..." ref="messageInput" />
+
         <button type="button" class="composer-side-btn" title="Emoji">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8">
             <circle cx="12" cy="12" r="9"></circle>
@@ -78,10 +84,42 @@
             <path d="M15 9h.01"></path>
           </svg>
         </button>
-        <button type="submit" class="send-btn" title="Send">
+
+        <button
+          v-if="!voiceMode"
+          type="button"
+          class="send-btn"
+          title="Send"
+          @click="onSendClick"
+        >
           <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
             <path d="M21.8 2.2a1 1 0 0 0-1.04-.23L2.76 8.97a1 1 0 0 0 .08 1.89l7.14 2.38 2.38 7.14a1 1 0 0 0 .91.68h.05a1 1 0 0 0 .9-.59l7-18a1 1 0 0 0-.22-1.03z"></path>
           </svg>
+        </button>
+
+        <button
+          v-else
+          type="button"
+          class="send-btn"
+          :class="{ recording: isRecordingVoice }"
+          title="Hold to record"
+          @mousedown.prevent="onMouseDown"
+          @mouseup.prevent="onMouseUp"
+          @mouseleave.prevent="onMouseUp"
+          @touchstart.prevent="onTouchStart"
+          @touchend.prevent="onTouchEnd"
+          @touchcancel.prevent="onTouchEnd"
+        >
+          <svg v-if="!isRecordingVoice" viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
+            <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4z"/>
+            <path d="M19 10a7 7 0 0 1-14 0H3a9 9 0 0 0 18 0h-2z"/>
+            <line x1="12" y1="19" x2="12" y2="23" stroke="white" stroke-width="2"/>
+            <line x1="8" y1="23" x2="16" y2="23" stroke="white" stroke-width="2"/>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
+            <rect x="6" y="6" width="12" height="12" rx="2"/>
+          </svg>
+          <span v-if="isRecordingVoice" class="rec-timer-inline">{{ voiceTimerText }}</span>
         </button>
       </form>
     </div>
@@ -113,6 +151,11 @@ export default {
 
   data() {
     return {
+      mouseTimer: null,
+      mouseStarted: false,
+      touchTimer: null,
+      touchStarted: false,
+      voiceMode: false,
       hasMore: true,
       loadingMore: false,
       messages: [],
@@ -121,7 +164,12 @@ export default {
       messageToDelete: null,
       loading: false,
       nowTick: Date.now(),
-      presenceTimer: null
+      presenceTimer: null,
+      isRecordingVoice: false,
+      voiceMediaRecorder: null,
+      voiceChunks: [],
+      voiceTimerSeconds: 0,
+      voiceTimerInterval: null
     }
   },
 
@@ -139,6 +187,12 @@ beforeUnmount() {
 },
 
   computed: {
+
+    voiceTimerText() {
+      const m = Math.floor(this.voiceTimerSeconds / 60).toString().padStart(2, '0')
+      const s = (this.voiceTimerSeconds % 60).toString().padStart(2, '0')
+      return `${m}:${s}`
+    },
     chatTitle() {
       const name =
         this.selectedCompanion?.nickname ||
@@ -178,6 +232,111 @@ beforeUnmount() {
   },
 
   methods: {
+
+    onMouseDown() {
+      this.mouseStarted = false
+      this.mouseTimer = setTimeout(() => {
+        this.mouseStarted = true
+        this.startVoice()
+      }, 300)
+    },
+
+    onMouseUp() {
+      if (this.mouseTimer) {
+        clearTimeout(this.mouseTimer)
+        this.mouseTimer = null
+      }
+      if (this.mouseStarted) {
+        this.stopVoice()
+        this.mouseStarted = false
+        this.voiceMode = false
+      } else {
+        this.voiceMode = false  
+      }
+    },
+  onTouchStart() {
+      this.touchStarted = false
+      this.touchTimer = setTimeout(() => {
+        this.touchStarted = true
+        this.startVoice()
+      }, 500) 
+    },
+
+    onTouchEnd() {
+    if (this.touchTimer) {
+      clearTimeout(this.touchTimer)
+      this.touchTimer = null
+    }
+    if (this.touchStarted) {
+      this.stopVoice() 
+      this.touchStarted = false
+    } else {
+      this.voiceMode = false 
+    }
+  },
+    onSendClick() {
+      if (this.newMessage.trim()) {
+        this.sendMessage()
+      } else {
+        this.voiceMode = !this.voiceMode  
+      }
+    },
+
+    async startVoice(e) {
+      if (e) e.preventDefault()
+      if (this.isRecordingVoice) return
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        this.voiceChunks = []
+        this.voiceMediaRecorder = new MediaRecorder(stream)
+        this.voiceMediaRecorder.ondataavailable = e => {
+          if (e.data.size > 0) this.voiceChunks.push(e.data)
+        }
+        this.voiceMediaRecorder.onstop = this.handleVoiceStop
+        this.voiceMediaRecorder.start()
+        this.isRecordingVoice = true
+        this.voiceTimerSeconds = 0
+        this.voiceTimerInterval = setInterval(() => this.voiceTimerSeconds++, 1000)
+      } catch (e) {
+        console.error('Microphone error', e)
+      }
+    },
+
+    stopVoice() {
+      if (!this.voiceMediaRecorder || !this.isRecordingVoice) return
+      this.isRecordingVoice = false
+      clearInterval(this.voiceTimerInterval)
+      this.voiceMediaRecorder.stream.getTracks().forEach(t => t.stop())
+      this.voiceMediaRecorder.stop()  
+    },
+
+    async handleVoiceStop() {
+      if (this.voiceChunks.length === 0) return
+      const blob = new Blob(this.voiceChunks, { type: 'audio/webm' })
+
+      const form = new FormData()
+      form.append('file', blob, `voice_${Date.now()}.webm`)
+      form.append('chat_id', String(this.chatId))
+      form.append('sender_id', String(this.currentUserId))
+      form.append('recipient_id', String(this.recipientId))
+
+      try {
+        const VOICE_BASE = import.meta.env.VITE_VOICE_API_URL || 'http://localhost:9090'
+        const res = await fetch(`${VOICE_BASE}/voice/upload`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` },
+          body: form
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        this.onVoiceSent(data.message)
+      } catch (e) {
+        console.error('Voice upload error', e)
+      } finally {
+        this.voiceMode = false  
+      }
+    },
+
     onVoiceSent(message) {
     if (!message) return
     const msg = this.normalizeMessage(message)
@@ -186,7 +345,7 @@ beforeUnmount() {
     this.scrollToBottom()
     this.$emit('message-sent', {
       chatId: this.chatId,
-      content: '🎤 Voice message',
+      content: 'Голосовое сообщение',
       date: msg.created_at
     })
   },
@@ -593,5 +752,22 @@ beforeUnmount() {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+.send-btn.recording {
+  background: linear-gradient(135deg, #ff4d6d, #d93856);
+  box-shadow: 0 0 0 4px rgba(255, 77, 109, 0.2);
+  animation: pulse 1s infinite;
+}
+.rec-timer-inline {
+  position: absolute; top: -22px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px; font-weight: 700;
+  color: #ff4d6d; white-space: nowrap;
+  background: rgba(0,0,0,0.5);
+  padding: 2px 6px; border-radius: 6px;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(255, 77, 109, 0.2); }
+  50% { box-shadow: 0 0 0 8px rgba(255, 77, 109, 0.1); }
 }
 </style>

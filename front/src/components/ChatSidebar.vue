@@ -272,8 +272,16 @@ export default {
     },
 
     getChatPreview(direct) {
-      console.log(this.directs)
-      return direct.last_message_content || ''
+      const content = direct.last_message_content || ''
+      if (content.startsWith('http') && (
+        content.includes('/voice/') ||
+        content.includes('.webm') ||
+        content.includes('.ogg') ||
+        content.includes('.mp3')
+      )) {
+        return 'Голосовое сообщение'
+      }
+      return content
     },
 
     getUnreadCount(direct) {

@@ -28,18 +28,20 @@
 
         <div v-else class="voice-player">
           <button type="button" class="play-btn" @click="togglePlay">
-            <svg v-if="!isPlaying" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <svg v-if="!isPlaying" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
               <path d="M5 3l14 9-14 9V3z"/>
             </svg>
-            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
               <path d="M6 4h4v16H6zM14 4h4v16h-4z"/>
             </svg>
           </button>
+
           <div class="voice-progress" @click="seek">
             <div class="voice-bar">
               <div class="voice-fill" :style="{ width: progress + '%' }"></div>
             </div>
           </div>
+
           <span class="voice-duration">{{ durationText }}</span>
           <audio ref="audio" :src="message.content" @timeupdate="onTimeUpdate" @ended="onEnded" @loadedmetadata="onMeta"></audio>
         </div>
@@ -233,7 +235,45 @@ export default {
 .message-row.theirs {
   animation: msgFade 0.2s ease-out both;
 }
+.voice-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 160px;
+  max-width: 220px;
+  padding: 2px 0;
+}
 
+.play-btn {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: grid; place-items: center; flex-shrink: 0;
+  background: rgba(255,255,255,0.2);
+  border: none; cursor: pointer;
+  color: inherit;
+  transition: background 0.2s;
+}
+.play-btn:hover { background: rgba(255,255,255,0.3); }
+
+.voice-progress {
+  flex: 1; cursor: pointer; padding: 6px 0;
+}
+.voice-bar {
+  height: 3px; border-radius: 999px;
+  background: rgba(255,255,255,0.25);
+}
+.voice-fill {
+  height: 100%; border-radius: 999px;
+  background: currentColor;
+  transition: width 0.1s linear;
+}
+.voice-duration {
+  font-size: 11px;
+  opacity: 0.8;
+  flex-shrink: 0;
+  min-width: 36px;
+  text-align: right;
+}
 @keyframes msgFade {
   from { opacity: 0; }
   to { opacity: 1; }
