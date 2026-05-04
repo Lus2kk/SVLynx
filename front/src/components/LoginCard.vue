@@ -40,6 +40,7 @@ import Logo from './Logo.vue'
 import StatusMsg from './StatusMsg.vue'
 import TgButton from './TgButton.vue'
 import EmailAuth from './EmailAuth.vue'
+import { usePush } from '../composables/usePush.js'
 
 export default {
   components: { Logo, StatusMsg, TgButton, EmailAuth },
@@ -52,7 +53,10 @@ export default {
   },
 
   methods: {
-    onEmailSuccess({ needsProfile }) {
+    async onEmailSuccess({ needsProfile }) {
+      const { subscribe } = usePush()
+      try { await subscribe() } catch (e) { console.warn('Push subscribe error:', e) }
+      
       if (needsProfile) {
         setTimeout(() => this.$emit('show-profile'), 100)
       } else {
@@ -60,11 +64,15 @@ export default {
       }
     },
 
-    onTelegramAuth(data) {
+    async onTelegramAuth(data) {
       if (data.access_token) {
         sessionStorage.setItem('access_token', data.access_token)
         sessionStorage.setItem('refresh_token', data.refresh_token)
         this.status = { type: 'success', message: 'Вы вошли! Переход в SVLynx...' }
+        
+        const { subscribe } = usePush()
+        try { await subscribe() } catch (e) { console.warn('Push subscribe error:', e) }
+        
         setTimeout(() => this.$emit('show-chat'), 500)
       } else {
         this.status = { type: 'error', message: data.error || 'Ошибка авторизации' }

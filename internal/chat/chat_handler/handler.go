@@ -1,6 +1,7 @@
 package chat_handler
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -14,61 +15,68 @@ import (
 	"github.com/svlynx/messenger/internal/chat/chat_models"
 	"github.com/svlynx/messenger/internal/chat/chat_service"
 	"github.com/svlynx/messenger/internal/chat/ws"
+	"github.com/svlynx/messenger/internal/push"
 )
 
 type DirectHandler struct {
 	srvc *chat_service.DirectService
-	hub  *ws.Hub 
+	hub  *ws.Hub
 }
 
 func NewDirectHandler(srvc *chat_service.DirectService, hub *ws.Hub) *DirectHandler {
 	return &DirectHandler{
 		srvc: srvc,
-		hub: hub,
+		hub:  hub,
 	}
 }
 
 type MessageHandler struct {
-	srvc *chat_service.MessageService
-	hub  *ws.Hub 
+	srvc       *chat_service.MessageService
+	hub        *ws.Hub
+	pushSender PushSender
 }
 
-func NewMessageHandler(srvc *chat_service.MessageService, hub *ws.Hub) *MessageHandler {
+type PushSender interface {
+	SendToUser(ctx context.Context, userID string, payload push.PushPayload) error
+}
+
+func NewMessageHandler(srvc *chat_service.MessageService, hub *ws.Hub, pushSender PushSender) *MessageHandler {
 	return &MessageHandler{
-		srvc: srvc,
-		hub: hub,	
+		srvc:       srvc,
+		hub:        hub,
+		pushSender: pushSender,
 	}
 }
 
 func (h *DirectHandler) CreateNewDirectHandler(ctx *gin.Context) {
-    var input chat_service.CreatedDirect
-    if err := ctx.ShouldBindJSON(&input); err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	var input chat_service.CreatedDirect
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    chat, err := h.srvc.CreateNewDirectService(ctx.Request.Context(), input)
-    if err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	chat, err := h.srvc.CreateNewDirectService(ctx.Request.Context(), input)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    if h.hub != nil {
-        rawPayload, _ := json.Marshal(map[string]any{
-            "chat_id":      chat.Id,
-            "recipient_id": input.SecondUserID,
-        })
-        responsePayload, _ := json.Marshal(map[string]any{
-            "type":    "new_chat",
-            "payload": json.RawMessage(rawPayload),
-        })
-        h.hub.SendToUser(input.SecondUserID, responsePayload)
-    }
+	if h.hub != nil {
+		rawPayload, _ := json.Marshal(map[string]any{
+			"chat_id":      chat.Id,
+			"recipient_id": input.SecondUserID,
+		})
+		responsePayload, _ := json.Marshal(map[string]any{
+			"type":    "new_chat",
+			"payload": json.RawMessage(rawPayload),
+		})
+		h.hub.SendToUser(input.SecondUserID, responsePayload)
+	}
 
-    ctx.JSON(http.StatusCreated, gin.H{
-        "message": "direct created",
-        "direct":  chat,
-    })
+	ctx.JSON(http.StatusCreated, gin.H{
+		"message": "direct created",
+		"direct":  chat,
+	})
 }
 
 func (h *DirectHandler) GetDirectByIdHandler(ctx *gin.Context) {
@@ -115,6 +123,7 @@ func (h *MessageHandler) SendMessageHandler(ctx *gin.Context) {
 		SenderID    uuid.UUID `json:"sender_id" binding:"required"`
 		RecipientID uuid.UUID `json:"recipient_id" binding:"required"`
 		Content     string    `json:"content" binding:"required"`
+		SenderName  string    `json:"sender_name"`
 	}
 
 	if err := ctx.ShouldBindJSON(&input); err != nil {
@@ -146,11 +155,22 @@ func (h *MessageHandler) SendMessageHandler(ctx *gin.Context) {
 		if err == nil {
 			h.hub.SendToUser(input.RecipientID, payload)
 		}
-	}
+		if !h.hub.IsOnline(input.RecipientID) && h.pushSender != nil {
+			title := "Новое сообщение"
+			if input.SenderName != "" {
+				title = input.SenderName
+			}
+			go h.pushSender.SendToUser(context.Background(), input.RecipientID.String(), push.PushPayload{
+				Title: title,
+				Body:  input.Content,
+				Icon:  "/favicon.png",
+			})
+		}
 
-	ctx.JSON(http.StatusCreated, gin.H{
-		"message": message,
-	})
+		ctx.JSON(http.StatusCreated, gin.H{
+			"message": message,
+		})
+	}
 }
 
 func (h *MessageHandler) GetMessagesByChatIdHandler(ctx *gin.Context) {
@@ -291,58 +311,58 @@ func (h *MessageHandler) MarkChatMessagesAsReadHandler(ctx *gin.Context) {
 }
 
 func (h *DirectHandler) DeleteDirectHandler(ctx *gin.Context) {
-    chatID, err := uuid.Parse(ctx.Param("id"))
-    if err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid chat_id"})
-        return
-    }
+	chatID, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid chat_id"})
+		return
+	}
 
-    recipientIDStr := ctx.Query("recipient_id")
-    recipientID, _ := uuid.Parse(recipientIDStr)
+	recipientIDStr := ctx.Query("recipient_id")
+	recipientID, _ := uuid.Parse(recipientIDStr)
 
-    if err := h.srvc.DeleteDirectService(ctx.Request.Context(), chatID); err != nil {
-        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
+	if err := h.srvc.DeleteDirectService(ctx.Request.Context(), chatID); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-    if h.hub != nil && recipientID != uuid.Nil {
-        rawPayload, _ := json.Marshal(map[string]any{
-            "chat_id": chatID,
-        })
-        responsePayload, _ := json.Marshal(map[string]any{
-            "type":    "delete_chat",
-            "payload": json.RawMessage(rawPayload),
-        })
-        h.hub.SendToUser(recipientID, responsePayload)
-    }
+	if h.hub != nil && recipientID != uuid.Nil {
+		rawPayload, _ := json.Marshal(map[string]any{
+			"chat_id": chatID,
+		})
+		responsePayload, _ := json.Marshal(map[string]any{
+			"type":    "delete_chat",
+			"payload": json.RawMessage(rawPayload),
+		})
+		h.hub.SendToUser(recipientID, responsePayload)
+	}
 
-    ctx.JSON(http.StatusOK, gin.H{"message": "chat deleted"})
+	ctx.JSON(http.StatusOK, gin.H{"message": "chat deleted"})
 }
 
 func (h *DirectHandler) GetUserStatusHandler(ctx *gin.Context) {
-    userID, err := uuid.Parse(ctx.Param("id"))
-    if err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id"})
-        return
-    }
+	userID, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id"})
+		return
+	}
 
-    online, lastSeen, err := h.srvc.GetUserStatusService(ctx.Request.Context(), userID)
-    slog.Info("get status", "user", userID, "online", online, "lastSeen", lastSeen, "err", err)
+	online, lastSeen, err := h.srvc.GetUserStatusService(ctx.Request.Context(), userID)
+	slog.Info("get status", "user", userID, "online", online, "lastSeen", lastSeen, "err", err)
 
-    if err != nil {
-        ctx.JSON(http.StatusOK, gin.H{"online": false, "last_seen": nil})
-        return
-    }
+	if err != nil {
+		ctx.JSON(http.StatusOK, gin.H{"online": false, "last_seen": nil})
+		return
+	}
 
-    var lastSeenResp interface{}
-    if !lastSeen.IsZero() {
-        lastSeenResp = lastSeen
-    }
+	var lastSeenResp interface{}
+	if !lastSeen.IsZero() {
+		lastSeenResp = lastSeen
+	}
 
-    ctx.JSON(http.StatusOK, gin.H{
-        "online":    online,
-        "last_seen": lastSeenResp,
-    })
+	ctx.JSON(http.StatusOK, gin.H{
+		"online":    online,
+		"last_seen": lastSeenResp,
+	})
 }
 
 type WsHandler struct {
@@ -360,26 +380,26 @@ func NewWsHandler(hub *ws.Hub) *WsHandler {
 }
 
 func (h *WsHandler) ServeWs(ctx *gin.Context) {
-    rawUserID := ctx.Query("userid")
-    if rawUserID == "" {
-        rawUserID = ctx.Query("user_id")
-    }
+	rawUserID := ctx.Query("userid")
+	if rawUserID == "" {
+		rawUserID = ctx.Query("user_id")
+	}
 
-    userID, err := uuid.Parse(rawUserID)
-    if err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid userid"})
-        return
-    }
+	userID, err := uuid.Parse(rawUserID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid userid"})
+		return
+	}
 
-    conn, err := h.upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
-    if err != nil {
-        slog.Error("ws upgrade error", "error", err)
-        return
-    }
+	conn, err := h.upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
+	if err != nil {
+		slog.Error("ws upgrade error", "error", err)
+		return
+	}
 
-    client := ws.NewClient(userID, conn, make(chan []byte, 256), h.hub)
-    h.hub.Register(client)
+	client := ws.NewClient(userID, conn, make(chan []byte, 256), h.hub)
+	h.hub.Register(client)
 
-    go client.WritePump()
-    go client.ReadPump()
+	go client.WritePump()
+	go client.ReadPump()
 }

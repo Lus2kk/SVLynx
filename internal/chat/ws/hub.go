@@ -230,3 +230,9 @@ func (h *Hub) Run() {
 		}
 	}
 }
+func (h *Hub) IsOnline(userID uuid.UUID) bool {
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+	_, ok := h.clients[userID]
+	return ok
+}

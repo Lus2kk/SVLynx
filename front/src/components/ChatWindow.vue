@@ -103,7 +103,8 @@ export default {
     selectedCompanion: { type: Object, default: null },
     isLight: { type: Boolean, default: false },
     showBackButton: { type: Boolean, default: false },
-    presence: { type: Object, default: () => ({ online: false, lastSeen: null }) }
+    presence: { type: Object, default: () => ({ online: false, lastSeen: null }) },
+    currentUserName: { type: String, default: '' }
   },
 
   emits: ['message-sent', 'message-deleted', 'mark-as-read', 'back'],
@@ -344,11 +345,12 @@ beforeUnmount() {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}`
       },
-      body: JSON.stringify({
-        chat_id: this.chatId,
-        sender_id: this.currentUserId,
-        recipient_id: this.recipientId,
-        content: text
+      bbody: JSON.stringify({
+      chat_id: this.chatId,
+      sender_id: this.currentUserId,
+      recipient_id: this.recipientId,
+      content: text,
+      sender_name: this.currentUserName
       })
     })
 
