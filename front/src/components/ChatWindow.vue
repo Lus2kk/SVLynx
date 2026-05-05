@@ -38,15 +38,16 @@
 
     <div class="messages-area-wrapper">
       <div class="messages-area" ref="messagesArea" @scroll="onScroll">
+        <div class="messages-spacer"></div>
         <div v-if="messages.length === 0" class="day-separator">Today</div>
         <MessageBubble
-  v-for="message in messages"
-  :key="message.id"
-  :message="message"
-  :isMine="isMine(message)"
-  :isLight="isLight"
-  @delete="confirmDelete"
-/>
+          v-for="message in messages"
+          :key="message.id"
+          :message="message"
+          :isMine="isMine(message)"
+          :isLight="isLight"
+          @delete="confirmDelete"
+        />
       </div>
       <div v-if="deleteModalOpen" class="delete-modal-overlay">
         <div class="delete-modal">
@@ -304,11 +305,13 @@ beforeUnmount() {
     },
 
     scrollToBottom() {
-      this.$nextTick(() => {
-        const el = this.$refs.messagesArea
-        if (el) el.scrollTop = el.scrollHeight
-      })
-    },
+  this.$nextTick(() => {
+    const el = this.$refs.messagesArea
+    if (el) {
+      el.scrollTop = el.scrollHeight
+    }
+  })
+},
 
     isMine(message) {
       return String(message.sender_id ?? message.senderid) === String(this.currentUserId)
@@ -468,6 +471,9 @@ beforeUnmount() {
     linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   background-size: 48px 48px;
 }
+.messages-spacer {
+  flex: 1;
+}
 .theme-light .messages-area-wrapper {
   background-image:
     linear-gradient(rgba(91, 106, 255, 0.06) 1px, transparent 1px),
@@ -476,8 +482,9 @@ beforeUnmount() {
 
 .messages-area {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
-  padding: 22px 28px 18px;
+    padding: 8px 28px 8px;
   display: flex; flex-direction: column; gap: 6px;
+  justify-content: flex-end;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   background: transparent;
 }
@@ -566,19 +573,15 @@ beforeUnmount() {
 
 @media (max-width: 760px) {
   .chat-header { padding: 10px 14px; height: 64px; min-height: 64px; flex-shrink: 0; }
-  .messages-area { padding: 14px 12px 10px; }
+  .messages-area {
+    padding: 8px 12px 8px;
+    justify-content: flex-end;
+  }
   .composer-wrap {
     padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
     flex-shrink: 0;
   }
   .composer { height: 50px; border-radius: 16px; padding: 0 10px 0 12px; gap: 8px; }
   .delete-modal { width: calc(100vw - 48px); max-width: 300px; }
-  .messages-area { padding: 14px 12px 80px; }
-}
-
-.messages-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 </style>
