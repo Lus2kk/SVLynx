@@ -54,13 +54,14 @@
           <div v-if="isSearching" class="list-state">Searching...</div>
 
           <div
-            v-else
-            v-for="user in searchResults"
-            :key="user.id"
-            class="chat-item"
-            @click="handleStartChat(user.id, user.nickname)"
-            @touchend.prevent="handleStartChat(user.id, user.nickname)"
-          >
+  v-else
+  v-for="user in searchResults"
+  :key="user.id"
+  class="chat-item"
+  @touchstart="onTouchStart"
+  @touchmove="onTouchMove"
+  @click="() => { if (!scrolling) handleStartChat(user.id, user.nickname) }"
+>
             <div class="chat-avatar">
               <img v-if="user.photo_url" :src="user.photo_url" alt="" class="avatar-image" />
               <span v-else>{{ (user.name || user.first_name || user.nickname)?.[0]?.toUpperCase() || '?' }}</span>
@@ -194,7 +195,9 @@ export default {
       searchTimeout: null,
       activeTab: 'chats',
       deleteMode: false,
-      chatToDelete: null
+      chatToDelete: null,
+      scrolling: false,
+      touchStartY: 0,
     }
   },
 
@@ -224,6 +227,26 @@ export default {
   methods: {
     toggleTheme() {
   this.$emit('toggle-theme')
+  this.$nextTick(() => {
+    setTimeout(() => {
+      const isLight = localStorage.getItem('svlynx-theme') === 'light'
+      const color = isLight ? '#ffffff' : 'rgb(8, 12, 26)'
+      document.body.style.background = color
+      document.documentElement.style.background = color
+      const meta = document.querySelector('meta[name="theme-color"]')
+      if (meta) meta.setAttribute('content', color)
+    }, 50)
+  })
+},
+onTouchMove(e) {
+  const diff = Math.abs(e.touches[0].clientY - this.touchStartY)
+  if (diff > 5) this.scrolling = true
+},
+onChatClick(direct) {
+  if (this.scrolling) return
+  if (!this.deleteMode) {
+    this.$emit('select', { chatId: direct.id, recipientId: this.getRecipientId(direct) })
+  }
 },
     handleStartChat(userId, nickname) {
     this.search = ''
@@ -369,14 +392,34 @@ export default {
   justify-content: space-between;
 }
 
-.brand { display: flex; align-items: center; gap: 10px; }
+.brand { 
+  display: flex; align-items: center; gap: 10px;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+.brand:hover {
+  opacity: 0.85;
+}
 .brand-mark {
   width: 31px; height: 31px; border-radius: 10px;
   display: grid; place-items: center; color: #ffffff;
   background: linear-gradient(135deg, #6675ff, #7b68ff);
   box-shadow: 0 8px 18px rgba(90, 98, 255, 0.22);
+  transition: all 0.2s ease;
+  cursor: pointer;
 }
-.brand-text { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+.brand-mark:hover {
+  transform: scale(1.08);
+  box-shadow: 0 10px 24px rgba(90, 98, 255, 0.35);
+}
+.brand-mark:active {
+  transform: scale(0.95);
+}
+.brand-text { 
+  font-size: 19px; 
+  font-weight: 800; 
+  letter-spacing: -0.03em;
+}
 .brand-main { color: #f3f5ff; }
 .brand-accent { color: #92a0ff; }
 
@@ -385,16 +428,45 @@ export default {
   display: grid; place-items: center;
   color: #98a2ca; background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.04);
-  cursor: pointer; transition: all 0.2s;
+  cursor: pointer; transition: all 0.2s ease;
 }
-.header-btn.delete-mode-active { color: #ff4d6d; background: rgba(255, 77, 109, 0.12); border-color: rgba(255, 77, 109, 0.25); }
-
+.header-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #c0caff;
+  transform: scale(1.08);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.header-btn:active {
+  transform: scale(0.95);
+}
+.header-btn.delete-mode-active { 
+  color: #ff4d6d; 
+  background: rgba(255, 77, 109, 0.12); 
+  border-color: rgba(255, 77, 109, 0.25); 
+}
+.header-btn.delete-mode-active:hover {
+  background: rgba(255, 77, 109, 0.2);
+  transform: scale(1.08);
+}
 .search-wrap { padding: 0 16px 12px; }
 .search-box {
   height: 40px; display: flex; align-items: center; gap: 9px; padding: 0 12px;
   border-radius: 13px;
   background: rgba(255, 255, 255, 0.028);
   border: 1px solid rgba(255, 255, 255, 0.035);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.search-box:focus-within {
+  border-color: rgba(110, 123, 255, 0.35);
+  box-shadow: 0 0 0 3px rgba(110, 123, 255, 0.08);
+}
+.theme-light .search-box { 
+  background: #f3f4f8; 
+  border-color: #e2e4ee; 
+}
+.theme-light .search-box:focus-within {
+  border-color: rgba(91, 106, 255, 0.4);
+  box-shadow: 0 0 0 3px rgba(91, 106, 255, 0.08);
 }
 .search-icon { color: #7480a8; }
 .search-input {
@@ -408,31 +480,77 @@ export default {
 .tab-btn {
   height: 28px; padding: 0 11px; border-radius: 10px; white-space: nowrap;
   color: #7d87ab; font-size: 11px; font-weight: 700;
-  background: transparent; border: 1px solid transparent; cursor: pointer; transition: all 0.2s;
+  background: transparent; border: 1px solid transparent; 
+  cursor: pointer; transition: all 0.2s ease;
 }
-.tab-btn.active { color: #f1f4ff; background: rgba(96, 108, 255, 0.14); border-color: rgba(114, 126, 255, 0.16); }
-
-.sidebar-list { flex: 1; overflow-y: auto; min-height: 0; padding: 2px 10px 12px; }
-.sidebar-list::-webkit-scrollbar { width: 6px; }
-.sidebar-list::-webkit-scrollbar-thumb { background: rgba(147, 158, 211, 0.16); border-radius: 999px; }
+.tab-btn:hover {
+  color: #a0aacc;
+  background: rgba(255, 255, 255, 0.04);
+}
+.tab-btn.active { 
+  color: #f1f4ff; 
+  background: rgba(96, 108, 255, 0.18); 
+  border-color: rgba(114, 126, 255, 0.22); 
+  box-shadow: 0 2px 8px rgba(96, 108, 255, 0.15);
+}
+.theme-light .tab-btn { color: #8890b4; }
+.theme-light .tab-btn:hover {
+  color: #6070a0;
+  background: rgba(91, 106, 255, 0.05);
+}
+.theme-light .tab-btn.active { 
+  color: #1a1d2e; 
+  background: rgba(91, 106, 255, 0.12); 
+  border-color: rgba(91, 106, 255, 0.22);
+  box-shadow: 0 2px 8px rgba(91, 106, 255, 0.1);
+}
+.sidebar-list { 
+  flex: 1; 
+  overflow-y: auto; 
+  min-height: 0; 
+  padding: 2px 10px 12px; 
+}
+.sidebar-list::-webkit-scrollbar { width: 4px; }
+.sidebar-list::-webkit-scrollbar-track { background: transparent; }
+.sidebar-list::-webkit-scrollbar-thumb { 
+  background: rgba(147, 158, 211, 0.2); 
+  border-radius: 999px; 
+}
+.sidebar-list::-webkit-scrollbar-thumb:hover { 
+  background: rgba(147, 158, 211, 0.4); 
+}
 
 .chat-item-wrap {
   display: flex; align-items: center; gap: 6px;
-  margin-bottom: 6px; min-width: 0; overflow: hidden;
+  margin-bottom: 4px; min-width: 0; overflow: hidden;
+  border-radius: 16px;
 }
 
 .chat-item {
   flex: 1; min-width: 0; overflow: hidden;
   display: flex; align-items: center; gap: 11px;
-  padding: 11px 10px; border-radius: 16px; text-align: left;
+  padding: 8px 10px; border-radius: 16px; text-align: left;
   background: transparent; border: 1px solid transparent;
-  transition: all 0.16s ease; cursor: pointer;
+  transition: all 0.18s ease; cursor: pointer;
 }
-.chat-item:hover { background: rgba(255, 255, 255, 0.025); }
+.chat-item:hover { 
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateX(2px);
+}
 .chat-item.active {
-  background: linear-gradient(180deg, rgba(75, 88, 228, 0.17), rgba(64, 78, 210, 0.12));
-  border-color: rgba(110, 122, 255, 0.26);
-  box-shadow: 0 0 0 1px rgba(98, 112, 255, 0.08) inset, 0 10px 22px rgba(49, 61, 180, 0.16);
+  background: linear-gradient(135deg, rgba(91, 106, 255, 0.28), rgba(91, 106, 255, 0.18));
+  border-color: rgba(110, 122, 255, 0.4);
+  box-shadow: 0 0 0 1px rgba(98, 112, 255, 0.1) inset;
+  transform: translateX(2px);
+}
+.theme-light .chat-item:hover { 
+  background: #f3f4f8;
+  transform: translateX(2px);
+}
+.theme-light .chat-item.active { 
+  background: linear-gradient(135deg, rgba(91, 106, 255, 0.12), rgba(91, 106, 255, 0.08)); 
+  border-color: rgba(91, 106, 255, 0.25);
+  transform: translateX(2px);
 }
 
 .delete-chat-btn {
@@ -440,14 +558,20 @@ export default {
   display: grid; place-items: center;
   color: #ff4d6d; background: rgba(255, 77, 109, 0.1);
   border: 1px solid rgba(255, 77, 109, 0.2);
-  cursor: pointer; transition: all 0.15s;
+  cursor: pointer; transition: all 0.2s ease;
 }
-.delete-chat-btn:hover { background: rgba(255, 77, 109, 0.2); }
-
+.delete-chat-btn:hover { 
+  background: rgba(255, 77, 109, 0.22); 
+  border-color: rgba(255, 77, 109, 0.35);
+  transform: scale(1.1);
+}
+.delete-chat-btn:active {
+  transform: scale(0.9);
+}
 .chat-avatar {
-  width: 42px; height: 42px; border-radius: 14px; flex-shrink: 0;
+  width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
   display: grid; place-items: center; overflow: hidden;
-  color: #fff; font-size: 13px; font-weight: 700;
+  color: #fff; font-size: 14px; font-weight: 700;
   background: linear-gradient(135deg, #6572ff, #8a67ff);
 }
 .avatar-image { width: 100%; height: 100%; object-fit: cover; }
@@ -458,19 +582,32 @@ export default {
 .chat-time { flex-shrink: 0; color: #7580a6; font-size: 10.5px; font-weight: 600; }
 .chat-preview { color: #8590b4; font-size: 11.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; flex: 1; min-width: 0; }
 .unread-badge {
-  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
   display: inline-grid; place-items: center; flex-shrink: 0;
-  color: #fff; font-size: 10px; font-weight: 700;
+  color: #fff; font-size: 11px; font-weight: 700;
   background: linear-gradient(135deg, #6a76ff, #8866ff);
+  box-shadow: 0 2px 8px rgba(106, 118, 255, 0.4);
+  animation: badgePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes badgePop {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 .list-state { padding: 26px 12px; text-align: center; color: #7c86ad; font-size: 12px; }
 
 .sidebar-footer { 
   padding: 12px 16px 14px; 
   border-top: 1px solid rgba(255, 255, 255, 0.03);
+  flex-shrink: 0;
+  margin-top: auto;
   position: sticky;
   bottom: 0;
-  background: rgba(7, 10, 22, 0.98);
+  background: linear-gradient(180deg, rgba(8, 12, 26, 0.98), rgba(7, 10, 22, 0.98));
+}
+.theme-light .sidebar-footer { 
+  border-top-color: #e8eaf0; 
+  background: #ffffff;
 }
 .footer-actions { display: flex; gap: 10px; }
 .footer-btn {
@@ -478,9 +615,27 @@ export default {
   display: grid; place-items: center;
   color: #97a2c8; background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.04);
-  cursor: pointer; transition: all 0.2s;
+  cursor: pointer; transition: all 0.2s ease;
 }
-.footer-btn:hover { background: rgba(255, 255, 255, 0.05); }
+.footer-btn:hover { 
+  background: rgba(255, 255, 255, 0.08);
+  color: #c0caff;
+  transform: scale(1.08);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.footer-btn:active {
+  transform: scale(0.95);
+}
+.theme-light .footer-btn { color: #7880a0; background: #f3f4f8; border-color: #e2e4ee; }
+.theme-light .footer-btn:hover { 
+  background: #e8eaf5; 
+  color: #5b6aff;
+  border-color: #d0d3f0;
+  transform: scale(1.08);
+}
+.theme-light .footer-btn:active {
+  transform: scale(0.95);
+}
 
 .modal-overlay {
   position: absolute; inset: 0;
@@ -515,33 +670,6 @@ export default {
   border: none; color: white; font-size: 13px; cursor: pointer;
 } 
 
-@media (max-width: 760px) {
-  .chat-sidebar {
-    border-radius: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  .sidebar-shell {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    padding-bottom: env(safe-area-inset-bottom);
-    background: linear-gradient(180deg, rgba(8, 12, 26, 0.98), rgba(7, 10, 22, 0.98));
-  }
-
-  .theme-light .sidebar-shell {
-    background: #ffffff;
-  }
-
-  .sidebar-header { height: 64px; padding: 12px 14px 10px; }
-  .search-wrap { padding: 0 12px 10px; }
-  .sidebar-tabs { padding: 0 12px 12px; }
-  .sidebar-list { padding: 2px 8px 12px; }
-  .confirm-modal { width: calc(100vw - 48px); max-width: 280px; }
-  .sidebar-footer { padding-bottom: env(safe-area-inset-bottom, 14px); }
-}
+.sidebar-footer { padding-bottom: env(safe-area-inset-bottom, 14px); }
 
 </style>

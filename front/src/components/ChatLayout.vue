@@ -246,7 +246,9 @@ export default {
   toggleTheme() {
   this.isLight = !this.isLight
   localStorage.setItem('svlynx-theme', this.isLight ? 'light' : 'dark')
-  this.updateThemeColor()
+  this.$nextTick(() => {
+    this.updateThemeColor()
+  })
   this.$emit('theme-changed')
 },
 
@@ -549,10 +551,15 @@ updateThemeColor() {
 
 
 .empty-card {
-  width: 100%; max-width: 480px; padding: 34px 26px;
-  border-radius: 22px; text-align: center;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  width: 100%; max-width: 420px; padding: 40px 32px;
+  border-radius: 24px; text-align: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  transition: transform 0.3s ease;
+}
+.empty-card:hover {
+  transform: translateY(-2px);
 }
 .direct-shell.theme-light .empty-card {
   background: #ffffff;
@@ -562,10 +569,11 @@ updateThemeColor() {
 
 
 .empty-logo {
-  width: 68px; height: 68px; margin: 0 auto 18px;
-  border-radius: 18px; display: grid; place-items: center; color: #e9edff;
-  background: linear-gradient(135deg, rgba(96, 111, 255, 0.28), rgba(117, 93, 255, 0.18));
-  border: 1px solid rgba(130, 141, 255, 0.22);
+  width: 72px; height: 72px; margin: 0 auto 20px;
+  border-radius: 20px; display: grid; place-items: center; color: #e9edff;
+  background: linear-gradient(135deg, rgba(96, 111, 255, 0.32), rgba(117, 93, 255, 0.22));
+  border: 1px solid rgba(130, 141, 255, 0.28);
+  box-shadow: 0 8px 24px rgba(96, 111, 255, 0.2);
 }
 .empty-title { color: #eef2ff; font-size: 26px; font-weight: 700; margin-bottom: 10px; }
 .empty-text { color: #8d96ba; font-size: 14px; line-height: 1.7; max-width: 34ch; margin: 0 auto; }
