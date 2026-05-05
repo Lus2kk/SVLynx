@@ -65,9 +65,13 @@ export default {
     },
 
     async onTelegramAuth(data) {
+      console.log('onTelegramAuth data:', data)
+
       if (data.access_token) {
         sessionStorage.setItem('access_token', data.access_token)
         sessionStorage.setItem('refresh_token', data.refresh_token)
+        sessionStorage.setItem('current_user_name', data.sender_name || '')
+
         this.status = { type: 'success', message: 'Вы вошли! Переход в SVLynx...' }
         
         const { subscribe } = usePush()

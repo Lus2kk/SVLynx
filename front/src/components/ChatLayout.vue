@@ -104,7 +104,12 @@ export default {
   const token = sessionStorage.getItem('access_token')
   if (token) {
     const payload = this.parseJwt(token)
-    this.currentUserName = payload?.name || payload?.nickname || payload?.username || ''
+    this.currentUserName = sessionStorage.getItem('current_user_name') || payload?.name || payload?.nickname || payload?.username || ''
+  }
+  
+  if ('Notification' in window && Notification.permission === 'default') {
+    const { subscribe } = await import('../composables/usePush.js')
+    try { await subscribe() } catch (e) { console.warn('Push subscribe error:', e) }
   }
   
   this.updateThemeColor()

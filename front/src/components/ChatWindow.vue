@@ -345,7 +345,7 @@ beforeUnmount() {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}`
       },
-      bbody: JSON.stringify({
+      body: JSON.stringify({
       chat_id: this.chatId,
       sender_id: this.currentUserId,
       recipient_id: this.recipientId,

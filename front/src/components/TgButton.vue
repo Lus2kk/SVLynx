@@ -7,6 +7,8 @@ export default {
   mounted() {
     window.onTelegramAuth = async (user) => {
       console.log('Telegram user data:', JSON.stringify(user))
+      console.log('sender_name будет:', user.first_name || user.username || '')
+
       try {
         const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/telegram/callback`, {
           method: 'POST',
@@ -21,7 +23,9 @@ export default {
         }
         sessionStorage.setItem('access_token', data.access_token)
         sessionStorage.setItem('refresh_token', data.refresh_token)
-        this.$emit('auth', data)
+        const name = user.first_name || user.username || ''
+        sessionStorage.setItem('current_user_name', name)
+        this.$emit('auth', { ...data, sender_name: user.first_name || user.username || '' })
       } catch (err) {
         console.error('Telegram auth failed', err)
         this.$emit('error', err)

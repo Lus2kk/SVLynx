@@ -155,22 +155,24 @@ func (h *MessageHandler) SendMessageHandler(ctx *gin.Context) {
 		if err == nil {
 			h.hub.SendToUser(input.RecipientID, payload)
 		}
+
 		if !h.hub.IsOnline(input.RecipientID) && h.pushSender != nil {
 			title := "Новое сообщение"
 			if input.SenderName != "" {
 				title = input.SenderName
 			}
+			slog.Info("push title", "senderName", input.SenderName, "title", title)
 			go h.pushSender.SendToUser(context.Background(), input.RecipientID.String(), push.PushPayload{
 				Title: title,
 				Body:  input.Content,
 				Icon:  "/favicon.png",
 			})
 		}
-
-		ctx.JSON(http.StatusCreated, gin.H{
-			"message": message,
-		})
 	}
+
+	ctx.JSON(http.StatusCreated, gin.H{
+		"message": message,
+	})
 }
 
 func (h *MessageHandler) GetMessagesByChatIdHandler(ctx *gin.Context) {
