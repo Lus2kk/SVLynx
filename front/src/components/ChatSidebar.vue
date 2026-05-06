@@ -53,13 +53,14 @@
         <template v-if="search.trim().length > 0">
           <div v-if="isSearching" class="list-state">Searching...</div>
 
-          <div
-            v-else
-            v-for="user in searchResults"
+         <div
+         v-else
+          v-for="user in searchResults"
             :key="user.id"
-            class="chat-item"
-            @click="handleStartChat(user.id, user.nickname)"
-            @touchend.prevent="handleStartChat(user.id, user.nickname)"
+             class="chat-item"
+             @touchstart="onTouchStart"
+            @touchmove="onTouchMove"
+           @click="() => { if (!scrolling) handleStartChat(user.id, user.nickname) }"
           >
             <div class="chat-avatar">
               <img v-if="user.photo_url" :src="user.photo_url" alt="" class="avatar-image" />
@@ -194,7 +195,9 @@ export default {
       searchTimeout: null,
       activeTab: 'chats',
       deleteMode: false,
-      chatToDelete: null
+      chatToDelete: null,
+      scrolling: false,
+      touchStartY: 0,
     }
   },
 
@@ -225,7 +228,21 @@ export default {
     toggleTheme() {
   this.$emit('toggle-theme')
 },
-    handleStartChat(userId, nickname) {
+ onTouchStart(e) {
+  this.touchStartY = e.touches[0].clientY
+  this.scrolling = false
+},
+onTouchMove(e) {
+  const diff = Math.abs(e.touches[0].clientY - this.touchStartY)
+  if (diff > 5) this.scrolling = true
+},
+onChatClick(direct) {
+  if (this.scrolling) return
+  if (!this.deleteMode) {
+    this.$emit('select', { chatId: direct.id, recipientId: this.getRecipientId(direct) })
+  }
+},
+handleStartChat(userId, nickname) {
     this.search = ''
     this.searchResults = []
     this.$emit('start-chat', userId, nickname)
