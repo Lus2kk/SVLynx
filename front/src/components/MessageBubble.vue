@@ -128,6 +128,7 @@ export default {
   font-size: 14px; line-height: 1.5; font-weight: 500;
   white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;
 }
+
 .message-meta {
   display: flex;
   justify-content: flex-end;
@@ -135,6 +136,7 @@ export default {
   gap: 3px;
   margin-top: 2px;
 }
+
 .message-time { 
   font-size: 11px; 
   opacity: 0.85; 
@@ -147,7 +149,7 @@ export default {
   align-items: center;
   color: rgba(255, 255, 255, 0.5);
   opacity: 1;
-  transition: all 0.3s ease;
+  transition: color 0.3s ease;
 }
 .message-status.read {
   color: #ffffff;
@@ -161,7 +163,7 @@ export default {
   position: absolute; left: -36px;
   width: 28px; height: 28px; border-radius: 10px;
   display: grid; place-items: center;
-  opacity: 0; visibility: hidden; transition: all 0.2s ease; cursor: pointer;
+  opacity: 0; visibility: hidden; transition: opacity 0.2s ease; cursor: pointer;
 }
 .message-action.visible { opacity: 1; visibility: visible; }
 
@@ -172,13 +174,4 @@ export default {
 }
 .theme-light .delete-btn { color: #9098b8; background: #f0f1f8; border-color: #e4e6f0; }
 .delete-btn:hover { color: #ff4d6d; background: rgba(255, 77, 109, 0.1); border-color: rgba(255, 77, 109, 0.2); }
-
-.message-row {
-  animation: msgFade 0.2s ease-out both;
-}
-
-@keyframes msgFade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
 </style>

@@ -38,7 +38,6 @@
 
     <div class="messages-area-wrapper">
       <div class="messages-area" ref="messagesArea" @scroll="onScroll">
-        <div class="messages-spacer"></div>
         <div v-if="messages.length === 0" class="day-separator">Today</div>
         <MessageBubble
           v-for="message in messages"
@@ -471,9 +470,7 @@ beforeUnmount() {
     linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   background-size: 48px 48px;
 }
-.messages-spacer {
-  flex: 1;
-}
+
 .theme-light .messages-area-wrapper {
   background-image:
     linear-gradient(rgba(91, 106, 255, 0.06) 1px, transparent 1px),
@@ -482,9 +479,8 @@ beforeUnmount() {
 
 .messages-area {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
-    padding: 8px 28px 8px;
+  padding: 8px 28px 8px;
   display: flex; flex-direction: column; gap: 6px;
-  justify-content: flex-end;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   background: transparent;
 }
@@ -573,10 +569,7 @@ beforeUnmount() {
 
 @media (max-width: 760px) {
   .chat-header { padding: 10px 14px; height: 64px; min-height: 64px; flex-shrink: 0; }
-  .messages-area {
-    padding: 8px 12px 8px;
-    justify-content: flex-end;
-  }
+  .messages-area { padding: 8px 12px 8px; }
   .composer-wrap {
     padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
     flex-shrink: 0;
