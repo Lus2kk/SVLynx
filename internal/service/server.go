@@ -14,70 +14,79 @@ import (
 	"github.com/svlynx/messenger/internal/chat/chat_repository"
 	"github.com/svlynx/messenger/internal/chat/chat_routes"
 	"github.com/svlynx/messenger/internal/chat/chat_service"
+	"github.com/svlynx/messenger/internal/chat/ws"
 	"github.com/svlynx/messenger/internal/config"
 	"github.com/svlynx/messenger/internal/email"
 	"github.com/svlynx/messenger/internal/migration"
+	"github.com/svlynx/messenger/internal/push"
 	"github.com/svlynx/messenger/internal/router"
 	"github.com/svlynx/messenger/internal/user_repository"
 )
 
-
 type Server struct {
-	cfg    *config.Config
-	router *gin.Engine
-	db 	   *pgxpool.Pool
+	cfg        *config.Config
+	router     *gin.Engine
+	db         *pgxpool.Pool
+	PushSender *push.Sender
 }
-
-
 
 func NewServer(cfg *config.Config) *Server {
 	dsn := fmt.Sprintf(
-
 		"postgres://%s:%s@%s/%s?sslmode=disable",
 		cfg.Postgres.User,
 		cfg.Postgres.Password,
 		cfg.Postgres.Addr,
 		cfg.Postgres.DB,
 	)
+
 	migration.RunMigrate(dsn)
 
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: cfg.ReddisAddr,
 	})
 
-	emailSender := email.NewSender(cfg.SmtpHost, cfg.SmtpPort, cfg.SenderEmail, cfg.SenderPassword)
+	emailSender := email.NewSender(cfg.ResendAPIKey, cfg.SenderEmail)
 
 	db, err := pgxpool.New(context.Background(), dsn)
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
-	
 	userRepo := user_repository.NewRepository(db)
 	repo := auth_repository.NewRepository(redisClient)
 	service := auth_service.NewService(repo, emailSender, userRepo, cfg.JWTSecret)
 	handler := auth_handler.NewHandler(service, cfg.TelegramToken)
 
 	postgresRepo := chat_repository.NewPostgresRepo(db)
-
-	directService := chat_service.NewDirectService(postgresRepo)
-	directHandler := chat_handler.NewDirectHandler(directService)
-
+	directService := chat_service.NewDirectService(postgresRepo, userRepo)
 	messageService := chat_service.NewMessageService(postgresRepo)
-	messageHandler := chat_handler.NewMessageHandler(messageService)
+
+	pushRepo := push.NewRepository(db)
+	pushHandler := push.NewHandler(pushRepo, cfg.JWTSecret)
+	pushSender := push.NewSender(pushRepo, cfg.VAPIDPrivateKey, cfg.VAPIDPublicKey, cfg.VAPIDEmail)
+
+	hub := ws.NewHub(messageService, directService)
+	go hub.Run()
+
+	messageHandler := chat_handler.NewMessageHandler(messageService, hub, pushSender)
+	directHandler := chat_handler.NewDirectHandler(directService, hub)
+	wsHandler := chat_handler.NewWsHandler(hub)
 
 	Router := gin.Default()
+	Router.Use(router.CorsMiddleware())
+
+	push.RegisterRoutes(Router, pushHandler)
+
 	chat_routes.SetupRoutes(Router)
 	chat_routes.DirectRouter(Router, directHandler)
 	chat_routes.MessageRouter(Router, messageHandler)
-
-	
-	Router.Use(router.CorsMiddleware())
+	chat_routes.WsRouter(Router, wsHandler)
 	router.RegisterRoutes(Router, handler)
 
 	return &Server{
-		cfg: cfg,
-		router: Router,
-		db: db,
+		cfg:        cfg,
+		router:     Router,
+		db:         db,
+		PushSender: pushSender,
 	}
 }
 

@@ -20,6 +20,11 @@ func DirectRouter(engine *gin.Engine, handler *chat_handler.DirectHandler) {
 	chat.POST("", handler.CreateNewDirectHandler)
 	chat.GET("", handler.GetDirectByIdHandler)
 	chat.GET("/list", handler.GetListOfDirectsByIDHandler)
+	chat.DELETE("/:id", handler.DeleteDirectHandler)
+
+	users := engine.Group("/users")
+    users.GET("/search", handler.SearchUsersHandler)
+	users.GET("/:id/status", handler.GetUserStatusHandler)
 }
 
 func MessageRouter(engine *gin.Engine, handler *chat_handler.MessageHandler) {
@@ -28,5 +33,10 @@ func MessageRouter(engine *gin.Engine, handler *chat_handler.MessageHandler) {
 	message.GET("", handler.GetMessagesByChatIdHandler)
 	message.GET("/search", handler.SearchMessageHandler)
 	message.PATCH("/:id/status", handler.UpdateMessageStatusHandler)
+	message.PATCH("/read", handler.MarkChatMessagesAsReadHandler)
 	message.DELETE("/:id", handler.DeleteMessageHandler)
+}
+
+func WsRouter(engine *gin.Engine, handler *chat_handler.WsHandler) {
+	engine.GET("/ws", handler.ServeWs)
 }

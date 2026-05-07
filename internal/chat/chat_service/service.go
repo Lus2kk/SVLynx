@@ -8,14 +8,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/svlynx/messenger/internal/chat/chat_models"
 	"github.com/svlynx/messenger/internal/chat/chat_repository"
+	"github.com/svlynx/messenger/internal/user_repository"
 )
 
 type DirectService struct {
 	repo chat_repository.DirectRepo
+	user_repo user_repository.UserRepository
 }
 
-func NewDirectService(repo chat_repository.DirectRepo) *DirectService {
-	return &DirectService{repo: repo}
+func NewDirectService(repo chat_repository.DirectRepo, user_repo user_repository.UserRepository) *DirectService {
+	return &DirectService{
+		repo: repo,
+		user_repo: user_repo,
+	}
 }
 
 type CreatedDirect struct {
@@ -34,35 +39,51 @@ func NewMessageService(repo chat_repository.MessageRepo) *MessageService {
 type CreatedMessage struct {
 	ChatID   uuid.UUID `json:"chat_id"`
 	SenderID uuid.UUID `json:"sender_id"`
+	RecipientID uuid.UUID `json:"recipient_id"`
 	Content  string    `json:"content"`
 }
 
 func (s *DirectService) CreateNewDirectService(ctx context.Context, input CreatedDirect) (*chat_models.Direct, error) {
-	existing, err := s.repo.GetDirectByIdRepo(ctx, input.FirstUserID, input.SecondUserID)
-	if err == nil && existing != nil {
-		return existing, nil
-	}
-	new_direct := &chat_models.Direct{
-		Id:           uuid.New(),
-		CreationTime: time.Now(),
-	}
-	new_direct.FirstMember = chat_models.ChatMember{
-		ChatId:     new_direct.Id,
-		UserId:     input.FirstUserID,
-		JoinedTime: time.Now(),
-	}
-	new_direct.SecondMember = chat_models.ChatMember{
-		ChatId:     new_direct.Id,
-		UserId:     input.SecondUserID,
-		JoinedTime: time.Now(),
-	}
-	_, err = s.repo.CreateNewDirectRepo(ctx, new_direct)
-	if err != nil {
-		return nil, fmt.Errorf("create direct chat: %w", err)
-	}
+    if input.FirstUserID == input.SecondUserID {
+        return nil, fmt.Errorf("cannot create direct chat with yourself")
+    }
 
-	return new_direct, nil
+    existing, err := s.repo.GetDirectByIdRepo(ctx, input.FirstUserID, input.SecondUserID)
+    if err != nil {
+        return nil, fmt.Errorf("check existing direct error: %w", err)
+    }
+    if existing != nil {
+        return existing, nil
+    }
+
+    now := time.Now()
+
+    newDirect := &chat_models.Direct{
+        Id:           uuid.New(),
+        CreationTime: now,
+        FirstMember: chat_models.ChatMember{
+            ChatId:     uuid.Nil,
+            UserId:     input.FirstUserID,
+            JoinedTime: now,
+        },
+        SecondMember: chat_models.ChatMember{
+            ChatId:     uuid.Nil,
+            UserId:     input.SecondUserID,
+            JoinedTime: now,
+        },
+    }
+
+    newDirect.FirstMember.ChatId = newDirect.Id
+    newDirect.SecondMember.ChatId = newDirect.Id
+
+    result, err := s.repo.CreateNewDirectRepo(ctx, newDirect)
+    if err != nil {
+        return nil, fmt.Errorf("create direct error: %w", err)
+    }
+
+    return result, nil
 }
+
 
 func (s *DirectService) GetDirectById(ctx context.Context, MyId uuid.UUID, CompanionId uuid.UUID) (*chat_models.Direct, error) {
 	direct, err := s.repo.GetDirectByIdRepo(ctx, MyId, CompanionId)
@@ -75,12 +96,19 @@ func (s *DirectService) GetDirectById(ctx context.Context, MyId uuid.UUID, Compa
 	return direct, nil
 }
 
-func (s *DirectService) GetListOfDirectsByIDService(ctx context.Context, user_id uuid.UUID) ([]*chat_models.Direct, error) {
-	directs, err := s.repo.GetListOfDirectsListByIDRepo(ctx, user_id)
+func (s *DirectService) GetListOfDirectsByIDService(ctx context.Context, userId uuid.UUID) ([]*chat_models.DirectListItem, error) {
+	directs, err := s.repo.GetListOfDirectsListByIDRepo(ctx, userId)
 	if err != nil {
-		return nil, fmt.Errorf("troubles with findong: %w", err)
+		return nil, err
 	}
 	return directs, nil
+}
+
+func (s *DirectService) DeleteDirectService(ctx context.Context, chatID uuid.UUID) error {
+	if err := s.repo.DeleteDirectRepo(ctx, chatID); err != nil {
+		return fmt.Errorf("delete direct error: %w", err)
+	}
+	return nil
 }
 
 func (s *MessageService) SendMessage(ctx context.Context, input CreatedMessage) (*chat_models.Message, error) {
@@ -132,4 +160,40 @@ func (s *MessageService) DeleteMessageService(ctx context.Context, message_id uu
 		return fmt.Errorf("delete message error : %w", err)
 	}
 	return nil
+}
+
+func (s *DirectService) SearchUsersService(ctx context.Context, currentUserID string, query string) ([]*user_repository.User, error) {
+	if query == "" {
+		return []*user_repository.User{}, nil
+	}
+
+	limit := 20
+	return s.user_repo.SearchUsers(ctx, currentUserID, query, limit)
+}
+
+func (s *MessageService) MarkChatMessagesAsReadService(ctx context.Context, chatID uuid.UUID, userID uuid.UUID) error {
+	if err := s.repo.MarkChatMessagesAsReadRepo(ctx, chatID, userID); err != nil {
+		return fmt.Errorf("mark messages as read service error: %w", err)
+	}
+	return nil
+}
+
+func (s *DirectService) GetUserStatusService(ctx context.Context, userID uuid.UUID) (bool, time.Time, error) {
+	isOnline, lastSeen, err := s.user_repo.GetUserStatus(ctx, userID.String())
+	if err != nil {
+		return false, time.Time{}, fmt.Errorf("get user status error: %w", err)
+	}
+	return isOnline, lastSeen, nil
+}
+
+func (s *DirectService) UpdateLastSeenService(ctx context.Context, userID uuid.UUID) {
+	_ = s.user_repo.SetUserOnlineStatus(ctx, userID.String(), true)
+}
+
+func (s *DirectService) SetUserOnline(ctx context.Context, userID uuid.UUID) error {
+	return s.user_repo.SetUserOnlineStatus(ctx, userID.String(), true)
+}
+
+func (s *DirectService) SetUserOffline(ctx context.Context, userID uuid.UUID) error {
+	return s.user_repo.SetUserOnlineStatus(ctx, userID.String(), false)
 }

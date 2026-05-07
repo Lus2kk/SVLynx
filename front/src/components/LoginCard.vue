@@ -1,3 +1,4 @@
+
 <template>
   <div class="login-wrapper">
     <div class="card">
@@ -39,10 +40,11 @@ import Logo from './Logo.vue'
 import StatusMsg from './StatusMsg.vue'
 import TgButton from './TgButton.vue'
 import EmailAuth from './EmailAuth.vue'
+import { usePush } from '../composables/usePush.js'
 
 export default {
   components: { Logo, StatusMsg, TgButton, EmailAuth },
-  emits: ['show-profile'],
+  emits: ['show-profile', 'show-chat'],
 
   data() {
     return {
@@ -51,31 +53,34 @@ export default {
   },
 
   methods: {
-    onEmailSuccess({ needsProfile }) {
+    async onEmailSuccess({ needsProfile }) {
+      const { subscribe } = usePush()
+      try { await subscribe() } catch (e) { console.warn('Push subscribe error:', e) }
+      
       if (needsProfile) {
         setTimeout(() => this.$emit('show-profile'), 100)
+      } else {
+        setTimeout(() => this.$emit('show-chat'), 100)
       }
     },
 
-    onTelegramAuth(user) {
-      this.status = { type: 'success', message: 'Подключение к серверу...' }
+    async onTelegramAuth(data) {
+      console.log('onTelegramAuth data:', data)
 
-      fetch('https://svlynx.site/auth/telegram/callback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(user)
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.status === 'approved') {
-            this.status = { type: 'success', message: 'Вы вошли! Переход в SVLynx...' }
-          } else {
-            this.status = { type: 'error', message: 'Ошибка: ' + data.error }
-          }
-        })
-        .catch(() => {
-          this.status = { type: 'error', message: 'Не удалось подключиться к серверу' }
-        })
+      if (data.access_token) {
+        sessionStorage.setItem('access_token', data.access_token)
+        sessionStorage.setItem('refresh_token', data.refresh_token)
+        sessionStorage.setItem('current_user_name', data.sender_name || '')
+
+        this.status = { type: 'success', message: 'Вы вошли! Переход в SVLynx...' }
+        
+        const { subscribe } = usePush()
+        try { await subscribe() } catch (e) { console.warn('Push subscribe error:', e) }
+        
+        setTimeout(() => this.$emit('show-chat'), 500)
+      } else {
+        this.status = { type: 'error', message: data.error || 'Ошибка авторизации' }
+      }
     }
   }
 }
@@ -111,7 +116,7 @@ export default {
 .card-content {
   width: 100%;
   max-width: 420px;
-  margin: auto auto; 
+  margin: auto auto;
   display: flex;
   flex-direction: column;
 }
@@ -234,6 +239,26 @@ export default {
 
   .desktop-break {
     display: inline;
+  }
+}
+
+@media (max-width: 760px) {
+  .login-wrapper {
+    min-height: 100dvh;
+    background: hwb(224 5% 87%);
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 0;
+  }
+
+  .card {
+    flex: 1;
+    min-height: 100dvh;
+    padding-top: calc(24px + env(safe-area-inset-top));
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    background: hwb(224 5% 87%);
+    position: sticky;
+    bottom: 0;
   }
 }
 </style>

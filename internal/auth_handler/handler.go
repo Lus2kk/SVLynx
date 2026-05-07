@@ -104,10 +104,10 @@ func HandlerError(c *gin.Context, err error) {
 
 func NewHandler(service *auth_service.Service, telegramToken string) *Handler {
 	return &Handler{
-		service: service,
-	telegramToken: telegramToken,
-}}
-
+		service:       service,
+		telegramToken: telegramToken,
+	}
+}
 
 func (h *Handler) InitTelegramAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -134,13 +134,13 @@ func (h *Handler) getBearer(c *gin.Context) string {
 
 	parts := strings.SplitN(header, " ", 2)
 	if len(parts) != 2 || parts[0] != "Bearer" {
-		 slog.Warn("invalid auth header format", "value", header)
+		slog.Warn("invalid auth header format", "value", header)
 		return ""
 	}
-	
+
 	return parts[1]
 }
- 
+
 func (h *Handler) InitEmailAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
@@ -155,7 +155,6 @@ func (h *Handler) InitEmailAuth() gin.HandlerFunc {
 			"session_id": session.SessionID,
 			"expires_at": session.ExpiresAt,
 		})
-
 	}
 }
 
@@ -203,29 +202,29 @@ func (h *Handler) VerifyEmailCode() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"access_token":  tokens.AccessToken,
 			"refresh_token": tokens.RefreshToken,
-			"needs_profile": needs_profile, 
+			"needs_profile": needs_profile,
 		})
 	}
 }
 
 func (h *Handler) Refresh() gin.HandlerFunc {
-	return func (c *gin.Context) {
+	return func(c *gin.Context) {
 		ctx := c.Request.Context()
-		
+
 		refreshToken := c.GetHeader("X-Refresh-Token")
 		if refreshToken == "" {
 			HandlerError(c, apperrors.ErrUnauthorized)
-			return 
+			return
 		}
 
 		tokens, err := h.service.Refresh(ctx, refreshToken)
 		if err != nil {
 			HandlerError(c, err)
-			return 
+			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"access_token": tokens.AccessToken,
+			"access_token":  tokens.AccessToken,
 			"refresh_token": tokens.RefreshToken,
 		})
 	}
@@ -234,11 +233,10 @@ func (h *Handler) Refresh() gin.HandlerFunc {
 func (h *Handler) GetMe() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
-		
 		accessToken := h.getBearer(c)
 		if accessToken == "" {
 			HandlerError(c, apperrors.ErrUnauthorized)
-			return 
+			return
 		}
 
 		user, err := h.service.GetMe(ctx, accessToken)
@@ -303,21 +301,23 @@ func (h *Handler) TelegramCallback() gin.HandlerFunc {
 		var req auth_models.TelegramCallbackRequest
 
 		if err := c.ShouldBindJSON(&req); err != nil {
+			slog.Error("telegram callback bind error", "error", err.Error())
 			HandlerError(c, apperrors.ErrInvalidRequest)
 			return
 		}
 
 		if err := validateTelegramCallback(&req); err != nil {
 			HandlerError(c, err)
-			return 
+			return
 		}
 		tokens, err := h.service.TelegramCallback(ctx, h.telegramToken, &req)
 		if err != nil {
 			HandlerError(c, err)
 			return
 		}
+
 		c.JSON(http.StatusOK, gin.H{
-			"access_token": tokens.AccessToken,
+			"access_token":  tokens.AccessToken,
 			"refresh_token": tokens.RefreshToken,
 		})
 	}

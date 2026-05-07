@@ -7,11 +7,15 @@ type Config struct {
 	SmtpPort       int    `env:"SMTP_PORT"     env-default:"587"`
 	SenderEmail    string `env:"SENDER_EMAIL" env-required:"true"`
 	SenderPassword string `env:"SENDER_PASSWORD" env-required:"true"`
+	ResendAPIKey   string `env:"RESEND_API_KEY"     env-required:"true"`
 	JWTSecret      string `env:"JWT_SECRET" env-required:"true"`
 	Port           string `env:"PORT" env-required:"true"`
 	TelegramToken  string `env:"TELEGRAM_BOT_TOKEN" env-required:"true"`
 	ReddisAddr     string `env:"REDIS_ADDR" env-required:"true"`
 	Postgres       PostgresConfig
+	VAPIDPublicKey  string `env:"VAPID_PUBLIC_KEY"  env-required:"true"`
+    VAPIDPrivateKey string `env:"VAPID_PRIVATE_KEY" env-required:"true"`
+    VAPIDEmail      string `env:"VAPID_EMAIL"       env-required:"true"`
 }
 type PostgresConfig struct {
 	User     string `env:"POSTGRES_USER"        env-required:"true"`

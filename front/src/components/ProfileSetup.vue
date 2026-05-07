@@ -64,7 +64,7 @@
 import Logo from './Logo.vue'
 import StatusMsg from './StatusMsg.vue'
 
-const BASE = 'https://svlynx.site'
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
 export default {
   components: { Logo, StatusMsg },

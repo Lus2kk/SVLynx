@@ -11,10 +11,19 @@ func CorsMiddleware() gin.HandlerFunc {
     "http://localhost:5173",      
     "https://svlynx.site",          
     "https://www.svlynx.site",
-},
-        AllowMethods:     []string{"POST", "GET", "OPTIONS"},
-        AllowHeaders:     []string{"Content-Type", "Authorization", "X-Refresh-Token"},
+    },
+        AllowMethods:     []string{"POST", "GET", "OPTIONS", "PATCH", "DELETE"},
+        AllowHeaders:     []string{
+        "Origin",
+		"Content-Length",
+		"Content-Type",
+		"Authorization", 
+		"Accept",
+		"X-Requested-With",
+		"X-Refresh-Token",
+    },
         ExposeHeaders:    []string{"Content-Length"},
         AllowCredentials: true,
+         AllowWebSockets:  true,
     })
 }
