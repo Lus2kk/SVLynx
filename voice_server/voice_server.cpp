@@ -73,7 +73,11 @@ int main() {
         std::ifstream f(path, std::ios::binary);
         std::string content((std::istreambuf_iterator<char>(f)),
                              std::istreambuf_iterator<char>());
-        res.set_content(content, "audio/webm");
+
+        std::string contentType = "audio/webm";
+        if (file.find(".mp4") != std::string::npos) contentType = "audio/mp4";
+        else if (file.find(".ogg") != std::string::npos) contentType = "audio/ogg";
+        res.set_content(content, contentType);
     });
 
     svr.Post("/voice/upload", [&](const httplib::Request& req, httplib::Response& res) {

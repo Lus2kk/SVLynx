@@ -53,10 +53,12 @@
 <script>
 import ChatSidebar from './ChatSidebar.vue'
 import ChatWindow from './ChatWindow.vue'
+import { apiFetch, getCookie } from '../api.js'
 
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 const WS_BASE = BASE.replace(/^http/, 'ws')
+
 
 export default {
   name: 'ChatLayout',
@@ -259,7 +261,7 @@ updateThemeColor() {
 
     parseUserIdFromToken() {
       try {
-        const token = sessionStorage.getItem('access_token')
+        const token = getCookie('access_token')
         if (!token) return null
         const payload = this.parseJwt(token)
         if (!payload) return null
@@ -276,9 +278,7 @@ updateThemeColor() {
         const url = new URL(`${BASE}/chat/direct/list`)
         url.searchParams.set('user_id', userId)
 
-        const res = await fetch(url.toString(), {
-          headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
-        })
+        const res = await apiFetch(url.toString())
 
         if (!res.ok) return
         const data = await res.json()
@@ -357,9 +357,7 @@ updateThemeColor() {
 
     async fetchUserStatus(userId) {
       try {
-        const res = await fetch(`${BASE}/users/${userId}/status`, {
-          headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
-        })
+        const res = await apiFetch(`${BASE}/users/${userId}/status`)
         if (!res.ok) return
         const data = await res.json()
         this.setUserPresence(userId, {
@@ -410,12 +408,9 @@ updateThemeColor() {
 
     async startChat(userId, nickname) {
       try {
-        const res = await fetch(`${BASE}/chat/direct`, {
+        const res = await apiFetch(`${BASE}/chat/direct`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}`
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ first_user_id: this.currentUserId, second_user_id: userId })
         })
 

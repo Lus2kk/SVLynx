@@ -29,17 +29,51 @@ export default {
     }
   },
 
-  mounted() {
+  async mounted() {
     document.addEventListener('gesturestart', e => e.preventDefault())
     document.addEventListener('gesturechange', e => e.preventDefault())
     document.addEventListener('gestureend', e => e.preventDefault())
 
-    const token = sessionStorage.getItem('access_token')
-    if (token) this.showChat = true
     this.applyTheme()
+
+    const accessToken = this.getCookie('access_token')
+    const refreshToken = this.getCookie('refresh_token')
+
+    if (accessToken) {
+      this.showChat = true
+      return
+    }
+
+    if (refreshToken) {
+      try {
+        const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+        const res = await fetch(`${BASE}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'X-Refresh-Token': refreshToken }
+        })
+
+        if (res.ok) {
+          const data = await res.json()
+          this.setCookie('access_token', data.access_token, 60)
+          this.setCookie('refresh_token', data.refresh_token, 2592000)
+          this.showChat = true
+        }
+      } catch (e) {
+        console.error('refresh error:', e)
+      }
+    }
   },
 
   methods: {
+    getCookie(name) {
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
+      return match ? match[2] : null
+    },
+
+    setCookie(name, value, maxAgeSeconds) {
+      document.cookie = `${name}=${value}; path=/; max-age=${maxAgeSeconds}; SameSite=Strict`
+    },
+
     applyTheme() {
       const isLight = localStorage.getItem('svlynx-theme') === 'light'
       const color = isLight ? '#ffffff' : 'rgb(8, 12, 26)'

@@ -40,13 +40,13 @@
       <div class="messages-area" ref="messagesArea" @scroll="onScroll">
         <div v-if="messages.length === 0" class="day-separator">Today</div>
         <MessageBubble
-      v-for="message in messages"
-      :key="message.id"
-      :message="message"
-      :isMine="isMine(message)"
-      :isLight="isLight"
-      @delete="confirmDelete"
-    />
+          v-for="message in messages"
+          :key="message.id"
+          :message="message"
+          :isMine="isMine(message)"
+          :isLight="isLight"
+          @delete="confirmDelete"
+        />
       </div>
       <div v-if="deleteModalOpen" class="delete-modal-overlay">
         <div class="delete-modal">
@@ -128,13 +128,14 @@
 
 <script>
 import MessageBubble from './MessageBubble.vue'
-import VoiceRecorder from './VoiceRecorder.vue'
+import { apiFetch, getCookie } from '../api.js'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+const VOICE_BASE = import.meta.env.VITE_VOICE_API_URL || 'http://localhost:9090'
 
 export default {
   name: 'ChatWindow',
-  components: { MessageBubble, VoiceRecorder },
+  components: { MessageBubble },
 
   props: {
     chat: { type: Object, default: null },
@@ -151,6 +152,9 @@ export default {
 
   data() {
     return {
+      waveformData: [],
+      audioContext: null,
+      analyser: null,
       mouseTimer: null,
       mouseStarted: false,
       touchTimer: null,
@@ -173,21 +177,27 @@ export default {
     }
   },
 
-  mounted() {
-  this.presenceTimer = setInterval(() => {
-    this.nowTick = Date.now()
-  }, 6000)
-},
+  async mounted() {
+    this.presenceTimer = setInterval(() => {
+      this.nowTick = Date.now()
+    }, 6000)
 
-beforeUnmount() {
-  if (this.presenceTimer) {
-    clearInterval(this.presenceTimer)
-    this.presenceTimer = null
-  }
-},
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach(t => t.stop())
+    } catch (e) {
+      console.warn('Microphone permission denied', e)
+    }
+  },
+
+  beforeUnmount() {
+    if (this.presenceTimer) {
+      clearInterval(this.presenceTimer)
+      this.presenceTimer = null
+    }
+  },
 
   computed: {
-
     voiceTimerText() {
       const m = Math.floor(this.voiceTimerSeconds / 60).toString().padStart(2, '0')
       const s = (this.voiceTimerSeconds % 60).toString().padStart(2, '0')
@@ -232,7 +242,6 @@ beforeUnmount() {
   },
 
   methods: {
-
     onMouseDown() {
       this.mouseStarted = false
       this.mouseTimer = setTimeout(() => {
@@ -251,34 +260,36 @@ beforeUnmount() {
         this.mouseStarted = false
         this.voiceMode = false
       } else {
-        this.voiceMode = false  
+        this.voiceMode = false
       }
     },
-  onTouchStart() {
+
+    onTouchStart() {
       this.touchStarted = false
       this.touchTimer = setTimeout(() => {
         this.touchStarted = true
         this.startVoice()
-      }, 500) 
+      }, 500)
     },
 
     onTouchEnd() {
-    if (this.touchTimer) {
-      clearTimeout(this.touchTimer)
-      this.touchTimer = null
-    }
-    if (this.touchStarted) {
-      this.stopVoice() 
-      this.touchStarted = false
-    } else {
-      this.voiceMode = false 
-    }
-  },
+      if (this.touchTimer) {
+        clearTimeout(this.touchTimer)
+        this.touchTimer = null
+      }
+      if (this.touchStarted) {
+        this.stopVoice()
+        this.touchStarted = false
+      } else {
+        this.voiceMode = false
+      }
+    },
+
     onSendClick() {
       if (this.newMessage.trim()) {
         this.sendMessage()
       } else {
-        this.voiceMode = !this.voiceMode  
+        this.voiceMode = !this.voiceMode
       }
     },
 
@@ -288,7 +299,21 @@ beforeUnmount() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
         this.voiceChunks = []
-        this.voiceMediaRecorder = new MediaRecorder(stream)
+        this.waveformData = []
+
+        this.audioContext = new AudioContext()
+        this.analyser = this.audioContext.createAnalyser()
+        this.analyser.fftSize = 256
+        const source = this.audioContext.createMediaStreamSource(stream)
+        source.connect(this.analyser)
+
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : MediaRecorder.isTypeSupported('audio/mp4')
+            ? 'audio/mp4'
+            : 'audio/webm'
+
+        this.voiceMediaRecorder = new MediaRecorder(stream, { mimeType })
         this.voiceMediaRecorder.ondataavailable = e => {
           if (e.data.size > 0) this.voiceChunks.push(e.data)
         }
@@ -297,6 +322,14 @@ beforeUnmount() {
         this.isRecordingVoice = true
         this.voiceTimerSeconds = 0
         this.voiceTimerInterval = setInterval(() => this.voiceTimerSeconds++, 1000)
+
+        this.waveformInterval = setInterval(() => {
+          const dataArray = new Uint8Array(this.analyser.frequencyBinCount)
+          this.analyser.getByteFrequencyData(dataArray)
+          const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length
+          this.waveformData.push(avg / 255) 
+        }, 100)
+
       } catch (e) {
         console.error('Microphone error', e)
       }
@@ -306,25 +339,38 @@ beforeUnmount() {
       if (!this.voiceMediaRecorder || !this.isRecordingVoice) return
       this.isRecordingVoice = false
       clearInterval(this.voiceTimerInterval)
+      clearInterval(this.waveformInterval)  
+      if (this.audioContext) {
+        this.audioContext.close()
+        this.audioContext = null
+      }
       this.voiceMediaRecorder.stream.getTracks().forEach(t => t.stop())
-      this.voiceMediaRecorder.stop()  
+      this.voiceMediaRecorder.stop()
     },
 
     async handleVoiceStop() {
       if (this.voiceChunks.length === 0) return
-      const blob = new Blob(this.voiceChunks, { type: 'audio/webm' })
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/mp4')
+          ? 'audio/mp4'
+          : 'audio/webm'
+
+      const blob = new Blob(this.voiceChunks, { type: mimeType })
+      const ext = mimeType.includes('mp4') ? '.mp4' : '.webm'
 
       const form = new FormData()
-      form.append('file', blob, `voice_${Date.now()}.webm`)
+      form.append('file', blob, `voice_${Date.now()}${ext}`)
       form.append('chat_id', String(this.chatId))
       form.append('sender_id', String(this.currentUserId))
       form.append('recipient_id', String(this.recipientId))
+      form.append('waveform', JSON.stringify(this.waveformData))
 
       try {
         const VOICE_BASE = import.meta.env.VITE_VOICE_API_URL || 'http://localhost:9090'
         const res = await fetch(`${VOICE_BASE}/voice/upload`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` },
+          headers: { Authorization: `Bearer ${getCookie('access_token') || ''}` },
           body: form
         })
         if (!res.ok) return
@@ -333,22 +379,26 @@ beforeUnmount() {
       } catch (e) {
         console.error('Voice upload error', e)
       } finally {
-        this.voiceMode = false  
+        this.voiceMode = false
       }
     },
 
     onVoiceSent(message) {
-    if (!message) return
-    const msg = this.normalizeMessage(message)
-    if (this.messages.find(m => String(m.id) === String(msg.id))) return
-    this.messages.push(msg)
-    this.scrollToBottom()
-    this.$emit('message-sent', {
-      chatId: this.chatId,
-      content: 'Голосовое сообщение',
-      date: msg.created_at
-    })
-  },
+      if (!message) return
+      const msg = this.normalizeMessage({
+        ...message,
+        waveform: this.waveformData 
+      })
+      if (this.messages.find(m => String(m.id) === String(msg.id))) return
+      this.messages.push(msg)
+      this.scrollToBottom()
+      this.$emit('message-sent', {
+        chatId: this.chatId,
+        content: 'Голосовое сообщение',
+        date: msg.created_at
+      })
+    },
+
     onScroll() {
       const area = this.$refs.messagesArea
       if (!area) return
@@ -367,9 +417,7 @@ beforeUnmount() {
         url.searchParams.set('chat_id', this.chatId)
         url.searchParams.set('before', oldest)
         url.searchParams.set('limit', '50')
-        const res = await fetch(url.toString(), {
-          headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
-        })
+        const res = await apiFetch(url.toString())
         if (!res.ok) return
         const data = await res.json()
         const older = Array.isArray(data.messages) ? data.messages : []
@@ -422,9 +470,7 @@ beforeUnmount() {
       try {
         const url = new URL(`${BASE}/chat/messages`)
         url.searchParams.set('chat_id', this.chatId)
-        const res = await fetch(url.toString(), {
-          headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
-        })
+        const res = await apiFetch(url.toString())
         if (!res.ok) return
         const data = await res.json()
         const apiMessages = Array.isArray(data.messages) ? data.messages : []
@@ -488,64 +534,61 @@ beforeUnmount() {
     },
 
     async sendMessage() {
-  const text = this.newMessage.trim()
-  if (!text || !this.chatId) return
+      const text = this.newMessage.trim()
+      if (!text || !this.chatId) return
 
-  this.$refs.messageInput?.focus()
+      this.$refs.messageInput?.focus()
 
-  const optimistic = {
-    id: `local-${Date.now()}`,
-    sender_id: this.currentUserId,
-    content: text,
-    created_at: new Date().toISOString(),
-    status: 'sent'
-  }
-
-  this.messages.push(optimistic)
-  this.newMessage = ''
-  this.scrollToBottom()
-
-  this.$emit('message-sent', {
-    chatId: this.chatId,
-    content: text,
-    date: optimistic.created_at
-  })
-
-  try {
-    const res = await fetch(`${BASE}/chat/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}`
-      },
-      body: JSON.stringify({
-        chat_id: this.chatId,
+      const optimistic = {
+        id: `local-${Date.now()}`,
         sender_id: this.currentUserId,
-        recipient_id: this.recipientId,
-        content: text
+        content: text,
+        created_at: new Date().toISOString(),
+        status: 'sent'
+      }
+
+      this.messages.push(optimistic)
+      this.newMessage = ''
+      this.scrollToBottom()
+
+      this.$emit('message-sent', {
+        chatId: this.chatId,
+        content: text,
+        date: optimistic.created_at
       })
-    })
 
-    if (!res.ok) throw new Error('Network response was not ok')
+      try {
+        const res = await apiFetch(`${BASE}/chat/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: this.chatId,
+            sender_id: this.currentUserId,
+            recipient_id: this.recipientId,
+            content: text
+          })
+        })
 
-    const data = await res.json()
-    const savedRaw = data.message || null
+        if (!res.ok) throw new Error('Network response was not ok')
 
-    if (savedRaw) {
-      const saved = this.normalizeMessage(savedRaw)
-      this.messages = this.messages.map(m => (m.id === optimistic.id ? saved : m))
-    } else {
-      this.messages = this.messages.map(m =>
-        m.id === optimistic.id ? { ...m, status: 'delivered' } : m
-      )
-    }
-  } catch (e) {
-    console.error('Failed to send message', e)
-    this.messages = this.messages.map(m =>
-      m.id === optimistic.id ? { ...m, status: 'failed' } : m
-    )
-  }
-},
+        const data = await res.json()
+        const savedRaw = data.message || null
+
+        if (savedRaw) {
+          const saved = this.normalizeMessage(savedRaw)
+          this.messages = this.messages.map(m => (m.id === optimistic.id ? saved : m))
+        } else {
+          this.messages = this.messages.map(m =>
+            m.id === optimistic.id ? { ...m, status: 'delivered' } : m
+          )
+        }
+      } catch (e) {
+        console.error('Failed to send message', e)
+        this.messages = this.messages.map(m =>
+          m.id === optimistic.id ? { ...m, status: 'failed' } : m
+        )
+      }
+    },
 
     confirmDelete(messageId) {
       this.messageToDelete = messageId
@@ -562,9 +605,8 @@ beforeUnmount() {
       const messageId = this.messageToDelete
       this.closeDeleteModal()
       try {
-        const res = await fetch(`${BASE}/chat/messages/${messageId}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
+        const res = await apiFetch(`${BASE}/chat/messages/${messageId}`, {
+          method: 'DELETE'
         })
         if (!res.ok) return
         this.messages = this.messages.filter(m => String(m.id) !== String(messageId))
@@ -699,7 +741,7 @@ beforeUnmount() {
 .message-input::placeholder { color: #747ea2; }
 .theme-light .message-input::placeholder { color: #aab0cc; }
 
-.send-btn { color: white; background: linear-gradient(135deg, #6e79ff, #8669ff); box-shadow: 0 8px 18px rgba(94, 102, 255, 0.28); }
+.send-btn { color: white; background: linear-gradient(135deg, #6e79ff, #8669ff); box-shadow: 0 8px 18px rgba(94, 102, 255, 0.28); position: relative; }
 
 .delete-modal-overlay {
   position: absolute; inset: 0;
@@ -735,7 +777,6 @@ beforeUnmount() {
 .theme-light .back-btn { color: #7880a0; background: #f3f4f8; border-color: #e4e6f0; }
 .theme-light .back-btn:hover { background: #e8eaf5; }
 
-
 @media (max-width: 760px) {
   .chat-header { padding: 10px 14px; height: 64px; min-height: 64px; flex-shrink: 0; }
   .messages-area { padding: 14px 12px 10px; }
@@ -748,11 +789,6 @@ beforeUnmount() {
   .messages-area { padding: 14px 12px 80px; }
 }
 
-.messages-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
 .send-btn.recording {
   background: linear-gradient(135deg, #ff4d6d, #d93856);
   box-shadow: 0 0 0 4px rgba(255, 77, 109, 0.2);

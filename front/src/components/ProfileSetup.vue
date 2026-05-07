@@ -63,8 +63,14 @@
 <script>
 import Logo from './Logo.vue'
 import StatusMsg from './StatusMsg.vue'
+import { apiFetch } from '../api.js'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+
+function getCookie(name) {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
+  return match ? match[2] : null
+}
 
 export default {
   components: { Logo, StatusMsg },
@@ -87,13 +93,9 @@ export default {
       this.status = { type: '', message: '' }
 
       try {
-        const accessToken = sessionStorage.getItem('access_token')
-        const res = await fetch(`${BASE}/auth/email/complete`, {
+        const res = await apiFetch(`${BASE}/auth/email/complete`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             nickname: this.nickname,
             name: this.name,

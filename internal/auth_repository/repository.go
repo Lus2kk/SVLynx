@@ -15,7 +15,7 @@ const (
 	CodeCooldownTTL  = 5 * time.Second
 	AttemptsTTL      = 15 * time.Minute
 	RefreshTokenTTL  = 30 * 24 * time.Hour
-	AccesTokenTTL	 = 15 * time.Minute
+	AccesTokenTTL	 = 1 * time.Minute
 	MaxAttempts      = 5
 )
 

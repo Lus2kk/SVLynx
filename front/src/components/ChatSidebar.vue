@@ -172,6 +172,8 @@
 </template>
 
 <script>
+import { apiFetch } from '../api.js'
+
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
 export default {
@@ -230,6 +232,7 @@ export default {
     this.searchResults = []
     this.$emit('start-chat', userId, nickname)
     },
+
     async fetchUsers(query) {
       this.isSearching = true
       try {
@@ -237,9 +240,7 @@ export default {
         url.searchParams.set('q', query)
         url.searchParams.set('user_id', this.currentUserId || '')
 
-        const res = await fetch(url.toString(), {
-          headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
-        })
+        const res = await apiFetch(url.toString())
 
         if (!res.ok) throw new Error('Search error')
 
@@ -311,9 +312,8 @@ export default {
         const url = new URL(`${BASE}/chat/direct/${chatId}`)
         url.searchParams.set('recipient_id', recipientId)
 
-        const res = await fetch(url.toString(), {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` }
+        const res = await apiFetch(url.toString(), {
+          method: 'DELETE'
         })
         if (!res.ok) return
         this.$emit('chat-deleted', chatId)

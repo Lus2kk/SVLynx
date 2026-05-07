@@ -78,17 +78,23 @@ export default {
   emits: ['delete'],
   computed: {
     durationText() {
-      const t = this.isPlaying
-        ? (this.$refs.audio?.currentTime || 0)
-        : this.duration
+      const audio = this.$refs.audio
+      if (this.isPlaying && audio) {
+        const t = audio.currentTime || 0
+        const m = Math.floor(t / 60).toString().padStart(2, '0')
+        const s = Math.floor(t % 60).toString().padStart(2, '0')
+        return `${m}:${s}`
+      }
+      const t = this.duration || 0
       const m = Math.floor(t / 60).toString().padStart(2, '0')
       const s = Math.floor(t % 60).toString().padStart(2, '0')
       return `${m}:${s}`
-    }
-  },
+      }
+    },
 
   data() {
     return { 
+    durationTick: 0,
     showActions: false,
     isPlaying: false,
     progress: 0,
@@ -120,8 +126,20 @@ export default {
   },
 
   onMeta() {
-    this.duration = this.$refs.audio?.duration || 0
-  },
+  const audio = this.$refs.audio
+  if (!audio) return
+  if (audio.duration && isFinite(audio.duration)) {
+    this.duration = audio.duration
+    this.durationTick++ 
+  } else {
+    audio.addEventListener('durationchange', () => {
+      if (isFinite(audio.duration)) {
+        this.duration = audio.duration
+        this.durationTick++ 
+      }
+    }, { once: true })
+  }
+},
 
   seek(e) {
     const audio = this.$refs.audio

@@ -41,6 +41,15 @@ import StatusMsg from './StatusMsg.vue'
 import TgButton from './TgButton.vue'
 import EmailAuth from './EmailAuth.vue'
 
+function setCookie(name, value, maxAgeSeconds) {
+  document.cookie = `${name}=${value}; path=/; max-age=${maxAgeSeconds}; SameSite=Strict`
+}
+
+function getCookie(name) {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
+  return match ? match[2] : null
+}
+
 export default {
   components: { Logo, StatusMsg, TgButton, EmailAuth },
   emits: ['show-profile', 'show-chat'],
@@ -62,8 +71,8 @@ export default {
 
     onTelegramAuth(data) {
       if (data.access_token) {
-        sessionStorage.setItem('access_token', data.access_token)
-        sessionStorage.setItem('refresh_token', data.refresh_token)
+        setCookie('access_token', data.access_token, 900)
+        setCookie('refresh_token', data.refresh_token, 2592000)
         this.status = { type: 'success', message: 'Вы вошли! Переход в SVLynx...' }
         setTimeout(() => this.$emit('show-chat'), 500)
       } else {

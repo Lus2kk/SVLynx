@@ -23,6 +23,11 @@
 <script>
 const VOICE_BASE = import.meta.env.VITE_VOICE_API_URL || 'http://localhost:9090'
 
+function getCookie(name) {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
+  return match ? match[2] : null
+}
+
 export default {
   name: 'VoiceRecorder',
 
@@ -94,7 +99,7 @@ export default {
         const res = await fetch(`${VOICE_BASE}/voice/upload`, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}`
+            Authorization: `Bearer ${getCookie('access_token') || ''}`
           },
           body: form
         })
