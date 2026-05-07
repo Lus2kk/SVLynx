@@ -1,6 +1,7 @@
 package chat_handler
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"github.com/svlynx/messenger/internal/chat/chat_models"
 	"github.com/svlynx/messenger/internal/chat/chat_service"
 	"github.com/svlynx/messenger/internal/chat/ws"
+	"github.com/svlynx/messenger/internal/push"
 )
 
 type DirectHandler struct {
@@ -29,14 +31,20 @@ func NewDirectHandler(srvc *chat_service.DirectService, hub *ws.Hub) *DirectHand
 }
 
 type MessageHandler struct {
-	srvc *chat_service.MessageService
-	hub  *ws.Hub
+	srvc       *chat_service.MessageService
+	hub        *ws.Hub
+	pushSender PushSender
 }
 
-func NewMessageHandler(srvc *chat_service.MessageService, hub *ws.Hub) *MessageHandler {
+type PushSender interface {
+	SendToUser(ctx context.Context, userID string, payload push.PushPayload) error
+}
+
+func NewMessageHandler(srvc *chat_service.MessageService, hub *ws.Hub, pushSender PushSender) *MessageHandler {
 	return &MessageHandler{
-		srvc: srvc,
-		hub:  hub,
+		srvc:       srvc,
+		hub:        hub,
+		pushSender: pushSender,
 	}
 }
 
@@ -117,6 +125,7 @@ func (h *MessageHandler) SendMessageHandler(ctx *gin.Context) {
 		RecipientID uuid.UUID               `json:"recipient_id" binding:"required"`
 		Content     string                  `json:"content" binding:"required"`
 		Type        chat_models.MessageType `json:"type"`
+		SenderName  string    `json:"sender_name"`
 	}
 
 	if err := ctx.ShouldBindJSON(&input); err != nil {
@@ -149,6 +158,19 @@ func (h *MessageHandler) SendMessageHandler(ctx *gin.Context) {
 		})
 		if err == nil {
 			h.hub.SendToUser(input.RecipientID, payload)
+		}
+
+		if !h.hub.IsOnline(input.RecipientID) && h.pushSender != nil {
+			title := "Новое сообщение"
+			if input.SenderName != "" {
+				title = input.SenderName
+			}
+			slog.Info("push title", "senderName", input.SenderName, "title", title)
+			go h.pushSender.SendToUser(context.Background(), input.RecipientID.String(), push.PushPayload{
+				Title: title,
+				Body:  input.Content,
+				Icon:  "/favicon.png",
+			})
 		}
 	}
 

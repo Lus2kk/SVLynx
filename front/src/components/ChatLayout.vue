@@ -16,21 +16,22 @@
 
       <div class="content-area" :class="{ 'mobile-hidden': mobileView === 'sidebar' }">
         <ChatWindow
-          v-if="activeChat"
-          ref="chatWindow"
-          :key="`${activeChatId}-${activeRecipientId}-${chatWindowKey}`"
-          :chat="activeChat"
-          :chatId="activeChatId"
-          :currentUserId="currentUserId"
-          :recipientId="activeRecipientId"
-          :presence="activePresence"
-          :isLight="isLight"
-          :showBackButton="isMobile"
-          @message-sent="updateChatPreview"
-          @message-deleted="onMessageDeleted"
-          @mark-as-read="onMarkAsRead"
-          @back="goBackToSidebar"
-        />
+  v-if="activeChat"
+  ref="chatWindow"
+  :key="`${activeChatId}-${activeRecipientId}-${chatWindowKey}`"
+  :chat="activeChat"
+  :chatId="activeChatId"
+  :currentUserId="currentUserId"
+  :currentUserName="currentUserName"
+  :recipientId="activeRecipientId"
+  :presence="activePresence"
+  :isLight="isLight"
+  :showBackButton="isMobile"
+  @message-sent="updateChatPreview"
+  @message-deleted="onMessageDeleted"
+  @mark-as-read="onMarkAsRead"
+  @back="goBackToSidebar"
+/>
 
 
         <div v-else class="empty-chat">
@@ -77,7 +78,9 @@ export default {
       reconnectTimer: null,
       userStatuses: {},
       mobileView: 'sidebar',
-      isMobile: false
+      isMobile: false,
+      currentUserName: null
+
     }
   },
 
@@ -99,8 +102,19 @@ export default {
 },
   async mounted() {
   this.currentUserId = this.parseUserIdFromToken()
-  this.updateThemeColor()
   
+  const token = sessionStorage.getItem('access_token')
+  if (token) {
+    const payload = this.parseJwt(token)
+    this.currentUserName = sessionStorage.getItem('current_user_name') || payload?.name || payload?.nickname || payload?.username || ''
+  }
+  
+  if ('Notification' in window && Notification.permission === 'default') {
+    const { subscribe } = await import('../composables/usePush.js')
+    try { await subscribe() } catch (e) { console.warn('Push subscribe error:', e) }
+  }
+  
+  this.updateThemeColor()
   await this.loadDirects()
   this.connectWebSocket()
   this.checkMobile()

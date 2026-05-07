@@ -4,28 +4,30 @@ build:
 deploy:
 	ssh root@95.182.97.36 "systemctl stop app"
 	scp app root@95.182.97.36:/root/app
+	scp -r migrations root@95.182.97.36:/root/SVLynx/migrations
 	ssh root@95.182.97.36 "systemctl start app"
 
-build-deploy: # собрать и задеплоить бэкенд
+build-deploy:
 	GOOS=linux GOARCH=amd64 go build -o app ./cmd/app/
 	ssh root@95.182.97.36 "systemctl stop app"
 	scp app root@95.182.97.36:/root/app
+	scp -r migrations root@95.182.97.36:/root/SVLynx/migrations
 	ssh root@95.182.97.36 "systemctl start app"
 
-logs: # посмотреть логи
+logs:
 	ssh root@95.182.97.36 "journalctl -u app -n 50 --no-pager"
 
-front-build: # собирает Vue фронт в папку front/dist/
+front-build:
 	cd front && npm run build
 
-front-deploy: # задеплоить фронт
+front-deploy:
 	scp -r front/dist/* root@95.182.97.36:/var/www/svlynx/
 
-full-deploy: # всё сразу
+full-deploy:
 	GOOS=linux GOARCH=amd64 go build -o app ./cmd/app/
 	ssh root@95.182.97.36 "systemctl stop app"
 	scp app root@95.182.97.36:/root/app
+	scp -r migrations root@95.182.97.36:/root/SVLynx/migrations
 	ssh root@95.182.97.36 "systemctl start app"
 	cd front && npm run build
 	scp -r front/dist/* root@95.182.97.36:/var/www/svlynx/
-

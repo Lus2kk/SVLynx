@@ -56,9 +56,9 @@
             class="message-status"
             :class="{ read: message.status === 'read' }"
           >
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 12l4 4 7-7"></path>
-              <path d="M10 12l4 4 6-6"></path>
+            <svg viewBox="0 0 22 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 6l3 3 5-6"></path>
+              <path d="M9 6l3 3 5-6"></path>
             </svg>
           </span>
         </div>
@@ -160,7 +160,7 @@ export default {
 </script>
 
 <style scoped>
-.message-row { display: flex; margin-bottom: 14px; }
+.message-row { display: flex; margin-bottom: 2px; }
 .message-row.mine { justify-content: flex-end; }
 .message-row.theirs { justify-content: flex-start; }
 
@@ -170,7 +170,7 @@ export default {
 }
 
 .message-bubble {
-  padding: 14px 16px 12px;
+  padding: 6px 10px 6px 10px;
   border-radius: 14px; position: relative; width: 100%;
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -187,15 +187,15 @@ export default {
 }
 
 .message-bubble.theirs {
-  background: rgba(255, 255, 255, 0.075);
-  border: 1px solid rgba(255, 255, 255, 0.035);
+  background: rgba(30, 35, 60, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: #eef1fb;
   border-bottom-left-radius: 8px;
 }
 
 .message-bubble.mine {
-  background: linear-gradient(180deg, rgba(108, 118, 255, 0.9), rgba(93, 104, 240, 0.92));
-  color: #f9fbff;
+  background: linear-gradient(180deg, rgba(108, 118, 255, 0.95), rgba(93, 104, 240, 0.97));
+  color: #ffffff;
   border-bottom-right-radius: 8px;
   box-shadow: 0 10px 22px rgba(70, 80, 210, 0.16);
 }
@@ -213,17 +213,38 @@ export default {
   box-shadow: 0 8px 20px rgba(91, 106, 255, 0.25);
 }
 
-.message-text { font-size: 14px; line-height: 1.6; font-weight: 500; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
-
+.message-text {
+  font-size: 14px; line-height: 1.5; font-weight: 500;
+  white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;
+}
 .message-meta {
-  margin-top: 8px; display: flex; justify-content: flex-end; align-items: center; gap: 6px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 3px;
+  margin-top: 2px;
+}
+.message-time { 
+  font-size: 11px; 
+  opacity: 0.85; 
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
 }
 
-.message-time { font-size: 11px; opacity: 0.72; }
-.message-status { display: inline-flex; align-items: center; color: rgba(255, 255, 255, 0.72); opacity: 0.95; }
-.message-status.read { color: #4f8ef7; opacity: 1; }
+.message-status {
+  display: inline-flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.5);
+  opacity: 1;
+  transition: all 0.3s ease;
+}
+.message-status.read {
+  color: #ffffff;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.8));
+}
 .theme-light .message-status { color: rgba(255, 255, 255, 0.7); }
 .theme-light .message-status.read { color: #93c5fd; }
+.message-status.failed { color: #ff4d6d; opacity: 1; }
 
 .message-action {
   position: absolute; left: -36px;
@@ -240,7 +261,6 @@ export default {
 }
 .theme-light .delete-btn { color: #9098b8; background: #f0f1f8; border-color: #e4e6f0; }
 .delete-btn:hover { color: #ff4d6d; background: rgba(255, 77, 109, 0.1); border-color: rgba(255, 77, 109, 0.2); }
-.message-status.failed { color: #ff4d6d; opacity: 1; }
 
 .message-row {
   animation: msgFade 0.2s ease-out both;

@@ -40,6 +40,7 @@ import Logo from './Logo.vue'
 import StatusMsg from './StatusMsg.vue'
 import TgButton from './TgButton.vue'
 import EmailAuth from './EmailAuth.vue'
+import { usePush } from '../composables/usePush.js'
 
 function setCookie(name, value, maxAgeSeconds) {
   document.cookie = `${name}=${value}; path=/; max-age=${maxAgeSeconds}; SameSite=Strict`
@@ -61,7 +62,10 @@ export default {
   },
 
   methods: {
-    onEmailSuccess({ needsProfile }) {
+    async onEmailSuccess({ needsProfile }) {
+      const { subscribe } = usePush()
+      try { await subscribe() } catch (e) { console.warn('Push subscribe error:', e) }
+      
       if (needsProfile) {
         setTimeout(() => this.$emit('show-profile'), 100)
       } else {
@@ -69,11 +73,17 @@ export default {
       }
     },
 
-    onTelegramAuth(data) {
+    async onTelegramAuth(data) {
       if (data.access_token) {
         setCookie('access_token', data.access_token, 900)
         setCookie('refresh_token', data.refresh_token, 2592000)
+        sessionStorage.setItem('current_user_name', data.sender_name || '')
+
         this.status = { type: 'success', message: 'Вы вошли! Переход в SVLynx...' }
+        
+        const { subscribe } = usePush()
+        try { await subscribe() } catch (e) { console.warn('Push subscribe error:', e) }
+        
         setTimeout(() => this.$emit('show-chat'), 500)
       } else {
         this.status = { type: 'error', message: data.error || 'Ошибка авторизации' }

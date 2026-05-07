@@ -102,7 +102,19 @@ body {
   min-height: 100vh;
   background: #080c14;
   font-family: 'DM Sans', sans-serif;
-  overflow-x: hidden;
+  overflow-x: hidden; 
+}
+
+.app-view {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+button:focus,
+button:focus-visible {
+  outline: none;
 }
 .app-view {
   width: 100%;
@@ -115,4 +127,5 @@ body {
 .fade-enter-active, .fade-leave-active { transition: all 0.35s ease; }
 .fade-enter-from { opacity: 0; transform: translateY(16px) scale(0.98); }
 .fade-leave-to { opacity: 0; transform: translateY(-16px) scale(0.98); }
+
 </style>

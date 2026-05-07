@@ -21,7 +21,9 @@ export default {
         }
         sessionStorage.setItem('access_token', data.access_token)
         sessionStorage.setItem('refresh_token', data.refresh_token)
-        this.$emit('auth', data)
+        const name = user.first_name || user.username || ''
+        sessionStorage.setItem('current_user_name', name)
+        this.$emit('auth', { ...data, sender_name: user.first_name || user.username || '' })
       } catch (err) {
         console.error('Telegram auth failed', err)
         this.$emit('error', err)

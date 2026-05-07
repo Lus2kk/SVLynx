@@ -53,14 +53,15 @@
         <template v-if="search.trim().length > 0">
           <div v-if="isSearching" class="list-state">Searching...</div>
 
-          <div
-            v-else
-            v-for="user in searchResults"
-            :key="user.id"
-            class="chat-item"
-            @click="handleStartChat(user.id, user.nickname)"
-            @touchend.prevent="handleStartChat(user.id, user.nickname)"
-          >
+         <div
+  v-else
+  v-for="user in searchResults"
+  :key="user.id"
+  class="chat-item"
+  @touchstart="onTouchStart"
+  @touchmove="onTouchMove"
+  @click="() => { if (!scrolling) handleStartChat(user.id, user.nickname) }"
+>
             <div class="chat-avatar">
               <img v-if="user.photo_url" :src="user.photo_url" alt="" class="avatar-image" />
               <span v-else>{{ (user.name || user.first_name || user.nickname)?.[0]?.toUpperCase() || '?' }}</span>
@@ -196,7 +197,9 @@ export default {
       searchTimeout: null,
       activeTab: 'chats',
       deleteMode: false,
-      chatToDelete: null
+      chatToDelete: null,
+      scrolling: false,
+      touchStartY: 0
     }
   },
 
@@ -226,6 +229,14 @@ export default {
   methods: {
     toggleTheme() {
   this.$emit('toggle-theme')
+},
+onTouchStart(e) {
+  this.touchStartY = e.touches[0].clientY
+  this.scrolling = false
+},
+onTouchMove(e) {
+  const diff = Math.abs(e.touches[0].clientY - this.touchStartY)
+  if (diff > 5) this.scrolling = true
 },
     handleStartChat(userId, nickname) {
     this.search = ''
@@ -425,17 +436,24 @@ export default {
 .sidebar-list::-webkit-scrollbar { width: 6px; }
 .sidebar-list::-webkit-scrollbar-thumb { background: rgba(147, 158, 211, 0.16); border-radius: 999px; }
 
-.chat-item-wrap {
-  display: flex; align-items: center; gap: 6px;
-  margin-bottom: 6px; min-width: 0; overflow: hidden;
+.chat-avatar {
+  width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; overflow: hidden;
+  color: #fff; font-size: 16px; font-weight: 700;
+  background: linear-gradient(135deg, #6572ff, #8a67ff);
 }
 
 .chat-item {
   flex: 1; min-width: 0; overflow: hidden;
-  display: flex; align-items: center; gap: 11px;
-  padding: 11px 10px; border-radius: 16px; text-align: left;
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px; border-radius: 12px; text-align: left;
   background: transparent; border: 1px solid transparent;
   transition: all 0.16s ease; cursor: pointer;
+}
+
+.chat-item-wrap {
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 1px; min-width: 0; overflow: hidden;
 }
 .chat-item:hover { background: rgba(255, 255, 255, 0.025); }
 .chat-item.active {
@@ -453,12 +471,7 @@ export default {
 }
 .delete-chat-btn:hover { background: rgba(255, 77, 109, 0.2); }
 
-.chat-avatar {
-  width: 42px; height: 42px; border-radius: 14px; flex-shrink: 0;
-  display: grid; place-items: center; overflow: hidden;
-  color: #fff; font-size: 13px; font-weight: 700;
-  background: linear-gradient(135deg, #6572ff, #8a67ff);
-}
+
 .avatar-image { width: 100%; height: 100%; object-fit: cover; }
 .chat-body { flex: 1; min-width: 0; }
 .chat-topline, .chat-bottomline { display: flex; align-items: center; justify-content: space-between; gap: 8px; overflow: hidden; }
@@ -548,9 +561,29 @@ export default {
   .sidebar-header { height: 64px; padding: 12px 14px 10px; }
   .search-wrap { padding: 0 12px 10px; }
   .sidebar-tabs { padding: 0 12px 12px; }
-  .sidebar-list { padding: 2px 8px 12px; }
+  .sidebar-list { padding: 2px 0 12px; }
   .confirm-modal { width: calc(100vw - 48px); max-width: 280px; }
   .sidebar-footer { padding-bottom: env(safe-area-inset-bottom, 14px); }
+
+  .chat-item.active {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  .chat-item-wrap {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    margin-bottom: 0;
+  }
+
+  .theme-light .chat-item-wrap {
+    border-bottom-color: rgba(0, 0, 0, 0.06);
+  }
+
+  .chat-item {
+    border-radius: 0;
+    padding: 10px 16px;
+  }
 }
 
 </style>

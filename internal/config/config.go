@@ -12,6 +12,9 @@ type Config struct {
 	TelegramToken  string `env:"TELEGRAM_BOT_TOKEN" env-required:"true"`
 	ReddisAddr     string `env:"REDIS_ADDR" env-required:"true"`
 	Postgres       PostgresConfig
+	VAPIDPublicKey  string `env:"VAPID_PUBLIC_KEY"  env-required:"true"`
+    VAPIDPrivateKey string `env:"VAPID_PRIVATE_KEY" env-required:"true"`
+    VAPIDEmail      string `env:"VAPID_EMAIL"       env-required:"true"`
 }
 type PostgresConfig struct {
 	User     string `env:"POSTGRES_USER"        env-required:"true"`
