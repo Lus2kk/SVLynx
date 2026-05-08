@@ -8,8 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/svlynx/messenger/internal/apperrors"
-	"github.com/svlynx/messenger/internal/auth_models"
-	"github.com/svlynx/messenger/internal/auth_service"
+	"github.com/svlynx/messenger/internal/auth/auth_models"
+	"github.com/svlynx/messenger/internal/auth/auth_service"
 )
 
 type Handler struct {

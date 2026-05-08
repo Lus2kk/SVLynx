@@ -7,9 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
-	"github.com/svlynx/messenger/internal/auth_handler"
-	"github.com/svlynx/messenger/internal/auth_repository"
-	"github.com/svlynx/messenger/internal/auth_service"
+
+	"github.com/svlynx/messenger/internal/auth/auth_handler"
+	"github.com/svlynx/messenger/internal/auth/auth_repository"
+	"github.com/svlynx/messenger/internal/auth/auth_service"
 	"github.com/svlynx/messenger/internal/chat/chat_handler"
 	"github.com/svlynx/messenger/internal/chat/chat_repository"
 	"github.com/svlynx/messenger/internal/chat/chat_routes"

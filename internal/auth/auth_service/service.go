@@ -14,10 +14,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/svlynx/messenger/internal/apperrors"
-	"github.com/svlynx/messenger/internal/auth_code"
-	"github.com/svlynx/messenger/internal/auth_jwt"
-	"github.com/svlynx/messenger/internal/auth_models"
-	"github.com/svlynx/messenger/internal/auth_repository"
+	"github.com/svlynx/messenger/internal/auth/auth_code"
+	"github.com/svlynx/messenger/internal/auth/auth_models"
+	"github.com/svlynx/messenger/internal/auth/auth_repository"
+	"github.com/svlynx/messenger/internal/jwt"
+
 	"github.com/svlynx/messenger/internal/email"
 	"github.com/svlynx/messenger/internal/user_repository"
 )
@@ -189,13 +190,13 @@ func (s *Service) VerifyCode(ctx context.Context, sessionID, code string) (*auth
 		return nil, false, apperrors.ErrInternal
 	}
 
-	accessToken, err := auth_jwt.GenerateAccessToken(user.ID, s.jwtSecret)
+	accessToken, err := jwt.GenerateAccessToken(user.ID, s.jwtSecret)
 	if err != nil{
 		slog.Warn("error when generate acces token", "email", email)
 		return nil, false, apperrors.ErrInternal
 	}
 
-	refreshToken, err := auth_jwt.GenerateRefreshToken(user.ID, s.jwtSecret)
+	refreshToken, err := jwt.GenerateRefreshToken(user.ID, s.jwtSecret)
 	if err != nil {
 		slog.Warn("error when generate refresh token", "email", email)
 		return nil, false, apperrors.ErrInternal
@@ -217,7 +218,7 @@ func (s *Service) VerifyCode(ctx context.Context, sessionID, code string) (*auth
 }
 
 func (s *Service) GetMe(ctx context.Context, accessToken string) (*user_repository.User, error) {
-	claims, err := auth_jwt.Parse(accessToken, s.jwtSecret)
+	claims, err := jwt.Parse(accessToken, s.jwtSecret)
 
 	if err != nil {
 		slog.Warn("invalid access token", "err", err)
@@ -242,7 +243,7 @@ func (s *Service) GetMe(ctx context.Context, accessToken string) (*user_reposito
 }
 
 func (s *Service) Refresh(ctx context.Context, refreshToken string) (*auth_models.TokenPair, error) {
-	claims, err := auth_jwt.Parse(refreshToken, s.jwtSecret)
+	claims, err := jwt.Parse(refreshToken, s.jwtSecret)
 	if err != nil {
 		slog.Warn("invalid refresh token", "err", err)
 		return nil, apperrors.ErrUnauthorized
@@ -265,13 +266,13 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*auth_model
 		return nil, apperrors.ErrInternal
 	}
 
-	accessToken, err := auth_jwt.GenerateAccessToken(userID, s.jwtSecret)
+	accessToken, err := jwt.GenerateAccessToken(userID, s.jwtSecret)
 	if err != nil {
 		slog.Warn("error when generate access roken", "err", err)
 		return nil, apperrors.ErrInternal
 	}
 
-	newRefreshToken, err := auth_jwt.GenerateRefreshToken(userID, s.jwtSecret)
+	newRefreshToken, err := jwt.GenerateRefreshToken(userID, s.jwtSecret)
 	if err != nil {
 		slog.Warn("error when generate refresh token", "err", err)
 		return nil, apperrors.ErrInternal
@@ -295,7 +296,7 @@ func (s *Service) Logout(ctx context.Context, token string) {
 }
 
 func (s *Service) CompleteRegistration(ctx context.Context, accessToken, nickname, name, status string) error {
-	claims, err := auth_jwt.Parse(accessToken, s.jwtSecret)
+	claims, err := jwt.Parse(accessToken, s.jwtSecret)
 	if err != nil {
 		slog.Warn("invalid acces token")
 		return apperrors.ErrUnauthorized
@@ -375,13 +376,13 @@ func (s *Service) TelegramCallback(ctx context.Context, telegramToken string, re
 		return nil, apperrors.ErrInternal
 	}
 
-	accessToken, err := auth_jwt.GenerateAccessToken(user.ID, s.jwtSecret)
+	accessToken, err := jwt.GenerateAccessToken(user.ID, s.jwtSecret)
 	if err != nil {
 		slog.Warn("error when generate access token", "user_id", user.ID ,"err", err)
 		return nil, apperrors.ErrInternal
 	}
 
-	refreshToken, err := auth_jwt.GenerateRefreshToken(user.ID, s.jwtSecret)
+	refreshToken, err := jwt.GenerateRefreshToken(user.ID, s.jwtSecret)
 	if err != nil {
 		slog.Warn("error when generate refresh token", "user_id", user.ID ,"err", err)
 		return nil, apperrors.ErrInternal

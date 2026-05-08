@@ -1,12 +1,13 @@
-package auth_jwt
+package jwt
 
 import (
 	"log/slog"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+
 	"github.com/svlynx/messenger/internal/apperrors"
-	"github.com/svlynx/messenger/internal/auth_repository"
+	"github.com/svlynx/messenger/internal/auth/auth_repository"
 )
 
 type Claims struct {

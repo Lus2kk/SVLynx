@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/svlynx/messenger/internal/auth_jwt"
+	"github.com/svlynx/messenger/internal/jwt"
 )
 
 type Handler struct {
@@ -31,7 +31,7 @@ func (h *Handler) AuthMiddleware() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token format"})
 			return
 		}
-		claims, err := auth_jwt.Parse(parts[1], h.jwtSecret)
+		claims, err := jwt.Parse(parts[1], h.jwtSecret)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return

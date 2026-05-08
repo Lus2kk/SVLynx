@@ -2,7 +2,7 @@ package auth_handler
 
 import (
 	"github.com/svlynx/messenger/internal/apperrors"
-	"github.com/svlynx/messenger/internal/auth_models"
+	"github.com/svlynx/messenger/internal/auth/auth_models"
 )
 
 func validateTelegramCallback(req *auth_models.TelegramCallbackRequest) error{
