@@ -20,7 +20,7 @@
         </div>
       </div>
       <div class="chat-actions">
-        <button class="chat-icon-btn" title="Search" type="button">
+         <button class="chat-icon-btn" :class="{ active: searchOpen }" title="Search" type="button" @click="openSearch">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8">
             <circle cx="11" cy="11" r="7"></circle>
             <path d="M20 20l-3.5-3.5"></path>
@@ -34,6 +34,42 @@
           </svg>
         </button>
       </div>
+      <transition name="search-slide">
+        <div v-if="searchOpen" class="search-bar">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" class="search-icon">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="M20 20l-3.5-3.5"></path>
+          </svg>
+          <input
+            ref="searchInput"
+            v-model="searchQuery"
+            type="text"
+            class="search-input"
+            placeholder="Search messages..."
+            @input="onSearchInput"
+            @keydown.escape="closeSearch"
+          />
+          <span v-if="searchResults.length" class="search-count">
+            {{ searchIndex + 1 }} / {{ searchResults.length }}
+          </span>
+          <button v-if="searchResults.length" class="search-nav-btn" @click="searchPrev" type="button">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+          </button>
+          <button v-if="searchResults.length" class="search-nav-btn" @click="searchNext" type="button">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </button>
+          <button class="search-close-btn" @click="closeSearch" type="button">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      </transition>
+
     </header>
 
     <div class="messages-area-wrapper">
@@ -42,9 +78,12 @@
         <MessageBubble
           v-for="message in messages"
           :key="message.id"
+          :data-message-id="message.id"
           :message="message"
           :isMine="isMine(message)"
           :isLight="isLight"
+          :highlight="searchResults.includes(message.id)"
+          :highlightActive="searchResults[searchIndex] === message.id"
           @delete="confirmDelete"
         />
       </div>
@@ -150,6 +189,11 @@ export default {
 
   data() {
     return {
+      searchOpen: false,
+      searchQuery: '',
+      searchResults: [],
+      searchIndex: 0,
+      searchDebounce: null,
       waveformData: [],
       audioContext: null,
       analyser: null,
@@ -241,8 +285,65 @@ export default {
   },
 
   methods: {
-    // Вешаем нативные listeners напрямую на DOM элемент через ref
-    // чтобы полностью избежать проблемы с Vue event bubbling между кнопками
+  openSearch() {
+    this.searchOpen = true
+    this.$nextTick(() => this.$refs.searchInput?.focus())
+  },
+
+  closeSearch() {
+    this.searchOpen = false
+    this.searchQuery = ''
+    this.searchResults = []
+    this.searchIndex = 0
+  },
+
+  onSearchInput() {
+    clearTimeout(this.searchDebounce)
+    if (!this.searchQuery.trim()) {
+      this.searchResults = []
+      this.searchIndex = 0
+      return
+    }
+    this.searchDebounce = setTimeout(() => this.doSearch(), 400)
+  },
+
+    async doSearch() {
+      if (!this.chatId || !this.searchQuery.trim()) return
+      try {
+        const url = new URL(`${BASE}/chat/messages/search`)
+        url.searchParams.set('chat_id', this.chatId)
+        url.searchParams.set('content', this.searchQuery.trim())
+        const res = await apiFetch(url.toString())
+        if (!res.ok) return
+        const data = await res.json()
+        const found = Array.isArray(data.messages) ? data.messages : []
+        this.searchResults = found.map(m => m.id)
+        this.searchIndex = 0
+        if (this.searchResults.length) this.scrollToMessage(this.searchResults[0])
+      } catch (e) {
+        console.error('Search error', e)
+      }
+    },
+
+    searchNext() {
+      if (!this.searchResults.length) return
+      this.searchIndex = (this.searchIndex + 1) % this.searchResults.length
+      this.scrollToMessage(this.searchResults[this.searchIndex])
+    },
+
+    searchPrev() {
+      if (!this.searchResults.length) return
+      this.searchIndex = (this.searchIndex - 1 + this.searchResults.length) % this.searchResults.length
+      this.scrollToMessage(this.searchResults[this.searchIndex])
+    },
+
+    scrollToMessage(id) {
+      this.$nextTick(() => {
+        const el = document.querySelector(`[data-message-id="${id}"]`)
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
+    },
+
     _addBtnListeners() {
       const btn = this.$refs.voiceBtn
       if (!btn) return
@@ -837,4 +938,39 @@ export default {
   0%, 100% { box-shadow: 0 0 0 4px rgba(255, 77, 109, 0.2); }
   50% { box-shadow: 0 0 0 8px rgba(255, 77, 109, 0.1); }
 }
+.search-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 16px;
+  background: rgba(13, 17, 32, 0.98);
+  backdrop-filter: blur(12px);
+  z-index: 20;
+}
+.theme-light .search-bar { background: #ffffff; }
+.search-icon { color: #6e79ff; flex-shrink: 0; }
+.search-input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: #eef2ff; font-size: 14px; font-weight: 500;
+}
+.theme-light .search-input { color: #1a1d2e; }
+.search-input::placeholder { color: #4a5270; }
+.search-count { font-size: 11px; color: #6e79ff; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+.search-nav-btn {
+  width: 26px; height: 26px; border-radius: 8px;
+  display: grid; place-items: center; flex-shrink: 0;
+  color: #a6afd4; background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.06); cursor: pointer;
+  transition: all 0.15s;
+}
+.search-nav-btn:hover { color: #fff; background: rgba(110,121,255,0.2); }
+.search-close-btn {
+  width: 26px; height: 26px; border-radius: 8px;
+  display: grid; place-items: center; flex-shrink: 0;
+  color: #a6afd4; background: transparent; border: none; cursor: pointer;
+}
+.search-close-btn:hover { color: #ff4d6d; }
+.chat-icon-btn.active { background: rgba(110,121,255,0.15); border-color: rgba(110,121,255,0.3); color: #6e79ff; }
+.search-slide-enter-active, .search-slide-leave-active { transition: opacity 0.2s, transform 0.2s; }
+.search-slide-enter-from, .search-slide-leave-to { opacity: 0; transform: translateY(-6px); }
 </style>

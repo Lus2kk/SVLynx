@@ -23,7 +23,7 @@
         </svg>
       </button>
 
-      <div class="message-bubble" :class="{ mine: isMine, theirs: !isMine }">
+     <div class="message-bubble" :class="{ mine: isMine, theirs: !isMine, highlight: highlight, 'highlight-active': highlightActive }">
         <div v-if="message.type !== 'voice'" class="message-text">{{ message.content }}</div>
 
         <div v-else class="voice-player">
@@ -71,6 +71,8 @@
 export default {
   name: 'MessageBubble',
   props: {
+    highlight: { type: Boolean, default: false },
+    highlightActive: { type: Boolean, default: false },
     message: { type: Object, required: true },
     isMine: { type: Boolean, required: true },
     isLight: { type: Boolean, default: false }
@@ -309,5 +311,14 @@ export default {
 @keyframes msgFade {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+.message-bubble.highlight {
+  outline: 2px solid rgba(110, 121, 255, 0.5);
+  outline-offset: 2px;
+}
+.message-bubble.highlight-active {
+  outline: 2px solid #6e79ff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(110, 121, 255, 0.15);
 }
 </style>
