@@ -386,6 +386,7 @@ export default {
       form.append('sender_id', String(this.currentUserId))
       form.append('recipient_id', String(this.recipientId))
       form.append('waveform', JSON.stringify(this.waveformData))
+      form.append('duration', String(this.voiceTimerSeconds))
       
 
       try {
@@ -408,7 +409,8 @@ export default {
       if (!message) return
       const msg = this.normalizeMessage({
         ...message,
-        waveform: this.waveformData
+        waveform: this.waveformData,
+        duration: this.voiceTimerSeconds
       })
       if (this.messages.find(m => String(m.id) === String(msg.id))) return
       this.messages.push(msg)

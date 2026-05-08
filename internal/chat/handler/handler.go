@@ -416,6 +416,7 @@ func (h *MessageHandler) SendVoiceMessageHandler(ctx *gin.Context) {
         SenderID    uuid.UUID `json:"sender_id" binding:"required"`
         RecipientID uuid.UUID `json:"recipient_id" binding:"required"`
         AudioURL    string    `json:"audio_url" binding:"required"`
+		Duration	int       `json:"duration"`
     }
 
     if err := ctx.ShouldBindJSON(&input); err != nil {
@@ -429,6 +430,7 @@ func (h *MessageHandler) SendVoiceMessageHandler(ctx *gin.Context) {
         SenderID: input.SenderID,
         Content:  input.AudioURL,
         Type:     chat_models.VoiceMessage,
+		Duration: input.Duration,
     })
     if err != nil {
 		slog.Error("voice send error", "error", err.Error())

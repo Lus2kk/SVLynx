@@ -43,6 +43,7 @@ type CreatedMessage struct {
 	RecipientID uuid.UUID               `json:"recipient_id"`
 	Content     string                  `json:"content"`
 	Type        chat_models.MessageType `json:"type"`
+	Duration    int                     `json:"duration"`
 }
 
 func (s *DirectService) CreateNewDirectService(ctx context.Context, input CreatedDirect) (*chat_models.Direct, error) {
@@ -126,6 +127,7 @@ func (s *MessageService) SendMessage(ctx context.Context, input CreatedMessage) 
 		Status:    chat_models.Sent,
 		CreatedAT: time.Now(),
 		Type: msgType,
+		Duration: input.Duration,
 	}
 
 	result, err := s.repo.SendMessageRepo(ctx, message)

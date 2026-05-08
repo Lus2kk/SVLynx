@@ -100,6 +100,10 @@ int main() {
         auto recipIt = req.form.fields.find("recipient_id");
         if (recipIt != req.form.fields.end()) recipientId = recipIt->second.content;
 
+        std::string durationStr = "0";
+        auto durIt = req.form.fields.find("duration");
+        if (durIt != req.form.fields.end()) durationStr = durIt->second.content;
+
         auto fileIt = req.form.files.find("file");
         if (fileIt != req.form.files.end()) {
             fileContent = fileIt->second.content;
@@ -132,9 +136,10 @@ int main() {
         httplib::Client goClient(GO_URL);
 
         std::string body = R"({"chat_id":")" + chatId +
-                           R"(","sender_id":")" + senderId +
-                           R"(","recipient_id":")" + recipientId +
-                           R"(","audio_url":")" + audioUrl + R"("})";
+                   R"(","sender_id":")" + senderId +
+                   R"(","recipient_id":")" + recipientId +
+                   R"(","audio_url":")" + audioUrl +
+                   R"(","duration":)" + durationStr + R"(})";
 
         httplib::Headers headers = {
             {"Content-Type", "application/json"},

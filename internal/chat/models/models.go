@@ -43,6 +43,7 @@ type Message struct {
 	CreatedAT  time.Time     `json:"created_at"`
 	Type       MessageType   `json:"type"`
 	Transcript string        `json:"transcript,omitempty"`
+	Duration   int           `json:"duration,omitempty"`
 }
 
 type DirectListItem struct {

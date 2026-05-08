@@ -42,7 +42,7 @@
             </div>
           </div>
 
-          <span class="voice-duration">{{ durationText }}</span>
+          <span class="voice-duration">{{ getDurationText() }}</span>
           <audio ref="audio" :src="message.content" @timeupdate="onTimeUpdate" @ended="onEnded" @loadedmetadata="onMeta"></audio>
         </div>
 
@@ -76,8 +76,18 @@ export default {
     isLight: { type: Boolean, default: false }
   },
   emits: ['delete'],
-  computed: {
-    durationText() {
+
+  data() {
+    return {
+      showActions: false,
+      isPlaying: false,
+      progress: 0,
+      duration: 0
+    }
+  },
+
+  methods: {
+    getDurationText() {
       const audio = this.$refs.audio
       if (this.isPlaying && audio) {
         const t = audio.currentTime || 0
@@ -85,70 +95,61 @@ export default {
         const s = Math.floor(t % 60).toString().padStart(2, '0')
         return `${m}:${s}`
       }
-      const t = this.duration || 0
+      const t = (this.duration && isFinite(this.duration) && this.duration > 0.5)
+  ? this.duration
+  : (this.message.duration || 0)
       const m = Math.floor(t / 60).toString().padStart(2, '0')
       const s = Math.floor(t % 60).toString().padStart(2, '0')
       return `${m}:${s}`
+    },
+    togglePlay() {
+      const audio = this.$refs.audio
+      if (!audio) return
+      if (this.isPlaying) {
+        audio.pause()
+        this.isPlaying = false
+      } else {
+        audio.play()
+        this.isPlaying = true
       }
     },
 
-  data() {
-    return { 
-    durationTick: 0,
-    showActions: false,
-    isPlaying: false,
-    progress: 0,
-    duration: 0
-     }
-  },
-  methods: {
-    togglePlay() {
-    const audio = this.$refs.audio
-    if (!audio) return
-    if (this.isPlaying) {
-      audio.pause()
+    onTimeUpdate() {
+      const audio = this.$refs.audio
+      if (!audio || !audio.duration) return
+      this.progress = (audio.currentTime / audio.duration) * 100
+    },
+
+    onEnded() {
       this.isPlaying = false
-    } else {
-      audio.play()
-      this.isPlaying = true
-    }
-  },
+      this.progress = 0
+    },
 
-  onTimeUpdate() {
-    const audio = this.$refs.audio
-    if (!audio || !audio.duration) return
-    this.progress = (audio.currentTime / audio.duration) * 100
-  },
-
-  onEnded() {
-    this.isPlaying = false
-    this.progress = 0
-  },
-
-  onMeta() {
-  const audio = this.$refs.audio
-  if (!audio) return
-  if (audio.duration && isFinite(audio.duration)) {
-    this.duration = audio.duration
-    this.durationTick++ 
-  } else {
-    audio.addEventListener('durationchange', () => {
-      if (isFinite(audio.duration)) {
+    onMeta() {
+      const audio = this.$refs.audio
+      if (!audio) return
+      if (audio.duration && isFinite(audio.duration)) {
         this.duration = audio.duration
-        this.durationTick++ 
+      } else {
+        audio.currentTime = 1e101
+        audio.addEventListener('timeupdate', () => {
+          if (isFinite(audio.duration)) {
+            this.duration = audio.duration
+            audio.currentTime = 0
+          }
+        }, { once: true })
       }
-    }, { once: true })
-  }
-},
+    },
 
-  seek(e) {
-    const audio = this.$refs.audio
-    if (!audio) return
-    const bar = e.currentTarget
-    const rect = bar.getBoundingClientRect()
-    const ratio = (e.clientX - rect.left) / rect.width
-    audio.currentTime = ratio * audio.duration
-  },
+    seek(e) {
+      const audio = this.$refs.audio
+      if (!audio) return
+      const bar = e.currentTarget
+      const rect = bar.getBoundingClientRect()
+      const ratio = (e.clientX - rect.left) / rect.width
+      audio.currentTime = ratio * audio.duration
+    },
+
     formatTime(dateStr) {
       if (!dateStr) return ''
       const d = new Date(dateStr)
@@ -224,9 +225,9 @@ export default {
   gap: 3px;
   margin-top: 2px;
 }
-.message-time { 
-  font-size: 11px; 
-  opacity: 0.85; 
+.message-time {
+  font-size: 11px;
+  opacity: 0.85;
   color: rgba(255, 255, 255, 0.85);
   white-space: nowrap;
 }
@@ -266,13 +267,6 @@ export default {
   animation: msgFade 0.2s ease-out both;
 }
 
-.message-row.mine {
-  animation: msgFade 0.2s ease-out both;
-}
-
-.message-row.theirs {
-  animation: msgFade 0.2s ease-out both;
-}
 .voice-player {
   display: flex;
   align-items: center;

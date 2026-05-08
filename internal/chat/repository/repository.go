@@ -164,9 +164,9 @@ func (repo *PostgresRepo) GetListOfDirectsListByIDRepo(ctx context.Context, user
 
 func (repo *PostgresRepo) SendMessageRepo(ctx context.Context, message *chat_models.Message) (*chat_models.Message, error) {
 	_, err := repo.db.Exec(ctx, `
-		INSERT INTO messages (id, chat_id, sender_id, content, status, created_at, type)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		message.ID, message.ChatID, message.SenderID, message.Content, message.Status, message.CreatedAT, message.Type,
+		INSERT INTO messages (id, chat_id, sender_id, content, status, created_at, type, duration)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		message.ID, message.ChatID, message.SenderID, message.Content, message.Status, message.CreatedAT, message.Type, message.Duration,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("insert message error: %w", err)
@@ -177,7 +177,7 @@ func (repo *PostgresRepo) SendMessageRepo(ctx context.Context, message *chat_mod
 
 func (repo *PostgresRepo) GetMessagesByChatIdRepo(ctx context.Context, chatId uuid.UUID, before time.Time, limit int) ([]*chat_models.Message, error) {
 	rows, err := repo.db.Query(ctx, `
-		SELECT id, chat_id, sender_id, content, status, created_at, type
+		SELECT id, chat_id, sender_id, content, status, created_at, type, duration
 		FROM messages
 		WHERE chat_id = $1 AND created_at < $2
 		ORDER BY created_at DESC
@@ -200,6 +200,7 @@ func (repo *PostgresRepo) GetMessagesByChatIdRepo(ctx context.Context, chatId uu
 			&message.Status,
 			&message.CreatedAT,
 			&message.Type,
+			&message.Duration,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan message error: %w", err)
@@ -216,7 +217,7 @@ func (repo *PostgresRepo) GetMessagesByChatIdRepo(ctx context.Context, chatId uu
 
 func (repo *PostgresRepo) SearchMesageRepo(ctx context.Context, chat_id uuid.UUID, content string) ([]*chat_models.Message, error) {
 	rows, err := repo.db.Query(ctx, `
-		SELECT id, chat_id, sender_id, content, status, created_at, type
+		SELECT id, chat_id, sender_id, content, status, created_at, type, duration
 		FROM messages
 		WHERE chat_id = $1 AND content ILIKE $2
 		ORDER BY created_at DESC`,
@@ -238,6 +239,7 @@ func (repo *PostgresRepo) SearchMesageRepo(ctx context.Context, chat_id uuid.UUI
 			&message.Status,
 			&message.CreatedAT,
 			&message.Type,
+			&message.Duration,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan message error: %w", err)
