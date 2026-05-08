@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/svlynx/messenger/internal/jwt"
+	"github.com/svlynx/messenger/internal/pkg/jwt"
 )
 
 type Handler struct {

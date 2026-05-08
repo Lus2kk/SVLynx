@@ -6,8 +6,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/svlynx/messenger/internal/apperrors"
-	"github.com/svlynx/messenger/internal/auth/auth_repository"
+	"github.com/svlynx/messenger/internal/auth/repository"
+	"github.com/svlynx/messenger/internal/pkg/apperrors"
 )
 
 type Claims struct {

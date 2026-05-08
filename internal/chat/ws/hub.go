@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/svlynx/messenger/internal/chat/chat_service"
+	chat_service "github.com/svlynx/messenger/internal/chat/service"
 )
 
 type Hub struct {

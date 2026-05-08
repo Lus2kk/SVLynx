@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/svlynx/messenger/internal/chat/chat_models"
+	chat_models "github.com/svlynx/messenger/internal/chat/models"
 )
 
 type PostgresRepo struct {

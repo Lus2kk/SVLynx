@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/svlynx/messenger/internal/chat/chat_models"
+	chat_models "github.com/svlynx/messenger/internal/chat/models"
 )
 
 type DirectRepo interface {

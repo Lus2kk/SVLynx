@@ -1,6 +1,10 @@
 package auth_models
 
-import "time"
+import (
+	"time"
+
+	"github.com/svlynx/messenger/internal/pkg/apperrors"
+)
 
 type Session struct {
 	SessionID  string    `json:"session_id" binding:"required"`
@@ -29,9 +33,12 @@ type TelegramCallbackRequest struct {
 	LastName  string `json:"last_name"`
 }
 
-const (
-	StatusPending = "pending"
-	StatusApproved = "approved"
-	StatusRejected = "rejected"
-)
+func (r *TelegramCallbackRequest) Validate() error {
+    if r.ID == 0 || r.FirstName == "" || r.AuthDate == 0 || r.Hash == "" {
+        return apperrors.ErrInvalidRequest
+    }
+    return nil
+}
+
+
 

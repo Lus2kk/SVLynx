@@ -7,9 +7,10 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/svlynx/messenger/internal/apperrors"
-	"github.com/svlynx/messenger/internal/auth/auth_models"
-	"github.com/svlynx/messenger/internal/auth/auth_service"
+
+	auth_models "github.com/svlynx/messenger/internal/auth/models"
+	auth_service "github.com/svlynx/messenger/internal/auth/service"
+	"github.com/svlynx/messenger/internal/pkg/apperrors"
 )
 
 type Handler struct {
@@ -307,7 +308,7 @@ func (h *Handler) TelegramCallback() gin.HandlerFunc {
 			return
 		}
 
-		if err := validateTelegramCallback(&req); err != nil {
+		if err := req.Validate(); err != nil {
 			HandlerError(c, err)
 			return
 		}

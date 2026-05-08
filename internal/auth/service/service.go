@@ -13,14 +13,21 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/svlynx/messenger/internal/apperrors"
-	"github.com/svlynx/messenger/internal/auth/auth_code"
-	"github.com/svlynx/messenger/internal/auth/auth_models"
-	"github.com/svlynx/messenger/internal/auth/auth_repository"
-	"github.com/svlynx/messenger/internal/jwt"
 
-	"github.com/svlynx/messenger/internal/email"
-	"github.com/svlynx/messenger/internal/user_repository"
+	auth_models "github.com/svlynx/messenger/internal/auth/models"
+	auth_repository "github.com/svlynx/messenger/internal/auth/repository"
+	"github.com/svlynx/messenger/internal/pkg/apperrors"
+	"github.com/svlynx/messenger/internal/pkg/code"
+	"github.com/svlynx/messenger/internal/pkg/email"
+	"github.com/svlynx/messenger/internal/pkg/jwt"
+	user_models "github.com/svlynx/messenger/internal/user/models"
+	user_repository "github.com/svlynx/messenger/internal/user/repository"
+)
+
+const (
+	StatusPending = "pending"
+	StatusApproved = "approved"
+	StatusRejected = "rejected"
 )
 
 type Service struct {
@@ -47,7 +54,7 @@ func (s *Service) InitSession(ctx context.Context) (*auth_models.Session, error)
 	return &auth_models.Session{
 		SessionID: sessionID,
 		ExpiresAt: time.Now().Add(auth_repository.SessionTTL),
-		Status:    auth_models.StatusPending,
+		Status:    StatusPending,
 	}, nil
 }
 
@@ -85,7 +92,7 @@ func (s *Service) SendConfirmationCode(ctx context.Context, sessionID, email str
 		return apperrors.ErrTooManyAttempts
 	}
 
-	code, err := auth_code.GenerateSixDigitCode()
+	code, err := code.GenerateSixDigitCode()
 
 	if err != nil {
 		return apperrors.ErrInternal
@@ -217,7 +224,7 @@ func (s *Service) VerifyCode(ctx context.Context, sessionID, code string) (*auth
 	}, needsProfile, nil
 }
 
-func (s *Service) GetMe(ctx context.Context, accessToken string) (*user_repository.User, error) {
+func (s *Service) GetMe(ctx context.Context, accessToken string) (*user_models.User, error) {
 	claims, err := jwt.Parse(accessToken, s.jwtSecret)
 
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	user_models "github.com/svlynx/messenger/internal/user/models"
 )
 
 type UserRepository interface {
@@ -17,14 +18,14 @@ type UserRepository interface {
 	SaveUserTelegram(ctx context.Context, telegramID int64, username, firstName, lastName, photoURL string) error
 	SaveUserEmail(ctx context.Context, email string, nickname *string, name, status, avatarColor string) error
 
-	GetUserByEmail(ctx context.Context, email string) (*User, error)
-	GetUserByTgID(ctx context.Context, telegramID int64) (*User, error)
-	GetUserByUserID(ctx context.Context, userID string) (*User, error)
+	GetUserByEmail(ctx context.Context, email string) (*user_models.User, error)
+	GetUserByTgID(ctx context.Context, telegramID int64) (*user_models.User, error)
+	GetUserByUserID(ctx context.Context, userID string) (*user_models.User, error)
 
 	UpdateUserProfile(ctx context.Context, id, nickname, name, status, avatarColor string) error
 	UpdateTelegramUser(ctx context.Context, telegramID int64, username, firstName, lastName, photoURL string) error
 
-	SearchUsers(ctx context.Context, currentUserID string, query string, limit int) ([]*User, error)
+	SearchUsers(ctx context.Context, currentUserID string, query string, limit int) ([]*user_models.User, error)
 	GetUserLastSeen(ctx context.Context, userID string) (time.Time, error)
 	UpdateUserLastSeen(ctx context.Context, userID string) error
 	GetUserStatus(ctx context.Context, userID string) (isOnline bool, lastSeen time.Time, err error)
@@ -109,8 +110,8 @@ func (r *Repository) SaveUserTelegram(ctx context.Context, telegramID int64, use
 	return err
 }
 
-func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
-	u := &User{}
+func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*user_models.User, error) {
+	u := &user_models.User{}
 
 	err := r.db.QueryRow(ctx, `
 		SELECT
@@ -146,8 +147,8 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*User, e
 	return u, err
 }
 
-func (r *Repository) GetUserByTgID(ctx context.Context, telegramID int64) (*User, error) {
-	u := &User{}
+func (r *Repository) GetUserByTgID(ctx context.Context, telegramID int64) (*user_models.User, error) {
+	u := &user_models.User{}
 
 	err := r.db.QueryRow(ctx, `
 		SELECT
@@ -183,8 +184,8 @@ func (r *Repository) GetUserByTgID(ctx context.Context, telegramID int64) (*User
 	return u, err
 }
 
-func (r *Repository) GetUserByUserID(ctx context.Context, userID string) (*User, error) {
-	u := &User{}
+func (r *Repository) GetUserByUserID(ctx context.Context, userID string) (*user_models.User, error) {
+	u := &user_models.User{}
 
 	err := r.db.QueryRow(ctx, `
 		SELECT
@@ -253,7 +254,7 @@ func (r *Repository) SearchUsers(
     currentUserID string,
     query string,
     limit int,
-) ([]*User, error) {
+) ([]*user_models.User, error) {
     rows, err := r.db.Query(ctx, `
         SELECT
             id,
@@ -290,9 +291,9 @@ func (r *Repository) SearchUsers(
     }
     defer rows.Close()
 
-    var users []*User
+    var users []*user_models.User
     for rows.Next() {
-        u := &User{}
+        u := &user_models.User{}
         if err := rows.Scan(
             &u.ID,
             &u.TelegramID,

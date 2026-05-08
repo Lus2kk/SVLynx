@@ -1,28 +1,42 @@
-package service
+package server
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-migrate/migrate/v4"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/svlynx/messenger/internal/auth/auth_handler"
-	"github.com/svlynx/messenger/internal/auth/auth_repository"
-	"github.com/svlynx/messenger/internal/auth/auth_service"
-	"github.com/svlynx/messenger/internal/chat/chat_handler"
-	"github.com/svlynx/messenger/internal/chat/chat_repository"
-	"github.com/svlynx/messenger/internal/chat/chat_routes"
-	"github.com/svlynx/messenger/internal/chat/chat_service"
+	auth_handler "github.com/svlynx/messenger/internal/auth/handler"
+	auth_repository "github.com/svlynx/messenger/internal/auth/repository"
+	auth_routes "github.com/svlynx/messenger/internal/auth/routes"
+	auth_service "github.com/svlynx/messenger/internal/auth/service"
+	chat_handler "github.com/svlynx/messenger/internal/chat/handler"
+	chat_repository "github.com/svlynx/messenger/internal/chat/repository"
+	chat_routes "github.com/svlynx/messenger/internal/chat/routes"
+	chat_service "github.com/svlynx/messenger/internal/chat/service"
 	"github.com/svlynx/messenger/internal/chat/ws"
 	"github.com/svlynx/messenger/internal/config"
-	"github.com/svlynx/messenger/internal/email"
-	"github.com/svlynx/messenger/internal/migration"
+	"github.com/svlynx/messenger/internal/middleware"
+	"github.com/svlynx/messenger/internal/pkg/email"
 	"github.com/svlynx/messenger/internal/push"
-	"github.com/svlynx/messenger/internal/router"
-	"github.com/svlynx/messenger/internal/user_repository"
+	user_repository "github.com/svlynx/messenger/internal/user/repository"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
+
+func RunMigrate(PostgresAddr string) {
+	
+	m, err := migrate.New("file://migrations", PostgresAddr)
+	if err != nil{ 
+		panic(err)
+	}
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		panic(err)
+	}
+}
 
 type Server struct {
 	cfg        *config.Config
@@ -40,7 +54,7 @@ func NewServer(cfg *config.Config) *Server {
 		cfg.Postgres.DB,
 	)
 
-	migration.RunMigrate(dsn)
+	RunMigrate(dsn)
 
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: cfg.ReddisAddr,
@@ -73,7 +87,7 @@ func NewServer(cfg *config.Config) *Server {
 	wsHandler := chat_handler.NewWsHandler(hub)
 
 	Router := gin.Default()
-	Router.Use(router.CorsMiddleware())
+	Router.Use(middleware.CorsMiddleware())
 
 	push.RegisterRoutes(Router, pushHandler)
 
@@ -81,7 +95,7 @@ func NewServer(cfg *config.Config) *Server {
 	chat_routes.DirectRouter(Router, directHandler)
 	chat_routes.MessageRouter(Router, messageHandler)
 	chat_routes.WsRouter(Router, wsHandler)
-	router.RegisterRoutes(Router, handler)
+	auth_routes.RegisterRoutes(Router, handler)
 
 	return &Server{
 		cfg:        cfg,

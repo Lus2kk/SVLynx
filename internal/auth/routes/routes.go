@@ -1,8 +1,8 @@
-package router
+package auth_routes
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/svlynx/messenger/internal/auth/auth_handler"
+	auth_handler "github.com/svlynx/messenger/internal/auth/handler"
 )
 
 func RegisterRoutes(r *gin.Engine, h *auth_handler.Handler){

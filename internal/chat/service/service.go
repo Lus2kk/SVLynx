@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/svlynx/messenger/internal/chat/chat_models"
-	"github.com/svlynx/messenger/internal/chat/chat_repository"
-	"github.com/svlynx/messenger/internal/user_repository"
+	chat_models "github.com/svlynx/messenger/internal/chat/models"
+	chat_repository "github.com/svlynx/messenger/internal/chat/repository"
+	user_models "github.com/svlynx/messenger/internal/user/models"
+	user_repository "github.com/svlynx/messenger/internal/user/repository"
 )
 
 type DirectService struct {
@@ -168,9 +169,9 @@ func (s *MessageService) DeleteMessageService(ctx context.Context, message_id uu
 	return nil
 }
 
-func (s *DirectService) SearchUsersService(ctx context.Context, currentUserID string, query string) ([]*user_repository.User, error) {
+func (s *DirectService) SearchUsersService(ctx context.Context, currentUserID string, query string) ([]*user_models.User, error) {
 	if query == "" {
-		return []*user_repository.User{}, nil
+		return []*user_models.User{}, nil
 	}
 
 	limit := 20
