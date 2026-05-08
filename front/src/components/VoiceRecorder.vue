@@ -6,8 +6,10 @@
       :class="{ recording: isRecording }"
       @mousedown="startRecording"
       @mouseup="stopRecording"
+      @mouseleave="stopRecording"
       @touchstart.prevent="startRecording"
       @touchend.prevent="stopRecording"
+      @touchcancel.prevent="stopRecording"
     >
       <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
         <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4z"/>
@@ -60,6 +62,7 @@ export default {
 
   methods: {
     async startRecording() {
+      if (this.isRecording) return
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
         this.chunks = []
@@ -79,6 +82,8 @@ export default {
 
     stopRecording() {
       if (!this.mediaRecorder || !this.isRecording) return
+      // requestData() флашит последний чанк до stop()
+      this.mediaRecorder.requestData()
       this.mediaRecorder.stop()
       this.mediaRecorder.stream.getTracks().forEach(t => t.stop())
       this.isRecording = false
@@ -125,6 +130,8 @@ export default {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.04);
   transition: all 0.2s;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .record-btn.recording {
   color: white;

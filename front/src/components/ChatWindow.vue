@@ -38,7 +38,6 @@
 
     <div class="messages-area-wrapper">
       <div class="messages-area" ref="messagesArea" @scroll="onScroll">
-        <div class="messages-spacer"></div>
         <div v-if="messages.length === 0" class="day-separator">Today</div>
         <MessageBubble
           v-for="message in messages"
@@ -86,8 +85,9 @@
           </svg>
         </button>
 
+        <!-- Кнопка отправки текста / переключения в voiceMode -->
         <button
-          v-if="!voiceMode"
+          v-show="!voiceMode"
           type="button"
           class="send-btn"
           title="Send"
@@ -98,18 +98,15 @@
           </svg>
         </button>
 
+        <!-- Кнопка записи: короткий клик = выйти, долгое нажатие = запись -->
+        <!-- Обработчики вешаются через ref в watch, а не через Vue директивы -->
         <button
-          v-else
+          v-show="voiceMode"
+          ref="voiceBtn"
           type="button"
           class="send-btn"
           :class="{ recording: isRecordingVoice }"
           title="Hold to record"
-          @mousedown.prevent="onMouseDown"
-          @mouseup.prevent="onMouseUp"
-          @mouseleave.prevent="onMouseUp"
-          @touchstart.prevent="onTouchStart"
-          @touchend.prevent="onTouchEnd"
-          @touchcancel.prevent="onTouchEnd"
         >
           <svg v-if="!isRecordingVoice" viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
             <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4z"/>
@@ -146,8 +143,7 @@ export default {
     selectedCompanion: { type: Object, default: null },
     isLight: { type: Boolean, default: false },
     showBackButton: { type: Boolean, default: false },
-    presence: { type: Object, default: () => ({ online: false, lastSeen: null }) },
-    currentUserName: { type: String, default: '' }
+    presence: { type: Object, default: () => ({ online: false, lastSeen: null }) }
   },
 
   emits: ['message-sent', 'message-deleted', 'mark-as-read', 'back'],
@@ -157,10 +153,6 @@ export default {
       waveformData: [],
       audioContext: null,
       analyser: null,
-      mouseTimer: null,
-      mouseStarted: false,
-      touchTimer: null,
-      touchStarted: false,
       voiceMode: false,
       hasMore: true,
       loadingMore: false,
@@ -175,7 +167,7 @@ export default {
       voiceMediaRecorder: null,
       voiceChunks: [],
       voiceTimerSeconds: 0,
-      voiceTimerInterval: null
+      voiceTimerInterval: null,
     }
   },
 
@@ -193,10 +185,8 @@ export default {
   },
 
   beforeUnmount() {
-    if (this.presenceTimer) {
-      clearInterval(this.presenceTimer)
-      this.presenceTimer = null
-    }
+    clearInterval(this.presenceTimer)
+    this._removeBtnListeners()
   },
 
   computed: {
@@ -240,50 +230,79 @@ export default {
           this.messages = []
         }
       }
+    },
+
+    voiceMode(val) {
+      this._removeBtnListeners()
+      if (val) {
+        this.$nextTick(() => this._addBtnListeners())
+      }
     }
   },
 
   methods: {
-    onMouseDown() {
-      this.mouseStarted = false
-      this.mouseTimer = setTimeout(() => {
-        this.mouseStarted = true
-        this.startVoice()
-      }, 300)
-    },
+    // Вешаем нативные listeners напрямую на DOM элемент через ref
+    // чтобы полностью избежать проблемы с Vue event bubbling между кнопками
+    _addBtnListeners() {
+      const btn = this.$refs.voiceBtn
+      if (!btn) return
 
-    onMouseUp() {
-      if (this.mouseTimer) {
-        clearTimeout(this.mouseTimer)
-        this.mouseTimer = null
+      this._onPressDown = () => {
+        this._isLongPress = false
+        clearTimeout(this._pressTimer)
+        this._pressTimer = setTimeout(() => {
+          this._isLongPress = true
+          this.startVoice()
+        }, 300)
       }
-      if (this.mouseStarted) {
+
+      this._onPressUp = () => {
+      clearTimeout(this._pressTimer)
+      if (this.isRecordingVoice) {
+        // запись идёт — останавливаем в любом случае
         this.stopVoice()
-        this.mouseStarted = false
-        this.voiceMode = false
-      } else {
+      } else if (!this._isLongPress) {
+        // короткий клик без записи — выйти из voiceMode
         this.voiceMode = false
       }
-    },
+      this._isLongPress = false
+    }
 
-    onTouchStart() {
-      this.touchStarted = false
-      this.touchTimer = setTimeout(() => {
-        this.touchStarted = true
-        this.startVoice()
-      }, 500)
-    },
-
-    onTouchEnd() {
-      if (this.touchTimer) {
-        clearTimeout(this.touchTimer)
-        this.touchTimer = null
+      this._onTouchStartNative = (e) => {
+        e.preventDefault()
+        this._onPressDown()
       }
-      if (this.touchStarted) {
-        this.stopVoice()
-        this.touchStarted = false
-      } else {
-        this.voiceMode = false
+
+      this._onTouchEndNative = (e) => {
+        e.preventDefault()
+         console.log('touchend native fired')
+        this._onPressUp()
+      }
+
+      this._onMouseLeaveNative = () => {
+        clearTimeout(this._pressTimer)
+        if (this.isRecordingVoice) this.stopVoice()
+        this._isLongPress = false
+      }
+
+      btn.addEventListener('mousedown', this._onPressDown)
+      btn.addEventListener('mouseup', this._onPressUp)
+      btn.addEventListener('mouseleave', this._onMouseLeaveNative)
+      btn.addEventListener('touchstart', this._onTouchStartNative, { passive: false })
+      btn.addEventListener('touchend', this._onTouchEndNative, { passive: false })
+      btn.addEventListener('touchcancel', this._onTouchEndNative, { passive: false })
+    },
+
+    _removeBtnListeners() {
+      const btn = this.$refs.voiceBtn
+      if (!btn) return
+      if (this._onPressDown) btn.removeEventListener('mousedown', this._onPressDown)
+      if (this._onPressUp) btn.removeEventListener('mouseup', this._onPressUp)
+      if (this._onMouseLeaveNative) btn.removeEventListener('mouseleave', this._onMouseLeaveNative)
+      if (this._onTouchStartNative) btn.removeEventListener('touchstart', this._onTouchStartNative)
+      if (this._onTouchEndNative) {
+        btn.removeEventListener('touchend', this._onTouchEndNative)
+        btn.removeEventListener('touchcancel', this._onTouchEndNative)
       }
     },
 
@@ -295,8 +314,7 @@ export default {
       }
     },
 
-    async startVoice(e) {
-      if (e) e.preventDefault()
+    async startVoice() {
       if (this.isRecordingVoice) return
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -329,7 +347,7 @@ export default {
           const dataArray = new Uint8Array(this.analyser.frequencyBinCount)
           this.analyser.getByteFrequencyData(dataArray)
           const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length
-          this.waveformData.push(avg / 255) 
+          this.waveformData.push(avg / 255)
         }, 100)
 
       } catch (e) {
@@ -341,11 +359,12 @@ export default {
       if (!this.voiceMediaRecorder || !this.isRecordingVoice) return
       this.isRecordingVoice = false
       clearInterval(this.voiceTimerInterval)
-      clearInterval(this.waveformInterval)  
+      clearInterval(this.waveformInterval)
       if (this.audioContext) {
         this.audioContext.close()
         this.audioContext = null
       }
+      this.voiceMediaRecorder.requestData()
       this.voiceMediaRecorder.stream.getTracks().forEach(t => t.stop())
       this.voiceMediaRecorder.stop()
     },
@@ -367,9 +386,9 @@ export default {
       form.append('sender_id', String(this.currentUserId))
       form.append('recipient_id', String(this.recipientId))
       form.append('waveform', JSON.stringify(this.waveformData))
+      
 
       try {
-        const VOICE_BASE = import.meta.env.VITE_VOICE_API_URL || 'http://localhost:9090'
         const res = await fetch(`${VOICE_BASE}/voice/upload`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${getCookie('access_token') || ''}` },
@@ -389,7 +408,7 @@ export default {
       if (!message) return
       const msg = this.normalizeMessage({
         ...message,
-        waveform: this.waveformData 
+        waveform: this.waveformData
       })
       if (this.messages.find(m => String(m.id) === String(msg.id))) return
       this.messages.push(msg)
@@ -525,13 +544,11 @@ export default {
     },
 
     scrollToBottom() {
-  this.$nextTick(() => {
-    const el = this.$refs.messagesArea
-    if (el) {
-      el.scrollTop = el.scrollHeight
-    }
-  })
-},
+      this.$nextTick(() => {
+        const el = this.$refs.messagesArea
+        if (el) el.scrollTop = el.scrollHeight
+      })
+    },
 
     isMine(message) {
       return String(message.sender_id ?? message.senderid) === String(this.currentUserId)
@@ -686,9 +703,6 @@ export default {
     linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   background-size: 48px 48px;
 }
-.messages-spacer {
-  flex: 1;
-}
 .theme-light .messages-area-wrapper {
   background-image:
     linear-gradient(rgba(91, 106, 255, 0.06) 1px, transparent 1px),
@@ -697,9 +711,8 @@ export default {
 
 .messages-area {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
-    padding: 8px 28px 8px;
+  padding: 22px 28px 18px;
   display: flex; flex-direction: column; gap: 6px;
-  justify-content: flex-end;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   background: transparent;
 }
@@ -749,7 +762,15 @@ export default {
 .message-input::placeholder { color: #747ea2; }
 .theme-light .message-input::placeholder { color: #aab0cc; }
 
-.send-btn { color: white; background: linear-gradient(135deg, #6e79ff, #8669ff); box-shadow: 0 8px 18px rgba(94, 102, 255, 0.28); position: relative; }
+.send-btn {
+  color: white;
+  background: linear-gradient(135deg, #6e79ff, #8669ff);
+  box-shadow: 0 8px 18px rgba(94, 102, 255, 0.28);
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
 
 .delete-modal-overlay {
   position: absolute; inset: 0;
@@ -787,10 +808,7 @@ export default {
 
 @media (max-width: 760px) {
   .chat-header { padding: 10px 14px; height: 64px; min-height: 64px; flex-shrink: 0; }
-  .messages-area {
-    padding: 8px 12px 8px;
-    justify-content: flex-end;
-  }
+  .messages-area { padding: 14px 12px 10px; }
   .composer-wrap {
     padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
     flex-shrink: 0;
