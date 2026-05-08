@@ -3,10 +3,13 @@ package config
 import "github.com/ilyakaznacheev/cleanenv"
 
 type Config struct {
-	SmtpHost       string `env:"SMTP_HOST"     env-default:"smtp.gmail.com"`
-	SmtpPort       int    `env:"SMTP_PORT"     env-default:"587"`
-	SenderEmail    string `env:"SENDER_EMAIL" env-required:"true"`
-	SenderPassword string `env:"SENDER_PASSWORD" env-required:"true"`
+	AppEnv         string `env:"APP_ENV"          env-default:"development"`
+	SmtpHost       string `env:"SMTP_HOST"        env-default:"smtp.gmail.com"`
+	SmtpPort       int    `env:"SMTP_PORT"        env-default:"587"`
+	SmtpEmail      string `env:"SMTP_EMAIL"`
+	SmtpPassword   string `env:"SMTP_PASSWORD"`
+	ResendApiKey   string `env:"RESEND_API_KEY"`
+	SenderEmail    string `env:"SENDER_EMAIL"`
 	JWTSecret      string `env:"JWT_SECRET" env-required:"true"`
 	Port           string `env:"PORT" env-required:"true"`
 	TelegramToken  string `env:"TELEGRAM_BOT_TOKEN" env-required:"true"`

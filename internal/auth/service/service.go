@@ -33,11 +33,11 @@ const (
 type Service struct {
 	repo        auth_repository.AuthRepository
 	userRepo    user_repository.UserRepository
-	emailSender *email.Sender
+	emailSender email.Sender
 	jwtSecret	string
 }
 
-func NewService(repo auth_repository.AuthRepository, emailSender *email.Sender, userRepo user_repository.UserRepository, jwtSecret string) *Service {
+func NewService(repo auth_repository.AuthRepository, emailSender email.Sender, userRepo user_repository.UserRepository, jwtSecret string) *Service {
 	return &Service{
 		repo: repo,
 		emailSender: emailSender,

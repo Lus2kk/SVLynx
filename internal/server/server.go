@@ -60,7 +60,7 @@ func NewServer(cfg *config.Config) *Server {
 		Addr: cfg.ReddisAddr,
 	})
 
-	emailSender := email.NewSender(cfg.SmtpHost, cfg.SmtpPort, cfg.SenderEmail, cfg.SenderPassword)
+	emailSender := email.NewSender(cfg)
 
 	db, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
