@@ -102,6 +102,7 @@ func (repo *PostgresRepo) GetListOfDirectsListByIDRepo(ctx context.Context, user
 			COALESCE(NULLIF(u.name, ''), NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.username, '') AS companion_name,
 			COALESCE(u.nickname, '') AS companion_nickname,
 			COALESCE(u.photo_url, '') AS companion_photo_url,
+			COALESCE(u.avatar_color, '') AS companion_avatar_color,
 			COALESCE(msg.content, '') AS last_message_content,
 			msg.created_at AS last_message_at
 		FROM chats c
@@ -140,6 +141,7 @@ func (repo *PostgresRepo) GetListOfDirectsListByIDRepo(ctx context.Context, user
 			&item.CompanionName,
 			&item.CompanionNickname,
 			&item.CompanionPhotoURL,
+			&item.CompanionAvatarColor,
 			&item.LastMessageContent,
 			&lastMessageAt,
 		)

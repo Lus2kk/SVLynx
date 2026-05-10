@@ -10,7 +10,7 @@ var (
 	ErrSessionNotFound  = errors.New("the session was not found or expired")
 	ErrCodeExpired      = errors.New("the code has expired, request a new one")
 	ErrInvalidCode      = errors.New("invalid code")
-	ErrEmailCooldown    = errors.New("wait 30 seconds before resending the code")
+	ErrEmailCooldown    = errors.New("wait 5 seconds before resending the email")
 	ErrCodeCooldown	    = errors.New("wait 5 seconds before resending the code")
 	ErrTooManyAttempts  = errors.New("exceeded the number of attempts. Try again later")
 	ErrEmailSendFailed  = errors.New("error when sending the code to the mail")

@@ -54,15 +54,15 @@
           <div v-if="isSearching" class="list-state">Searching...</div>
 
          <div
-  v-else
-  v-for="user in searchResults"
-  :key="user.id"
-  class="chat-item"
-  @touchstart="onTouchStart"
-  @touchmove="onTouchMove"
-  @click="() => { if (!scrolling) handleStartChat(user.id, user.nickname) }"
->
-            <div class="chat-avatar">
+          v-else
+          v-for="user in searchResults"
+          :key="user.id"
+          class="chat-item"
+          @touchstart="onTouchStart"
+          @touchmove="onTouchMove"
+          @click="() => { if (!scrolling) handleStartChat(user.id, user.nickname) }"
+        >
+            <div class="chat-avatar" :style="!user.photo_url ? { background: user.avatar_color || 'linear-gradient(135deg, #6572ff, #8a67ff)' } : {}">
               <img v-if="user.photo_url" :src="user.photo_url" alt="" class="avatar-image" />
               <span v-else>{{ (user.name || user.first_name || user.nickname)?.[0]?.toUpperCase() || '?' }}</span>
             </div>
@@ -91,7 +91,7 @@
               type="button"
               @click="!deleteMode && $emit('select', { chatId: direct.id, recipientId: getRecipientId(direct) })"
             >
-              <div class="chat-avatar">
+              <div class="chat-avatar" :style="!getAvatarUrl(direct) ? { background: direct.companion_avatar_color || 'linear-gradient(135deg, #6572ff, #8a67ff)' } : {}">
                 <img v-if="getAvatarUrl(direct)" :src="getAvatarUrl(direct)" alt="" class="avatar-image" />
                 <span v-else>{{ getAvatarLetter(direct) }}</span>
               </div>
@@ -132,10 +132,10 @@
 
       <footer class="sidebar-footer">
         <div class="footer-actions">
-          <button class="footer-btn" title="Settings" type="button">
+          <button class="footer-btn" title="My profile" type="button" @click="$emit('open-profile')">
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.7 1.7 0 0 0 .33 1.82l.05.05a2 2 0 1 1-2.83 2.83l-.05-.05a1.7 1.7 0 0 0-1.82-.33 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.08a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.82.33l-.05.05a2 2 0 1 1-2.83-2.83l.05-.05A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.08A1.7 1.7 0 0 0 4.64 8.94a1.7 1.7 0 0 0-.33-1.82l-.05-.05a2 2 0 1 1 2.83-2.83l.05.05A1.7 1.7 0 0 0 8.96 4.6a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.08a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.82-.33l.05-.05a2 2 0 1 1 2.83 2.83l-.05.05A1.7 1.7 0 0 0 19.4 8.94c.12.39.6 1.03 1.56 1.03H21a2 2 0 1 1 0 4h-.08A1.7 1.7 0 0 0 19.4 15z"></path>
+              <circle cx="12" cy="8" r="4"></circle>
+              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"></path>
             </svg>
           </button>
 
@@ -187,7 +187,7 @@ export default {
     isLight: { type: Boolean, default: false }
   },
 
-  emits: ['select', 'start-chat', 'toggle-theme', 'chat-deleted'],
+  emits: ['select', 'start-chat', 'toggle-theme', 'chat-deleted', 'open-profile'],
 
   data() {
     return {
@@ -436,13 +436,6 @@ onTouchMove(e) {
 .sidebar-list::-webkit-scrollbar { width: 6px; }
 .sidebar-list::-webkit-scrollbar-thumb { background: rgba(147, 158, 211, 0.16); border-radius: 999px; }
 
-.chat-avatar {
-  width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0;
-  display: grid; place-items: center; overflow: hidden;
-  color: #fff; font-size: 16px; font-weight: 700;
-  background: linear-gradient(135deg, #6572ff, #8a67ff);
-}
-
 .chat-item {
   flex: 1; min-width: 0; overflow: hidden;
   display: flex; align-items: center; gap: 12px;
@@ -586,4 +579,9 @@ onTouchMove(e) {
   }
 }
 
+.chat-avatar {
+  width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; overflow: hidden;
+  color: #fff; font-size: 16px; font-weight: 700;
+}
 </style>

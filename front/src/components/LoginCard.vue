@@ -16,7 +16,7 @@
 
         <StatusMsg :type="status.type" :message="status.message" />
 
-        <EmailAuth @status="status = $event" @success="onEmailSuccess" />
+        <EmailAuth @status="onStatus" @success="onEmailSuccess" />
 
         <div class="divider" style="margin-bottom: 24px;">
           <div class="divider-line"></div>
@@ -41,6 +41,7 @@ import StatusMsg from './StatusMsg.vue'
 import TgButton from './TgButton.vue'
 import EmailAuth from './EmailAuth.vue'
 import { usePush } from '../composables/usePush.js'
+import { translateError } from '../composables/ErrorMessages.js'
 
 function setCookie(name, value, maxAgeSeconds) {
   document.cookie = `${name}=${value}; path=/; max-age=${maxAgeSeconds}; SameSite=Strict`
@@ -73,6 +74,14 @@ export default {
       }
     },
 
+    onStatus(event) {
+      if (event.type === 'error') {
+        this.status = { type: 'error', message: translateError(event.message) }
+      } else {
+        this.status = event
+      }
+    },
+
     async onTelegramAuth(data) {
       if (data.access_token) {
         setCookie('access_token', data.access_token, 900)
@@ -86,7 +95,7 @@ export default {
         
         setTimeout(() => this.$emit('show-chat'), 500)
       } else {
-        this.status = { type: 'error', message: data.error || 'Ошибка авторизации' }
+        this.status = { type: 'error', message: translateError(data.error) }
       }
     }
   }

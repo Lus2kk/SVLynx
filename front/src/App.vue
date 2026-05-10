@@ -2,7 +2,10 @@
   <BgScene />
   <transition name="fade" mode="out-in">
     <div v-if="showChat" key="chat" class="app-view">
-      <ChatLayout @theme-changed="onThemeChanged" />
+     <ChatLayout @theme-changed="onThemeChanged" @open-profile="onOpenProfile" />
+    </div>
+    <div v-else-if="showMyProfile" key="my-profile" class="app-view">
+      <MyProfile @close="showMyProfile = false; showChat = true" />
     </div>
     <div v-else-if="showProfile" key="profile" class="app-view">
       <ProfileSetup @done="onProfileDone" />
@@ -18,14 +21,16 @@ import BgScene from './components/BgScene.vue'
 import LoginCard from './components/LoginCard.vue'
 import ProfileSetup from './components/ProfileSetup.vue'
 import ChatLayout from './components/ChatLayout.vue'
+import MyProfile from './components/MyProfile.vue'
 
 export default {
-  components: { BgScene, LoginCard, ProfileSetup, ChatLayout },
+  components: { BgScene, LoginCard, ProfileSetup, ChatLayout, MyProfile },
 
   data() {
     return {
       showProfile: false,
-      showChat: false
+      showChat: false,
+      showMyProfile: false,
     }
   },
 
@@ -65,6 +70,12 @@ export default {
   },
 
   methods: {
+
+    onOpenProfile() {
+      this.showChat = false
+      this.showMyProfile = true
+    },
+
     getCookie(name) {
       const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
       return match ? match[2] : null

@@ -10,12 +10,12 @@ type MessageStatus string
 type MessageType string
 
 const (
-	Sent         MessageStatus = "sent"
-	Delivered    MessageStatus = "delivered"
-	Read         MessageStatus = "read"
-	
-	TextMessage  MessageType   = "text"
-	VoiceMessage MessageType   = "voice"
+	Sent      MessageStatus = "sent"
+	Delivered MessageStatus = "delivered"
+	Read      MessageStatus = "read"
+
+	TextMessage  MessageType = "text"
+	VoiceMessage MessageType = "voice"
 )
 
 type ChatMember struct {
@@ -47,14 +47,15 @@ type Message struct {
 }
 
 type DirectListItem struct {
-	Id                 uuid.UUID `json:"id"`
-	CreationTime       time.Time `json:"creation_time"`
-	FirstUserId        uuid.UUID `json:"first_user_id"`
-	SecondUserId       uuid.UUID `json:"second_user_id"`
-	CompanionId        uuid.UUID `json:"companion_id"`
-	CompanionName      string    `json:"companion_name"`
-	CompanionNickname  string    `json:"companion_nickname"`
-	CompanionPhotoURL  string    `json:"companion_photo_url"`
-	LastMessageContent string    `json:"last_message_content"`
-	LastMessageAt      time.Time `json:"last_message_at"`
+	Id                   uuid.UUID `json:"id"`
+	CreationTime         time.Time `json:"creation_time"`
+	FirstUserId          uuid.UUID `json:"first_user_id"`
+	SecondUserId         uuid.UUID `json:"second_user_id"`
+	CompanionId          uuid.UUID `json:"companion_id"`
+	CompanionName        string    `json:"companion_name"`
+	CompanionNickname    string    `json:"companion_nickname"`
+	CompanionPhotoURL    string    `json:"companion_photo_url"`
+	CompanionAvatarColor string    `json:"companion_avatar_color"`
+	LastMessageContent   string    `json:"last_message_content"`
+	LastMessageAt        time.Time `json:"last_message_at"`
 }

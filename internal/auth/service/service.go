@@ -320,7 +320,7 @@ func (s *Service) CompleteRegistration(ctx context.Context, accessToken, nicknam
         return apperrors.ErrUnauthorized
     }
 	
-	exists, err := s.userRepo.NicknameExists(ctx, nickname)
+	exists, err := s.userRepo.NicknameExists(ctx, nickname, userID)
 	if err != nil {
 		slog.Warn("error checking the existence of nickname", "nickname", nickname, "err", err)
 		return apperrors.ErrInternal

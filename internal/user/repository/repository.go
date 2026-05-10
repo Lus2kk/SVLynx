@@ -13,7 +13,7 @@ type UserRepository interface {
 	UserExistsByTgID(ctx context.Context, telegramID int64) (bool, error)
 
 	UsernameExists(ctx context.Context, username string) (bool, error)
-	NicknameExists(ctx context.Context, nickname string) (bool, error)
+	NicknameExists(ctx context.Context, nickname string, userID string) (bool, error)
 
 	SaveUserTelegram(ctx context.Context, telegramID int64, username, firstName, lastName, photoURL string) error
 	SaveUserEmail(ctx context.Context, email string, nickname *string, name, status, avatarColor string) error
@@ -78,12 +78,12 @@ func (r *Repository) UsernameExists(ctx context.Context, username string) (bool,
 	return exists, nil
 }
 
-func (r *Repository) NicknameExists(ctx context.Context, nickname string) (bool, error) {
+func (r *Repository) NicknameExists(ctx context.Context, nickname string, userID string) (bool, error) {
 	var exists bool
 
 	err := r.db.QueryRow(ctx, `
-		SELECT EXISTS(SELECT 1 FROM users WHERE nickname = $1)
-	`, nickname).Scan(&exists)
+		SELECT EXISTS(SELECT 1 FROM users WHERE nickname = $1 and id != $2)
+	`, nickname, userID).Scan(&exists)
 
 	if err != nil {
 		return false, err

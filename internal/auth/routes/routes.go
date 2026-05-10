@@ -9,7 +9,7 @@ func RegisterRoutes(r *gin.Engine, h *auth_handler.Handler){
 	auth := r.Group("/auth")
 	auth.POST("/refresh", h.Refresh())
 	auth.POST("/logout", h.Logout())
-	auth.POST("/me", h.GetMe())
+	auth.GET("/me", h.GetMe())
 	
 	telegram := auth.Group("/telegram")
 	telegram.POST("/init", h.InitEmailAuth())

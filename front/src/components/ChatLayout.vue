@@ -11,6 +11,7 @@
         @start-chat="startChat"
         @toggle-theme="toggleTheme"
         @chat-deleted="onChatDeleted"
+        @open-profile="$emit('open-profile')"
       />
 
 
@@ -64,6 +65,8 @@ const WS_BASE = BASE.replace(/^http/, 'ws')
 export default {
   name: 'ChatLayout',
   components: { ChatSidebar, ChatWindow },
+
+  emits: ['theme-changed', 'open-profile'],
 
   data() {
     return {
@@ -142,7 +145,7 @@ export default {
       const wsUrl = `${WS_BASE}/ws?user_id=${this.currentUserId}`
       this.ws = new WebSocket(wsUrl)
 
-      this.ws.onopen = () => console.log('✅ WebSocket Connected!')
+      
       
       this.ws.onmessage = (event) => {
       try {
@@ -245,22 +248,22 @@ export default {
       }
     },
 
-  toggleTheme() {
-  this.isLight = !this.isLight
-  localStorage.setItem('svlynx-theme', this.isLight ? 'light' : 'dark')
-  this.updateThemeColor()
-  this.$emit('theme-changed')
-},
+    toggleTheme() {
+    this.isLight = !this.isLight
+    localStorage.setItem('svlynx-theme', this.isLight ? 'light' : 'dark')
+    this.updateThemeColor()
+    this.$emit('theme-changed')
+  },
 
-updateThemeColor() {
-  const color = this.isLight ? '#ffffff' : 'rgb(8, 12, 26)'
-  document.body.style.background = color
-  document.body.style.backgroundColor = color
-  document.documentElement.style.background = color
-  document.documentElement.style.backgroundColor = color
-  const meta = document.querySelector('meta[name="theme-color"]')
-  if (meta) meta.setAttribute('content', color)
-},
+    updateThemeColor() {
+      const color = this.isLight ? '#ffffff' : 'rgb(8, 12, 26)'
+      document.body.style.background = color
+      document.body.style.backgroundColor = color
+      document.documentElement.style.background = color
+      document.documentElement.style.backgroundColor = color
+      const meta = document.querySelector('meta[name="theme-color"]')
+      if (meta) meta.setAttribute('content', color)
+    },
 
     parseJwt(token) {
       try {
@@ -307,6 +310,7 @@ updateThemeColor() {
           const dateB = new Date(b.last_message_at || b.updated_at || b.created_at || 0)
           return dateB - dateA
         })
+
 
         this.saveChatsToLocal()
       } catch (e) {

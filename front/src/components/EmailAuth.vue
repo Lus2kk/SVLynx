@@ -208,7 +208,7 @@ export default {
         this.step = 'code'
         this.code = ''
         this.codeDigits = ['', '', '', '', '', '']
-        this.startCooldown(30)
+        this.startCooldown(5)
 
         this.$emit('status', { type: '', message: '' })
 
@@ -217,7 +217,7 @@ export default {
         this.startCooldown(5)
         this.$emit('status', {
           type: 'error',
-          message: `${e.message || 'Ошибка отправки кода'}. Повторите через 5 секунд`
+          message: e.message || 'Ошибка отправки кода'
         })
       } finally {
         this.loading = false
@@ -256,7 +256,7 @@ export default {
         this.codeDigits = ['', '', '', '', '', '']
         this.$emit('status', {
           type: 'error',
-          message: `${e.message || 'Ошибка проверки кода'}. Повторите через 5 секунд`
+          message: e.message || 'Ошибка проверки кода'
         })
         this.$nextTick(() => this.pinInputs[0]?.focus())
       } finally {

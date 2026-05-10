@@ -11,7 +11,7 @@ const (
 	SessionTTL = 10 * time.Minute
 	CodeTTL          = 3 * time.Minute
 	PendingTTL       = 10 * time.Minute
-	EmailCooldownTTL = 30 * time.Second
+	EmailCooldownTTL = 5 * time.Second
 	CodeCooldownTTL  = 5 * time.Second
 	AttemptsTTL      = 15 * time.Minute
 	RefreshTokenTTL  = 30 * 24 * time.Hour

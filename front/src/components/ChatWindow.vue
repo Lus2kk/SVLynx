@@ -7,7 +7,7 @@
             <path d="M15 18l-6-6 6-6"></path>
           </svg>
         </button>
-        <div class="chat-avatar">
+        <div class="chat-avatar" :style="!avatarUrl ? { background: avatarColor } : {}">
           <img v-if="avatarUrl" :src="avatarUrl" alt="" class="chat-avatar-image" />
           <span v-else>{{ avatarLetter }}</span>
         </div>
@@ -234,6 +234,10 @@ export default {
   },
 
   computed: {
+
+    avatarColor() {
+      return this.chat?.companion_avatar_color || 'linear-gradient(135deg, #6d78ff, #8866ff)'
+    },
     voiceTimerText() {
       const m = Math.floor(this.voiceTimerSeconds / 60).toString().padStart(2, '0')
       const s = (this.voiceTimerSeconds % 60).toString().padStart(2, '0')
@@ -767,7 +771,6 @@ export default {
 .chat-avatar {
   width: 38px; height: 38px; border-radius: 50%;
   display: grid; place-items: center; overflow: hidden; flex-shrink: 0;
-  background: linear-gradient(135deg, #6d78ff, #8866ff);
   color: white; font-weight: 700; font-size: 13px;
 }
 .chat-avatar-image { width: 100%; height: 100%; object-fit: cover; }
