@@ -1,0 +1,166 @@
+package auth_repository
+
+import (
+	"context"
+	"log/slog"
+	"time"
+	"github.com/redis/go-redis/v9"
+)
+
+const (
+	SessionTTL = 10 * time.Minute
+	CodeTTL          = 3 * time.Minute
+	PendingTTL       = 10 * time.Minute
+	EmailCooldownTTL = 5 * time.Second
+	CodeCooldownTTL  = 5 * time.Second
+	AttemptsTTL      = 15 * time.Minute
+	RefreshTokenTTL  = 30 * 24 * time.Hour
+	AccesTokenTTL	 = 1 * time.Minute
+	MaxAttempts      = 5
+)
+
+type AuthRepository interface {
+	SaveSession(ctx context.Context, sessionID string) error
+	SessionExists(ctx context.Context, sessionID string) (bool, error)
+	DeleteSession(ctx context.Context, sessionID string) error
+
+	SaveCode(ctx context.Context, email string, code string) error
+	GetCode(ctx context.Context, email string) (string, error)
+	DeleteCode(ctx context.Context, email string) error
+
+	SavePending(ctx context.Context, sessionID, email string) error
+	GetPending(ctx context.Context, sessionID string) (string, error)
+	DeletePending(ctx context.Context, sessionID string) error
+
+	EmailCooldownExists(ctx context.Context, email string) (bool, error)
+	SetEmailCooldown(ctx context.Context, email string) error
+
+	CodeCooldownExists(ctx context.Context, email string) (bool, error)
+	SetCodeCooldown(ctx context.Context, email string) error
+
+	IncrEmailAttempts(ctx context.Context, email string) (int64, error)
+	ResetEmailAttempts(ctx context.Context, email string) error
+
+	IncrCodeAttempts(ctx context.Context, email string) (int64, error)
+	ResetCodeAttempts(ctx context.Context, email string) error
+
+	SaveRefreshToken(ctx context.Context, token, userID string) error
+	GetUserIDByRefreshToken(ctx context.Context, token string) (string, error) 
+	DeleteRefreshToken(ctx context.Context, token string) error
+}
+
+type Repository struct {
+	redis *redis.Client
+}
+
+func NewRepository(redis *redis.Client) *Repository {
+	return &Repository{redis: redis}
+}
+
+func (r *Repository) SaveSession(ctx context.Context, sessionID string) error {
+	return r.redis.Set(ctx, "session_id:"+sessionID, 1, SessionTTL).Err()
+}
+
+func (r *Repository) SessionExists(ctx context.Context, sessionID string) (bool, error) {
+	n, err := r.redis.Exists(ctx, "session_id:"+sessionID).Result()
+	return n > 0, err
+}
+
+func (r *Repository) DeleteSession(ctx context.Context, sessionID string) error {
+	return r.redis.Del(ctx, "session_id:"+sessionID).Err()
+}
+
+func (r *Repository) SaveCode(ctx context.Context, email string, code string) error {
+	return r.redis.Set(ctx, "code:"+email, code, CodeTTL).Err()
+}
+
+func (r *Repository) GetCode(ctx context.Context, email string) (string, error) {
+	return r.redis.Get(ctx, "code:"+email).Result()
+}
+
+func (r *Repository) DeleteCode(ctx context.Context, email string) error {
+	return r.redis.Del(ctx, "code:"+email).Err()
+}
+
+func (r *Repository) SavePending(ctx context.Context, sessionID, email string) error {
+	return r.redis.Set(ctx, "pending:"+sessionID, email, PendingTTL).Err()
+}
+
+func (r *Repository) GetPending(ctx context.Context, sessionID string) (string, error) {
+	return r.redis.Get(ctx, "pending:"+sessionID).Result()
+}
+
+func (r *Repository) DeletePending(ctx context.Context, sessionID string) error {
+	return r.redis.Del(ctx, "pending:"+sessionID).Err()
+}
+
+func (r *Repository) EmailCooldownExists(ctx context.Context, email string) (bool, error) {
+	n, err := r.redis.Exists(ctx, "email_cooldown:"+email).Result()
+	return n > 0, err
+}
+
+func (r *Repository) SetEmailCooldown(ctx context.Context, email string) error {
+	return r.redis.Set(ctx, "email_cooldown:"+email, 1, EmailCooldownTTL).Err()
+}
+
+func (r *Repository) CodeCooldownExists(ctx context.Context, email string) (bool, error) {
+	n, err := r.redis.Exists(ctx, "code_cooldown:"+email).Result()
+	return n > 0, err
+}
+
+func (r *Repository) SetCodeCooldown(ctx context.Context, email string) error {
+	return r.redis.Set(ctx, "code_cooldown:"+email, 1, CodeCooldownTTL).Err()
+}
+
+func (r *Repository) IncrEmailAttempts(ctx context.Context, email string) (int64, error) {
+	count, err := r.redis.Incr(ctx, "email_attempts:"+email).Result()
+
+	if err != nil {
+		return 0, err
+	}
+
+	if count == 1 {
+		if err := r.redis.Expire(ctx, "email_attempts:"+email, AttemptsTTL).Err(); err != nil {
+			slog.Warn("couldn't set TTL for email attempts", "email", email, "err", err)
+		}
+	}
+
+	return count, nil
+}
+
+func (r *Repository) ResetEmailAttempts(ctx context.Context, email string) error {
+	return r.redis.Del(ctx, "email_attempts:"+email).Err()
+}
+
+func (r *Repository) IncrCodeAttempts(ctx context.Context, email string) (int64, error) {
+	count, err := r.redis.Incr(ctx, "code_attempts:"+email).Result()
+	if err != nil {
+		return 0, err
+	}
+
+	if count == 1 {
+		if err := r.redis.Expire(ctx, "code_attempts:"+email, AttemptsTTL).Err(); err != nil {
+			slog.Warn("couldn't set TTl for code attempts", "email", email)
+		}
+	}
+
+	return count, nil
+}
+
+func (r *Repository) ResetCodeAttempts(ctx context.Context, email string) error {
+	return r.redis.Del(ctx, "code_attempts:"+email).Err()
+}
+
+func (r *Repository) SaveRefreshToken(ctx context.Context, token, userID string) error {
+	return r.redis.Set(ctx, "refresh:"+token, userID, RefreshTokenTTL).Err()
+}
+
+func (r *Repository) GetUserIDByRefreshToken(ctx context.Context, token string) (string, error){
+	return r.redis.Get(ctx, "refresh:"+token).Result()
+}
+
+func (r *Repository) DeleteRefreshToken(ctx context.Context, token string) error {
+	return r.redis.Del(ctx, "refresh:"+token).Err()
+}
+
+

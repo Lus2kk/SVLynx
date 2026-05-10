@@ -1,0 +1,1 @@
+ALTER TABLE messages ADD COLUMN duration INT NOT NULL DEFAULT 0;

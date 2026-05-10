@@ -1,0 +1,2 @@
+ALTER TABLE messages DROP COLUMN IF EXISTS type;
+ALTER TABLE messages DROP COLUMN IF EXISTS transcript;

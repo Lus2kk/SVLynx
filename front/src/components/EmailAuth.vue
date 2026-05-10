@@ -63,7 +63,17 @@
 </template>
 
 <script>
-const BASE = 'https://svlynx.site'
+
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+
+function setCookie(name, value, maxAgeSeconds) {
+  document.cookie = `${name}=${value}; path=/; max-age=${maxAgeSeconds}; SameSite=Strict`
+}
+ 
+function getCookie(name) {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
+  return match ? match[2] : null
+}
 
 export default {
   emits: ['status', 'success'],
@@ -198,7 +208,7 @@ export default {
         this.step = 'code'
         this.code = ''
         this.codeDigits = ['', '', '', '', '', '']
-        this.startCooldown(30)
+        this.startCooldown(5)
 
         this.$emit('status', { type: '', message: '' })
 
@@ -207,7 +217,7 @@ export default {
         this.startCooldown(5)
         this.$emit('status', {
           type: 'error',
-          message: `${e.message || 'Ошибка отправки кода'}. Повторите через 5 секунд`
+          message: e.message || 'Ошибка отправки кода'
         })
       } finally {
         this.loading = false
@@ -230,8 +240,8 @@ export default {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Неверный код')
 
-        sessionStorage.setItem('access_token', data.access_token)
-        sessionStorage.setItem('refresh_token', data.refresh_token)
+        setCookie('access_token', data.access_token, 60)  
+        setCookie('refresh_token', data.refresh_token, 2592000) 
 
         if (data.needs_profile) {
           this.$emit('status', { type: 'success', message: 'Добро пожаловать! Заполните профиль...' })
@@ -246,7 +256,7 @@ export default {
         this.codeDigits = ['', '', '', '', '', '']
         this.$emit('status', {
           type: 'error',
-          message: `${e.message || 'Ошибка проверки кода'}. Повторите через 5 секунд`
+          message: e.message || 'Ошибка проверки кода'
         })
         this.$nextTick(() => this.pinInputs[0]?.focus())
       } finally {

@@ -1,0 +1,312 @@
+<template>
+  <div
+    class="message-row"
+    :class="{ mine: isMine, theirs: !isMine, 'theme-light': isLight }"
+  >
+    <!-- Lightbox -->
+    <teleport to="body">
+  <div v-if="lightboxUrl" class="lightbox" @click="lightboxUrl = null">
+    <img :src="lightboxUrl" class="lightbox-img" @click.stop />
+    <button class="lightbox-close" @click="lightboxUrl = null">✕</button>
+  </div>
+</teleport>
+
+    <div class="message-bubble-wrapper">
+      <div
+        class="message-bubble"
+        :class="{ mine: isMine, theirs: !isMine, highlight: highlight, 'highlight-active': highlightActive }"
+        @touchstart="onTouchStart"
+        @touchend.stop="onTouchEnd"
+        @touchmove="onTouchCancel"
+        @touchcancel="onTouchCancel"
+        @contextmenu.prevent="openMenu"
+      >
+        <!-- Текст -->
+        <div v-if="message.type === 'text' || !message.type" class="message-text">
+          <template v-if="isUrl(message.content)">
+            <a :href="message.content" target="_blank" class="message-link">{{ message.content }}</a>
+          </template>
+          <template v-else>{{ message.content }}</template>
+        </div>
+
+        <!-- Фото -->
+        <div v-else-if="message.type === 'image'" class="media-image-wrap">
+          <img :src="message.content" class="media-image" @click="lightboxUrl = message.content" />
+          <div class="image-meta">
+            <span class="message-time">{{ formatTime(message.created_at || message.createdat) }}</span>
+            <span v-if="isMine" class="message-status" :class="{ read: message.status === 'read' }">
+              <svg viewBox="0 0 22 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 6l3 3 5-6"/><path d="M9 6l3 3 5-6"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+
+        <!-- Видео -->
+        <div v-else-if="message.type === 'video'" class="media-video-wrap">
+          <video :src="message.content" class="media-video" controls></video>
+        </div>
+
+        <!-- Аудио -->
+        <div v-else-if="message.type === 'audio'" class="media-audio-wrap">
+          <audio :src="message.content" controls class="media-audio"></audio>
+          <span v-if="message.file_name" class="media-filename">{{ message.file_name }}</span>
+        </div>
+
+        <!-- Файл -->
+        <div v-else-if="message.type === 'file'" class="media-file-wrap">
+          <a :href="message.content" target="_blank" class="media-file-link">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <path d="M14 2v6h6"/>
+            </svg>
+            <div class="media-file-info">
+              <span class="media-filename">{{ message.file_name || 'File' }}</span>
+              <span class="media-filesize">{{ formatSize(message.file_size) }}</span>
+            </div>
+          </a>
+        </div>
+
+        <!-- Голосовое -->
+        <div v-else class="voice-player">
+          <button type="button" class="play-btn" @click="togglePlay">
+            <svg v-if="!isPlaying" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <path d="M5 3l14 9-14 9V3z"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <path d="M6 4h4v16H6zM14 4h4v16h-4z"/>
+            </svg>
+          </button>
+          <div class="voice-progress" @click="seek">
+            <div class="voice-bar">
+              <div class="voice-fill" :style="{ width: progress + '%' }"></div>
+            </div>
+          </div>
+          <span class="voice-duration">{{ getDurationText() }}</span>
+          <audio ref="audio" :src="message.content" @timeupdate="onTimeUpdate" @ended="onEnded" @loadedmetadata="onMeta"></audio>
+        </div>
+
+        <div class="message-meta" v-if="message.type !== 'image'">
+          <span class="message-time">{{ formatTime(message.created_at || message.createdat) }}</span>
+          <span v-if="isMine" class="message-status" :class="{ read: message.status === 'read' }">
+            <svg viewBox="0 0 22 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 6l3 3 5-6"></path>
+              <path d="M9 6l3 3 5-6"></path>
+            </svg>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <teleport to="body">
+      <div v-if="menuOpen" class="ctx-overlay" @click="closeMenu" @contextmenu.prevent="closeMenu" @touchend.stop>
+        <div class="ctx-menu" :style="menuStyle" @click.stop>
+          <button class="ctx-item" @click="onReply">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
+              <polyline points="9 17 4 12 9 7"/>
+              <path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
+            </svg>
+            Ответить
+          </button>
+          <div class="ctx-divider" v-if="isMine"></div>
+          <button v-if="isMine" class="ctx-item ctx-delete" @click="onDelete">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M3 6h18"/>
+              <path d="M8 6V4.8c0-.99.81-1.8 1.8-1.8h4.4c.99 0 1.8.81 1.8 1.8V6"/>
+              <path d="M18.2 6l-.72 11.02A2 2 0 0 1 15.48 19H8.52a2 2 0 0 1-1.99-1.98L5.8 6"/>
+            </svg>
+            Удалить
+          </button>
+        </div>
+      </div>
+    </teleport>
+  </div>
+</template>
+
+<script>
+export default {
+  name: 'MessageBubble',
+  props: {
+    highlight: { type: Boolean, default: false },
+    highlightActive: { type: Boolean, default: false },
+    message: { type: Object, required: true },
+    isMine: { type: Boolean, required: true },
+    isLight: { type: Boolean, default: false }
+  },
+  emits: ['delete', 'reply'],
+
+  data() {
+    return {
+      showActions: false,
+      isPlaying: false,
+      progress: 0,
+      duration: 0,
+      lightboxUrl: null,
+      menuOpen: false,
+      menuStyle: {},
+      pressTimer: null,
+    }
+  },
+
+  methods: {
+    isUrl(str) { return str && (str.startsWith('http://') || str.startsWith('https://')) },
+
+    formatSize(bytes) {
+      if (!bytes) return ''
+      if (bytes < 1024) return bytes + ' B'
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
+      return (bytes / 1048576).toFixed(1) + ' MB'
+    },
+
+    openMenu(e) {
+      const x = e.clientX ?? e.touches?.[0]?.clientX ?? window.innerWidth / 2
+      const y = e.clientY ?? e.touches?.[0]?.clientY ?? window.innerHeight / 2
+      const menuW = 200, menuH = this.isMine ? 108 : 56
+      const left = Math.min(x, window.innerWidth - menuW - 12)
+      const top = Math.min(y, window.innerHeight - menuH - 12)
+      this.menuStyle = { left: left + 'px', top: top + 'px' }
+      this.menuOpen = true
+    },
+
+    onReply() { this.$emit('reply', this.message); this.closeMenu() },
+    onDelete() { this.$emit('delete', this.message.id); this.closeMenu() },
+
+    onTouchStart(e) {
+      this.pressTimer = setTimeout(() => {
+        this.openMenu(e.touches[0])
+        this._justOpened = true
+      }, 500)
+    },
+    onTouchEnd() { clearTimeout(this.pressTimer) },
+    closeMenu() {
+      if (this._justOpened) { this._justOpened = false; return }
+      this.menuOpen = false
+    },
+    onTouchCancel() { clearTimeout(this.pressTimer) },
+
+    getDurationText() {
+      const audio = this.$refs.audio
+      if (this.isPlaying && audio) {
+        const t = audio.currentTime || 0
+        return `${Math.floor(t/60).toString().padStart(2,'0')}:${Math.floor(t%60).toString().padStart(2,'0')}`
+      }
+      const t = (this.duration && isFinite(this.duration) && this.duration > 0.5) ? this.duration : (this.message.duration || 0)
+      return `${Math.floor(t/60).toString().padStart(2,'0')}:${Math.floor(t%60).toString().padStart(2,'0')}`
+    },
+
+    togglePlay() {
+      const audio = this.$refs.audio
+      if (!audio) return
+      this.isPlaying ? audio.pause() : audio.play()
+      this.isPlaying = !this.isPlaying
+    },
+    onTimeUpdate() {
+      const audio = this.$refs.audio
+      if (!audio || !audio.duration) return
+      this.progress = (audio.currentTime / audio.duration) * 100
+    },
+    onEnded() { this.isPlaying = false; this.progress = 0 },
+    onMeta() {
+      const audio = this.$refs.audio
+      if (!audio) return
+      if (audio.duration && isFinite(audio.duration)) { this.duration = audio.duration; return }
+      audio.currentTime = 1e101
+      audio.addEventListener('timeupdate', () => {
+        if (isFinite(audio.duration)) { this.duration = audio.duration; audio.currentTime = 0 }
+      }, { once: true })
+    },
+    seek(e) {
+      const audio = this.$refs.audio
+      if (!audio) return
+      const rect = e.currentTarget.getBoundingClientRect()
+      audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration
+    },
+    formatTime(dateStr) {
+      if (!dateStr) return ''
+      const d = new Date(dateStr)
+      if (Number.isNaN(d.getTime())) return ''
+      return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    }
+  }
+}
+</script>
+
+<style scoped>
+.message-row { display: flex; margin-bottom: 2px; }
+.message-row.mine { justify-content: flex-end; }
+.message-row.theirs { justify-content: flex-start; }
+
+.message-bubble-wrapper {
+  position: relative; display: flex; align-items: center;
+  max-width: min(420px, 72%);
+}
+
+.message-bubble {
+  padding: 6px 10px; border-radius: 14px; position: relative;
+  width: 100%; word-break: break-word; overflow-wrap: anywhere; min-width: 0;
+  cursor: default; user-select: none; -webkit-user-select: none;
+}
+.message-bubble:has(.media-image-wrap) { padding: 0; overflow: hidden; }
+
+@media (max-width: 760px) {
+  .message-bubble-wrapper { max-width: calc(100% - 44px); }
+  .message-row.theirs .message-bubble-wrapper { max-width: 85%; }
+}
+
+.message-bubble.theirs { background: rgba(30,35,60,0.95); border: 1px solid rgba(255,255,255,0.08); color: #eef1fb; border-bottom-left-radius: 8px; }
+.message-bubble.mine { background: linear-gradient(180deg,rgba(108,118,255,0.95),rgba(93,104,240,0.97)); color: #fff; border-bottom-right-radius: 8px; box-shadow: 0 10px 22px rgba(70,80,210,0.16); }
+.theme-light .message-bubble.theirs { background: #fff; border-color: #e4e6f0; color: #1a1d2e; }
+.theme-light .message-bubble.mine { background: linear-gradient(180deg,#5b6aff,#6e79ff); color: #fff; }
+
+.message-text { font-size: 14px; line-height: 1.5; font-weight: 500; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
+.message-meta { display: flex; justify-content: flex-end; align-items: center; gap: 3px; margin-top: 2px; }
+.message-time { font-size: 11px; opacity: 0.85; color: rgba(255,255,255,0.85); white-space: nowrap; }
+.message-status { display: inline-flex; align-items: center; color: rgba(255,255,255,0.5); transition: all 0.3s; }
+.message-status.read { color: #fff; filter: drop-shadow(0 0 3px rgba(255,255,255,0.8)); }
+.theme-light .message-status { color: rgba(255,255,255,0.7); }
+.theme-light .message-status.read { color: #93c5fd; }
+
+.media-image-wrap { border-radius: 10px; overflow: hidden; max-width: 260px; position: relative; }
+.media-image { width: 100%; display: block; cursor: pointer; border-radius: 10px; }
+.media-video-wrap { border-radius: 10px; overflow: hidden; max-width: 260px; }
+.media-video { width: 100%; display: block; border-radius: 10px; }
+.media-audio-wrap { display: flex; flex-direction: column; gap: 4px; }
+.media-audio { width: 200px; }
+.media-file-wrap { padding: 2px 0; }
+.media-file-link { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.08); text-decoration: none; color: inherit; }
+.media-file-link:hover { background: rgba(255,255,255,0.14); }
+.media-file-info { display: flex; flex-direction: column; gap: 2px; }
+.media-filename { font-size: 13px; font-weight: 600; }
+.media-filesize { font-size: 11px; opacity: 0.6; }
+.image-meta { position: absolute; bottom: 6px; right: 8px; display: flex; align-items: center; gap: 3px; background: rgba(0,0,0,0.4); padding: 2px 5px; border-radius: 6px; }
+.image-meta .message-time { color: #fff; font-size: 11px; opacity: 0.9; }
+.image-meta .message-status { color: rgba(255,255,255,0.7); }
+.image-meta .message-status.read { color: #fff; }
+
+.lightbox { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.92); display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+.lightbox-img { max-width: 90vw; max-height: 90vh; border-radius: 8px; object-fit: contain; cursor: default; }
+.lightbox-close { position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.1); border: none; color: white; font-size: 20px; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; }
+
+.voice-player { display: flex; align-items: center; gap: 8px; min-width: 160px; max-width: 220px; padding: 2px 0; }
+.play-btn { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; background: rgba(255,255,255,0.2); border: none; cursor: pointer; color: inherit; transition: background 0.2s; }
+.play-btn:hover { background: rgba(255,255,255,0.3); }
+.voice-progress { flex: 1; cursor: pointer; padding: 6px 0; }
+.voice-bar { height: 3px; border-radius: 999px; background: rgba(255,255,255,0.25); }
+.voice-fill { height: 100%; border-radius: 999px; background: currentColor; transition: width 0.1s linear; }
+.voice-duration { font-size: 11px; opacity: 0.8; flex-shrink: 0; min-width: 36px; text-align: right; }
+
+.ctx-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.3); backdrop-filter: blur(2px); animation: ctxFadeIn 0.15s ease; }
+.ctx-menu { position: fixed; background: rgba(22,26,46,0.97); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 6px; min-width: 180px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); animation: ctxSlideIn 0.2s cubic-bezier(0.16,1,0.3,1); }
+.ctx-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: none; border: none; cursor: pointer; color: #eef2ff; font-size: 14px; font-weight: 500; font-family: inherit; text-align: left; transition: background 0.15s; }
+.ctx-item:hover { background: rgba(255,255,255,0.06); }
+.ctx-delete { color: #ff4d6d; }
+.ctx-delete:hover { background: rgba(255,77,109,0.1); }
+.ctx-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 4px 0; }
+
+@keyframes ctxFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ctxSlideIn { from { opacity: 0; transform: scale(0.95) translateY(-4px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes msgFade { from { opacity: 0; } to { opacity: 1; } }
+.message-row { animation: msgFade 0.2s ease-out both; }
+.message-bubble.highlight { outline: 2px solid rgba(110,121,255,0.5); outline-offset: 2px; }
+.message-bubble.highlight-active { outline: 2px solid #6e79ff; outline-offset: 2px; box-shadow: 0 0 0 4px rgba(110,121,255,0.15); }
+</style>
