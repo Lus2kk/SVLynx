@@ -16,6 +16,11 @@ const (
 
 	TextMessage  MessageType = "text"
 	VoiceMessage MessageType = "voice"
+
+	ImageMessage MessageType = "image"
+	VideoMessage MessageType = "video"
+	AudioMessage MessageType = "audio"
+	FileMessage  MessageType = "file"
 )
 
 type ChatMember struct {
@@ -44,6 +49,8 @@ type Message struct {
 	Type       MessageType   `json:"type"`
 	Transcript string        `json:"transcript,omitempty"`
 	Duration   int           `json:"duration,omitempty"`
+	FileName   string        `json:"file_name,omitempty"`
+	FileSize   int64         `json:"file_size,omitempty"`
 }
 
 type DirectListItem struct {

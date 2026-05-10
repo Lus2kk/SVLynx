@@ -1,0 +1,24 @@
+www.svlynx.site {
+    redir https://svlynx.site{uri}
+}
+
+svlynx.site {
+    reverse_proxy /auth/* localhost:8080
+    reverse_proxy /chat/* localhost:8080
+    reverse_proxy /users/* localhost:8080
+    reverse_proxy /push/* localhost:8080
+    reverse_proxy /ws localhost:8080 {
+        header_up Upgrade {http.request.header.Upgrade}
+        header_up Connection {http.request.header.Connection}
+    }
+
+    reverse_proxy /voice/* localhost:9090
+    reverse_proxy /uploads/voice/* localhost:9090
+
+    reverse_proxy /media/* localhost:9091
+    reverse_proxy /uploads/media/* localhost:9091
+
+    header /index.html Cache-Control "no-cache, no-store, must-revalidate"
+    root * /var/www/svlynx
+    file_server
+}

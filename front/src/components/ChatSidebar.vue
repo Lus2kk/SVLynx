@@ -284,17 +284,21 @@ onTouchMove(e) {
     },
 
     getChatPreview(direct) {
-      const content = direct.last_message_content || ''
-      if (content.startsWith('http') && (
-        content.includes('/voice/') ||
-        content.includes('.webm') ||
-        content.includes('.ogg') ||
-        content.includes('.mp3')
-      )) {
-        return 'Голосовое сообщение'
-      }
-      return content
-    },
+  const content = direct.last_message_content || ''
+  if (content.startsWith('http') && (
+    content.includes('/voice/') ||
+    content.includes('.webm') ||
+    content.includes('.ogg') ||
+    content.includes('.mp3')
+  )) {
+    return '🎤 Голосовое сообщение'
+  }
+  if (content.startsWith('http') && content.includes('/media/images/')) return '📷 Фото'
+  if (content.startsWith('http') && content.includes('/media/videos/')) return '🎥 Видео'
+  if (content.startsWith('http') && content.includes('/media/audio/')) return '🎵 Аудио'
+  if (content.startsWith('http') && content.includes('/media/files/')) return '📎 Файл'
+  return content
+},
 
     getUnreadCount(direct) {
       return Number(direct.unread_count || direct.unreadcount || 0)

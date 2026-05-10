@@ -126,7 +126,7 @@ func (h *MessageHandler) SendMessageHandler(ctx *gin.Context) {
 		RecipientID uuid.UUID               `json:"recipient_id" binding:"required"`
 		Content     string                  `json:"content" binding:"required"`
 		Type        chat_models.MessageType `json:"type"`
-		SenderName  string    `json:"sender_name"`
+		SenderName  string                  `json:"sender_name"`
 	}
 
 	if err := ctx.ShouldBindJSON(&input); err != nil {
@@ -412,47 +412,120 @@ func (h *WsHandler) ServeWs(ctx *gin.Context) {
 }
 
 func (h *MessageHandler) SendVoiceMessageHandler(ctx *gin.Context) {
-    var input struct {
-        ChatID      uuid.UUID `json:"chat_id" binding:"required"`
-        SenderID    uuid.UUID `json:"sender_id" binding:"required"`
-        RecipientID uuid.UUID `json:"recipient_id" binding:"required"`
-        AudioURL    string    `json:"audio_url" binding:"required"`
-		Duration	int       `json:"duration"`
-    }
+	var input struct {
+		ChatID      uuid.UUID `json:"chat_id" binding:"required"`
+		SenderID    uuid.UUID `json:"sender_id" binding:"required"`
+		RecipientID uuid.UUID `json:"recipient_id" binding:"required"`
+		AudioURL    string    `json:"audio_url" binding:"required"`
+		Duration    int       `json:"duration"`
+	}
 
-    if err := ctx.ShouldBindJSON(&input); err != nil {
+	if err := ctx.ShouldBindJSON(&input); err != nil {
 		slog.Error("voice send error", "error", err.Error())
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    message, err := h.srvc.SendMessage(ctx.Request.Context(), chat_service.CreatedMessage{
-        ChatID:   input.ChatID,
-        SenderID: input.SenderID,
-        Content:  input.AudioURL,
-        Type:     chat_models.VoiceMessage,
+	message, err := h.srvc.SendMessage(ctx.Request.Context(), chat_service.CreatedMessage{
+		ChatID:   input.ChatID,
+		SenderID: input.SenderID,
+		Content:  input.AudioURL,
+		Type:     chat_models.VoiceMessage,
 		Duration: input.Duration,
-    })
-    if err != nil {
+	})
+	if err != nil {
 		slog.Error("voice send error", "error", err.Error())
-        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-    if h.hub != nil {
-        payload, _ := json.Marshal(map[string]any{
-            "type": "send_message",
-            "payload": map[string]any{
-                "id":         message.ID,
-                "chat_id":    message.ChatID,
-                "sender_id":  message.SenderID,
-                "content":    message.Content,
-                "type":       message.Type,
-                "created_at": message.CreatedAT,
-            },
-        })
-        h.hub.SendToUser(input.RecipientID, payload)
-    }
+	if h.hub != nil {
+		payload, _ := json.Marshal(map[string]any{
+			"type": "send_message",
+			"payload": map[string]any{
+				"id":         message.ID,
+				"chat_id":    message.ChatID,
+				"sender_id":  message.SenderID,
+				"content":    message.Content,
+				"type":       message.Type,
+				"created_at": message.CreatedAT,
+			},
+		})
+		h.hub.SendToUser(input.RecipientID, payload)
+	}
+	if !h.hub.IsOnline(input.RecipientID) && h.pushSender != nil {
+		go h.pushSender.SendToUser(context.Background(), input.RecipientID.String(), push.PushPayload{
+			Title: "Голосовое сообщение",
+			Body:  "🎤 Голосовое сообщение",
+			Icon:  "/favicon.png",
+		})
+	}
 
-    ctx.JSON(http.StatusCreated, gin.H{"message": message})
+	ctx.JSON(http.StatusCreated, gin.H{"message": message})
+}
+
+func (h *MessageHandler) SendMediaMessageHandler(ctx *gin.Context) {
+	var input struct {
+		ChatID      uuid.UUID               `json:"chat_id" binding:"required"`
+		SenderID    uuid.UUID               `json:"sender_id" binding:"required"`
+		RecipientID uuid.UUID               `json:"recipient_id" binding:"required"`
+		MediaURL    string                  `json:"media_url" binding:"required"`
+		Type        chat_models.MessageType `json:"type" binding:"required"`
+		FileName    string                  `json:"file_name"`
+		FileSize    int64                   `json:"file_size"`
+		SenderName  string                  `json:"sender_name"`
+	}
+
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		slog.Error("media send error", "error", err.Error())
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	switch input.Type {
+	case chat_models.ImageMessage, chat_models.VideoMessage,
+		chat_models.AudioMessage, chat_models.FileMessage:
+	default:
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid media type"})
+		return
+	}
+
+	message, err := h.srvc.SendMessage(ctx.Request.Context(), chat_service.CreatedMessage{
+		ChatID:   input.ChatID,
+		SenderID: input.SenderID,
+		Content:  input.MediaURL,
+		Type:     input.Type,
+		FileName: input.FileName,
+		FileSize: input.FileSize,
+	})
+	if err != nil {
+		slog.Error("media send error", "error", err.Error())
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if h.hub != nil {
+		payload, _ := json.Marshal(map[string]any{
+			"type": "send_message",
+			"payload": map[string]any{
+				"id":         message.ID,
+				"chat_id":    message.ChatID,
+				"sender_id":  message.SenderID,
+				"content":    message.Content,
+				"type":       message.Type,
+				"created_at": message.CreatedAT,
+				"file_name":  message.FileName,
+				"file_size":  message.FileSize,
+			},
+		})
+		h.hub.SendToUser(input.RecipientID, payload)
+	}
+	if !h.hub.IsOnline(input.RecipientID) && h.pushSender != nil {
+		go h.pushSender.SendToUser(context.Background(), input.RecipientID.String(), push.PushPayload{
+			Title: "Новое сообщение",
+			Body:  "📎 Медиафайл",
+			Icon:  "/favicon.png",
+		})
+	}
+	ctx.JSON(http.StatusCreated, gin.H{"message": message})
 }
