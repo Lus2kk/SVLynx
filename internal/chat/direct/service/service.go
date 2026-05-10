@@ -6,8 +6,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	chat_repository "github.com/svlynx/messenger/internal/chat/direct/repository"
 	chat_models "github.com/svlynx/messenger/internal/chat/models"
-	chat_repository "github.com/svlynx/messenger/internal/chat/repository"
+
 	user_models "github.com/svlynx/messenger/internal/user/models"
 	user_repository "github.com/svlynx/messenger/internal/user/repository"
 )

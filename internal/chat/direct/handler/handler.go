@@ -12,8 +12,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	chat_service "github.com/svlynx/messenger/internal/chat/direct/service"
 	chat_models "github.com/svlynx/messenger/internal/chat/models"
-	chat_service "github.com/svlynx/messenger/internal/chat/service"
+
 	"github.com/svlynx/messenger/internal/chat/ws"
 	"github.com/svlynx/messenger/internal/push"
 )

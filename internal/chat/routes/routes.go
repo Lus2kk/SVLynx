@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	chat_handler "github.com/svlynx/messenger/internal/chat/handler"
+	chat_handler "github.com/svlynx/messenger/internal/chat/direct/handler"
 )
 
 func SetupRoutes(engine *gin.Engine) {

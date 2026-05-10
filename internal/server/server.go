@@ -13,18 +13,20 @@ import (
 	auth_repository "github.com/svlynx/messenger/internal/auth/repository"
 	auth_routes "github.com/svlynx/messenger/internal/auth/routes"
 	auth_service "github.com/svlynx/messenger/internal/auth/service"
-	chat_handler "github.com/svlynx/messenger/internal/chat/handler"
-	chat_repository "github.com/svlynx/messenger/internal/chat/repository"
+
+	chat_handler "github.com/svlynx/messenger/internal/chat/direct/handler"
+	chat_repository "github.com/svlynx/messenger/internal/chat/direct/repository"
+	chat_service "github.com/svlynx/messenger/internal/chat/direct/service"
 	chat_routes "github.com/svlynx/messenger/internal/chat/routes"
-	chat_service "github.com/svlynx/messenger/internal/chat/service"
+
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/svlynx/messenger/internal/chat/ws"
 	"github.com/svlynx/messenger/internal/config"
 	"github.com/svlynx/messenger/internal/middleware"
 	"github.com/svlynx/messenger/internal/pkg/email"
 	"github.com/svlynx/messenger/internal/push"
 	user_repository "github.com/svlynx/messenger/internal/user/repository"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func RunMigrate(PostgresAddr string) {
