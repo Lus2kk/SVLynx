@@ -2,28 +2,17 @@
   <div
     class="message-row"
     :class="{ mine: isMine, theirs: !isMine, 'theme-light': isLight }"
-    @mouseenter="showActions = true"
-    @mouseleave="showActions = false"
   >
     <div class="message-bubble-wrapper">
-      <button
-        v-if="isMine"
-        class="message-action delete-btn"
-        :class="{ visible: showActions }"
-        @click="$emit('delete', message.id)"
-        title="Delete message"
-        type="button"
+      <div
+        class="message-bubble"
+        :class="{ mine: isMine, theirs: !isMine, highlight: highlight, 'highlight-active': highlightActive }"
+        @touchstart="onTouchStart"
+        @touchend.stop="onTouchEnd"
+        @touchmove="onTouchCancel"
+        @touchcancel="onTouchCancel"
+        @contextmenu.prevent="openMenu"
       >
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M3 6h18"></path>
-          <path d="M8 6V4.8c0-.99.81-1.8 1.8-1.8h4.4c.99 0 1.8.81 1.8 1.8V6"></path>
-          <path d="M18.2 6l-.72 11.02A2 2 0 0 1 15.48 19H8.52a2 2 0 0 1-1.99-1.98L5.8 6"></path>
-          <path d="M10 10.5v4.5"></path>
-          <path d="M14 10.5v4.5"></path>
-        </svg>
-      </button>
-
-     <div class="message-bubble" :class="{ mine: isMine, theirs: !isMine, highlight: highlight, 'highlight-active': highlightActive }">
         <div v-if="message.type !== 'voice'" class="message-text">{{ message.content }}</div>
 
         <div v-else class="voice-player">
@@ -50,7 +39,6 @@
           <span class="message-time">
             {{ formatTime(message.created_at || message.createdat) }}
           </span>
-
           <span
             v-if="isMine"
             class="message-status"
@@ -64,6 +52,29 @@
         </div>
       </div>
     </div>
+
+    <teleport to="body">
+      <div v-if="menuOpen" class="ctx-overlay" @click="closeMenu" @contextmenu.prevent="closeMenu" @touchend.stop>
+        <div class="ctx-menu" :style="menuStyle" @click.stop>
+          <button class="ctx-item" @click="onReply">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
+              <polyline points="9 17 4 12 9 7"/>
+              <path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
+            </svg>
+            Ответить
+          </button>
+          <div class="ctx-divider" v-if="isMine"></div>
+          <button v-if="isMine" class="ctx-item ctx-delete" @click="onDelete">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M3 6h18"/>
+              <path d="M8 6V4.8c0-.99.81-1.8 1.8-1.8h4.4c.99 0 1.8.81 1.8 1.8V6"/>
+              <path d="M18.2 6l-.72 11.02A2 2 0 0 1 15.48 19H8.52a2 2 0 0 1-1.99-1.98L5.8 6"/>
+            </svg>
+            Удалить
+          </button>
+        </div>
+      </div>
+    </teleport>
   </div>
 </template>
 
@@ -77,18 +88,64 @@ export default {
     isMine: { type: Boolean, required: true },
     isLight: { type: Boolean, default: false }
   },
-  emits: ['delete'],
+  emits: ['delete', 'reply'],
 
   data() {
     return {
       showActions: false,
       isPlaying: false,
       progress: 0,
-      duration: 0
+      duration: 0,
+      menuOpen: false,
+      menuStyle: {},
+      pressTimer: null,
     }
   },
 
   methods: {
+    openMenu(e) {
+      const x = e.clientX ?? e.touches?.[0]?.clientX ?? window.innerWidth / 2
+      const y = e.clientY ?? e.touches?.[0]?.clientY ?? window.innerHeight / 2
+
+      const menuW = 200
+      const menuH = this.isMine ? 108 : 56
+      const left = Math.min(x, window.innerWidth - menuW - 12)
+      const top = Math.min(y, window.innerHeight - menuH - 12)
+
+      this.menuStyle = { left: left + 'px', top: top + 'px' }
+      this.menuOpen = true
+    },
+
+    onReply() {
+      this.$emit('reply', this.message)
+      this.closeMenu()
+    },
+
+    onDelete() {
+      this.$emit('delete', this.message.id)
+      this.closeMenu()
+    },
+
+    onTouchStart(e) {
+      this.pressTimer = setTimeout(() => {
+        this.openMenu(e.touches[0])
+        this._justOpened = true
+      }, 500)
+    },
+
+    onTouchEnd() {
+      clearTimeout(this.pressTimer)
+    },
+
+    closeMenu() {
+      if (this._justOpened) {
+        this._justOpened = false
+        return
+      }
+      this.menuOpen = false
+    },
+    onTouchCancel() { clearTimeout(this.pressTimer) },
+
     getDurationText() {
       const audio = this.$refs.audio
       if (this.isPlaying && audio) {
@@ -98,12 +155,13 @@ export default {
         return `${m}:${s}`
       }
       const t = (this.duration && isFinite(this.duration) && this.duration > 0.5)
-  ? this.duration
-  : (this.message.duration || 0)
+        ? this.duration
+        : (this.message.duration || 0)
       const m = Math.floor(t / 60).toString().padStart(2, '0')
       const s = Math.floor(t % 60).toString().padStart(2, '0')
       return `${m}:${s}`
     },
+
     togglePlay() {
       const audio = this.$refs.audio
       if (!audio) return
@@ -178,15 +236,14 @@ export default {
   word-break: break-word;
   overflow-wrap: anywhere;
   min-width: 0;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 @media (max-width: 760px) {
-  .message-bubble-wrapper {
-    max-width: calc(100% - 44px);
-  }
-  .message-row.theirs .message-bubble-wrapper {
-    max-width: 85%;
-  }
+  .message-bubble-wrapper { max-width: calc(100% - 44px); }
+  .message-row.theirs .message-bubble-wrapper { max-width: 85%; }
 }
 
 .message-bubble.theirs {
@@ -220,6 +277,7 @@ export default {
   font-size: 14px; line-height: 1.5; font-weight: 500;
   white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;
 }
+
 .message-meta {
   display: flex;
   justify-content: flex-end;
@@ -227,6 +285,7 @@ export default {
   gap: 3px;
   margin-top: 2px;
 }
+
 .message-time {
   font-size: 11px;
   opacity: 0.85;
@@ -249,25 +308,7 @@ export default {
 .theme-light .message-status.read { color: #93c5fd; }
 .message-status.failed { color: #ff4d6d; opacity: 1; }
 
-.message-action {
-  position: absolute; left: -36px;
-  width: 28px; height: 28px; border-radius: 10px;
-  display: grid; place-items: center;
-  opacity: 0; visibility: hidden; transition: all 0.2s ease; cursor: pointer;
-}
-.message-action.visible { opacity: 1; visibility: visible; }
-
-.delete-btn {
-  color: #aeb7dc;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-}
-.theme-light .delete-btn { color: #9098b8; background: #f0f1f8; border-color: #e4e6f0; }
-.delete-btn:hover { color: #ff4d6d; background: rgba(255, 77, 109, 0.1); border-color: rgba(255, 77, 109, 0.2); }
-
-.message-row {
-  animation: msgFade 0.2s ease-out both;
-}
+.message-row { animation: msgFade 0.2s ease-out both; }
 
 .voice-player {
   display: flex;
@@ -308,10 +349,57 @@ export default {
   min-width: 36px;
   text-align: right;
 }
+
+/* Context menu */
+.ctx-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.3);
+  backdrop-filter: blur(2px);
+  animation: ctxFadeIn 0.15s ease;
+}
+
+.ctx-menu {
+  position: fixed;
+  background: rgba(22, 26, 46, 0.97);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 6px;
+  min-width: 180px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  animation: ctxSlideIn 0.2s cubic-bezier(0.16,1,0.3,1);
+}
+
+.ctx-item {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+  background: none; border: none; cursor: pointer;
+  color: #eef2ff; font-size: 14px; font-weight: 500;
+  font-family: inherit; text-align: left;
+  transition: background 0.15s;
+}
+.ctx-item:hover { background: rgba(255,255,255,0.06); }
+
+.ctx-delete { color: #ff4d6d; }
+.ctx-delete:hover { background: rgba(255,77,109,0.1); }
+
+.ctx-divider {
+  height: 1px; background: rgba(255,255,255,0.06);
+  margin: 4px 0;
+}
+
+@keyframes ctxFadeIn {
+  from { opacity: 0; } to { opacity: 1; }
+}
+@keyframes ctxSlideIn {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 @keyframes msgFade {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
 .message-bubble.highlight {
   outline: 2px solid rgba(110, 121, 255, 0.5);
   outline-offset: 2px;
