@@ -85,6 +85,7 @@
           :highlight="searchResults.includes(message.id)"
           :highlightActive="searchResults[searchIndex] === message.id"
           @delete="confirmDelete"
+          @reply="onReply"
         />
       </div>
       <div v-if="deleteModalOpen" class="delete-modal-overlay">
@@ -100,6 +101,13 @@
     </div>
 
     <div class="composer-wrap">
+      <div v-if="replyTo" class="reply-preview">
+  <div class="reply-preview-content">
+    <span class="reply-preview-name">{{ String(replyTo.sender_id) === String(currentUserId) ? 'Вы' : 'Собеседник' }}</span>
+    <span class="reply-preview-text">{{ replyTo.type === 'voice' ? '🎤 Голосовое' : replyTo.type === 'image' ? '📷 Фото' : replyTo.content }}</span>
+  </div>
+  <button class="reply-preview-close" @click="replyTo = null">✕</button>
+</div>
       <form class="composer" @submit.prevent="sendMessage">
         <MediaUploader
   v-if="chatId && currentUserId && recipientId"
@@ -215,6 +223,7 @@ export default {
       voiceChunks: [],
       voiceTimerSeconds: 0,
       voiceTimerInterval: null,
+      replyTo: null,
     }
   },
 
@@ -304,6 +313,11 @@ export default {
     date: msg.created_at
   })
 },
+  onReply(message) {
+  this.replyTo = message
+  this.$refs.messageInput?.focus()
+  },
+
   openSearch() {
     this.searchOpen = true
     this.$nextTick(() => this.$refs.searchInput?.focus())
@@ -692,6 +706,7 @@ export default {
 
       this.messages.push(optimistic)
       this.newMessage = ''
+      this.replyTo = null
       this.scrollToBottom()
 
       this.$emit('message-sent', {
@@ -991,4 +1006,15 @@ export default {
 .chat-icon-btn.active { background: rgba(110,121,255,0.15); border-color: rgba(110,121,255,0.3); color: #6e79ff; }
 .search-slide-enter-active, .search-slide-leave-active { transition: opacity 0.2s, transform 0.2s; }
 .search-slide-enter-from, .search-slide-leave-to { opacity: 0; transform: translateY(-6px); }
+.reply-preview {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 16px; margin: 0 0 4px;
+  background: rgba(110,121,255,0.1);
+  border-left: 3px solid #6e79ff;
+  border-radius: 8px;
+}
+.reply-preview-content { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.reply-preview-name { font-size: 12px; font-weight: 700; color: #6e79ff; }
+.reply-preview-text { font-size: 13px; color: #a6afd4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reply-preview-close { background: none; border: none; color: #a6afd4; cursor: pointer; font-size: 16px; flex-shrink: 0; }
 </style>
