@@ -14,6 +14,9 @@ import (
 	auth_routes "github.com/svlynx/messenger/internal/auth/routes"
 	auth_service "github.com/svlynx/messenger/internal/auth/service"
 
+	channelhandler "github.com/svlynx/messenger/internal/chat/channel/channel_handler"
+	channelrepo "github.com/svlynx/messenger/internal/chat/channel/channel_repo"
+	channelservice "github.com/svlynx/messenger/internal/chat/channel/channel_service"
 	chat_handler "github.com/svlynx/messenger/internal/chat/direct/handler"
 	chat_repository "github.com/svlynx/messenger/internal/chat/direct/repository"
 	chat_service "github.com/svlynx/messenger/internal/chat/direct/service"
@@ -84,6 +87,10 @@ func NewServer(cfg *config.Config) *Server {
 	hub := ws.NewHub(messageService, directService)
 	go hub.Run()
 
+	channelRepo := channelrepo.NewPostgresChannelRepo(db)
+	channelService := channelservice.NewChannelService(channelRepo)
+	channelHandler := channelhandler.NewChannelHandler(channelService, hub)
+
 	messageHandler := chat_handler.NewMessageHandler(messageService, hub, pushSender)
 	directHandler := chat_handler.NewDirectHandler(directService, hub)
 	wsHandler := chat_handler.NewWsHandler(hub)
@@ -97,6 +104,7 @@ func NewServer(cfg *config.Config) *Server {
 	chat_routes.DirectRouter(Router, directHandler)
 	chat_routes.MessageRouter(Router, messageHandler)
 	chat_routes.WsRouter(Router, wsHandler)
+	chat_routes.RegisterChannelRoutes(Router, channelHandler)
 	auth_routes.RegisterRoutes(Router, handler)
 
 	return &Server{
