@@ -43,7 +43,7 @@ int main() {
     httplib::Server svr;
 
     const std::string UPLOAD_DIR = "./uploads/voice";
-    const std::string BASE_URL = "https://svlynx.site";
+    const std::string BASE_URL = "http://localhost:9090";
     const std::string GO_URL = "http://localhost:8080";
 
     fs::create_directories(UPLOAD_DIR);

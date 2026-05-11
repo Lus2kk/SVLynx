@@ -14,9 +14,9 @@ import (
 	auth_routes "github.com/svlynx/messenger/internal/auth/routes"
 	auth_service "github.com/svlynx/messenger/internal/auth/service"
 
-	channelhandler "github.com/svlynx/messenger/internal/chat/channel/channel_handler"
-	channelrepo "github.com/svlynx/messenger/internal/chat/channel/channel_repo"
-	channelservice "github.com/svlynx/messenger/internal/chat/channel/channel_service"
+	channel_handler "github.com/svlynx/messenger/internal/chat/channel/handler"
+	channel_repo "github.com/svlynx/messenger/internal/chat/channel/repo"
+	channel_service "github.com/svlynx/messenger/internal/chat/channel/service"
 	chat_handler "github.com/svlynx/messenger/internal/chat/direct/handler"
 	chat_repository "github.com/svlynx/messenger/internal/chat/direct/repository"
 	chat_service "github.com/svlynx/messenger/internal/chat/direct/service"
@@ -87,9 +87,9 @@ func NewServer(cfg *config.Config) *Server {
 	hub := ws.NewHub(messageService, directService)
 	go hub.Run()
 
-	channelRepo := channelrepo.NewPostgresChannelRepo(db)
-	channelService := channelservice.NewChannelService(channelRepo)
-	channelHandler := channelhandler.NewChannelHandler(channelService, hub)
+	channelRepo := channel_repo.NewPostgresChannelRepo(db)
+	channelService := channel_service.NewChannelService(channelRepo)
+	channelHandler := channel_handler.NewChannelHandler(channelService, hub)
 
 	messageHandler := chat_handler.NewMessageHandler(messageService, hub, pushSender)
 	directHandler := chat_handler.NewDirectHandler(directService, hub)

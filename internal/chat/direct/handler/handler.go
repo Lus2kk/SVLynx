@@ -210,6 +210,7 @@ func (h *MessageHandler) GetMessagesByChatIdHandler(ctx *gin.Context) {
 
 	messages, err := h.srvc.GetMessagesByChatIdService(ctx.Request.Context(), chatID, before, limit)
 	if err != nil {
+		slog.Error("get messages error", "error", err.Error())
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

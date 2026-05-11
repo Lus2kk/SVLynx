@@ -86,7 +86,7 @@ int main() {
     httplib::Server svr;
 
     const std::string UPLOAD_DIR = "./uploads/media";
-    const std::string BASE_URL = "https://svlynx.site";
+    const std::string BASE_URL = "http://localhost:9091";
     const std::string GO_URL     = "http://localhost:8080";
     const size_t      MAX_SIZE   = 50 * 1024 * 1024; // 50 MB
 
