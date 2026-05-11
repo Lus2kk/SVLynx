@@ -98,9 +98,17 @@
 
               <div class="chat-body">
                 <div class="chat-topline">
-                  <span class="chat-name">{{ getRecipientName(direct) }}</span>
-                  <span class="chat-time">{{ getChatTime(direct) }}</span>
-                </div>
+  <span class="chat-name">{{ getRecipientName(direct) }}</span>
+  <span class="chat-time-wrap">
+    <span v-if="isLastMessageMine(direct)" class="chat-tick" :class="{ read: isLastMessageRead(direct) }">
+      <svg viewBox="0 0 22 12" width="18" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 6l3 3 5-6"/>
+        <path d="M9 6l3 3 5-6"/>
+      </svg>
+    </span>
+    <span class="chat-time">{{ getChatTime(direct) }}</span>
+  </span>
+</div>
                 <div class="chat-bottomline">
                   <span class="chat-preview">{{ getChatPreview(direct) }}</span>
                   <span v-if="getUnreadCount(direct) > 0" class="unread-badge">{{ getUnreadCount(direct) }}</span>
@@ -312,7 +320,14 @@ onTouchMove(e) {
     if (date.getFullYear() < 2000) return ''
     return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
    },
-
+    isLastMessageMine(direct) {
+  const senderId = direct.last_message_sender_id || direct.lastmessagesenderid
+  if (!senderId || senderId === '00000000-0000-0000-0000-000000000000') return false
+  return String(senderId) === String(this.currentUserId)
+},
+isLastMessageRead(direct) {
+  return direct.last_message_status === 'read'
+},
     askDeleteChat(direct) {
       this.chatToDelete = direct
     },
@@ -588,4 +603,11 @@ onTouchMove(e) {
   display: grid; place-items: center; overflow: hidden;
   color: #fff; font-size: 16px; font-weight: 700;
 }
+.chat-time-wrap {
+  display: flex; align-items: center; gap: 3px; flex-shrink: 0;
+}
+.chat-tick {
+  color: #7580a6; display: flex; align-items: center; transition: color 0.2s;
+}
+.chat-tick.read { color: #6a76ff; }
 </style>

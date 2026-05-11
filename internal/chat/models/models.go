@@ -72,4 +72,6 @@ type DirectListItem struct {
 	CompanionAvatarColor string    `json:"companion_avatar_color"`
 	LastMessageContent   string    `json:"last_message_content"`
 	LastMessageAt        time.Time `json:"last_message_at"`
+	LastMessageSenderId  uuid.UUID `json:"last_message_sender_id"`  
+    LastMessageStatus    string    `json:"last_message_status"`
 }

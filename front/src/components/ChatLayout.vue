@@ -16,7 +16,7 @@
 
 
       <div class="content-area" :class="{ 'mobile-hidden': mobileView === 'sidebar' }">
-        <ChatWindow
+       <ChatWindow
   v-if="activeChat"
   ref="chatWindow"
   :key="`${activeChatId}-${activeRecipientId}-${chatWindowKey}`"
@@ -28,9 +28,12 @@
   :presence="activePresence"
   :isLight="isLight"
   :showBackButton="isMobile"
+  :isVisible="!isMobile || mobileView === 'chat'"
+  :isTyping="isTyping"
   @message-sent="updateChatPreview"
   @message-deleted="onMessageDeleted"
   @mark-as-read="onMarkAsRead"
+  @typing="onTyping"
   @back="goBackToSidebar"
 />
 
@@ -82,7 +85,9 @@ export default {
       userStatuses: {},
       mobileView: 'sidebar',
       isMobile: false,
-      currentUserName: null
+      currentUserName: null,
+      isTyping: false,
+      typingTimer: null,
 
     }
   },
@@ -137,6 +142,7 @@ export default {
   },
 
   methods: {
+    
     connectWebSocket() {
       if (!this.currentUserId) return
       if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null }
@@ -148,10 +154,12 @@ export default {
       
       
       this.ws.onmessage = (event) => {
+        console.log('WS RAW:', event.data)
       try {
         const data = JSON.parse(event.data)
         let payload = data.Payload ?? data.payload ?? null
         let type = data.Type ?? data.type ?? null
+        console.log('TYPE:', type, 'PAYLOAD:', payload)
 
           if (!payload && (data.chat_id || data.chatId || data.content)) {
             payload = data
@@ -180,17 +188,25 @@ export default {
           payload?.createdat ??
           payload?.CreatedAT ??
           new Date().toISOString()
+          const senderId = payload?.sender_id ?? payload?.senderId ?? payload?.senderid
 
         if (chatId) {
           this.updateChatPreview({
-            chatId,
-            content,
-            date: createdAt
-          })
+  chatId,
+  content,
+  date: createdAt,
+  senderId,
+  isIncoming: String(senderId) !== String(this.currentUserId)
+})
 
           if (String(this.activeChatId) === String(chatId)) {
-            this.$refs.chatWindow?.handleIncomingMessage?.(payload)
-          }
+  const isViewingChat = !this.isMobile || this.mobileView === 'chat'
+  if (isViewingChat) {
+    this.$refs.chatWindow?.handleIncomingMessage?.(payload)
+  } else {
+    this.$refs.chatWindow?.handleIncomingMessage?.(payload)
+  }
+}
         }
 
         return
@@ -230,12 +246,30 @@ export default {
           }
 
           if (type === 'mark_as_read') {
-            const chatId = payload?.chat_id
-            if (chatId && String(this.activeChatId) === String(chatId)) {
-              this.$refs.chatWindow?.handleMessagesRead?.()
-            }
-            return
-          }
+  const chatId = payload?.chat_id
+  if (chatId) {
+    const chat = this.directs.find(c => String(c.id) === String(chatId))
+    if (chat) chat.last_message_status = 'read'  
+    if (String(this.activeChatId) === String(chatId)) {
+      this.$refs.chatWindow?.handleMessagesRead?.()
+    }
+  }
+  return
+}
+
+if (type === 'typing') {  
+   console.log('TYPING received', payload)
+   console.log('activeChatId:', this.activeChatId, 'payload chatId:', payload?.chat_id)
+  const chatId = payload?.chat_id
+  if (chatId && String(chatId) === String(this.activeChatId)) {
+    this.isTyping = true
+    clearTimeout(this.typingTimer)
+    this.typingTimer = setTimeout(() => {
+      this.isTyping = false
+    }, 3000)
+  }
+  return
+}
 
           } catch (e) { 
             console.error('WS Parse Error:', e)
@@ -325,23 +359,20 @@ export default {
     },
 
     selectChat({ chatId, recipientId }) {
-      this.activeChatId = chatId
-      this.activeRecipientId = recipientId
-      this.chatWindowKey++
+  this.activeChatId = chatId
+  this.activeRecipientId = recipientId
+  this.chatWindowKey++
 
-      const chat = this.directs.find(c => String(c.id) === String(chatId))
-      if (chat) {
-        chat.unread_count = 0
-        chat.unreadcount = 0
-        this.saveChatsToLocal()
-      }
+  const idx = this.directs.findIndex(c => String(c.id) === String(chatId))
+  if (idx !== -1) {
+    this.directs[idx] = { ...this.directs[idx], unread_count: 0, unreadcount: 0 }
+    this.directs = [...this.directs]
+  }
 
-      if (recipientId) {
-        this.fetchUserStatus(recipientId)
-      }
-
-      if (this.isMobile) this.mobileView = 'chat'
-    },
+  if (recipientId) this.fetchUserStatus(recipientId)
+  if (this.isMobile) this.mobileView = 'chat'
+  this.saveChatsToLocal()
+},
 
     onMessageDeleted({ id, chat_id, recipient_id }) {
       console.log('onMessageDeleted called', { id, chat_id, recipient_id }) // ← добавь
@@ -357,8 +388,10 @@ export default {
     },
 
     goBackToSidebar() {
-      this.mobileView = 'sidebar'
-    },
+  this.mobileView = 'sidebar'
+  this.activeChatId = null
+  this.activeRecipientId = null
+},
 
     checkMobile() {
       this.isMobile = window.innerWidth <= 760
@@ -404,25 +437,37 @@ export default {
       }))
     },
 
-    updateChatPreview({ chatId, content, date, isIncoming }) {
-      const chat = this.directs.find(c => String(c.id) === String(chatId))
-      if (!chat) return
-      
-      chat.last_message_content = content
-      chat.last_message_at = date
+    onTyping({ chat_id, sender_id, recipient_id }) {  // ← сюда
+  if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
+  this.ws.send(JSON.stringify({
+    type: 'typing',
+    payload: { chat_id, sender_id, recipient_id }
+  }))
+},
 
-      // ИСПРАВЛЕНО: Инкремент счетчика если чат не открыт сейчас
-      if (isIncoming && String(this.activeChatId) !== String(chatId)) {
-        chat.unread_count = (Number(chat.unread_count || chat.unreadcount) || 0) + 1
-      }
+    updateChatPreview({ chatId, content, date, isIncoming, senderId }) {
+  const idx = this.directs.findIndex(c => String(c.id) === String(chatId))
+  if (idx === -1) return
 
-      this.directs.sort((a, b) => {
-        const dateA = new Date(a.last_message_at || a.updated_at || a.created_at || 0)
-        const dateB = new Date(b.last_message_at || b.updated_at || b.created_at || 0)
-        return dateB - dateA
-      })
-      this.saveChatsToLocal()
-    },
+  const chat = { ...this.directs[idx] }
+  
+  chat.last_message_content = content
+  chat.last_message_at = date
+  chat.last_message_sender_id = isIncoming ? senderId : this.currentUserId
+  chat.last_message_status = isIncoming ? 'delivered' : 'sent'
+
+  if (isIncoming && String(this.activeChatId) !== String(chatId)) {
+    chat.unread_count = (Number(chat.unread_count || chat.unreadcount) || 0) + 1
+  }
+
+  this.directs[idx] = chat
+  this.directs = [...this.directs].sort((a, b) => {
+    const dateA = new Date(a.last_message_at || a.updated_at || a.created_at || 0)
+    const dateB = new Date(b.last_message_at || b.updated_at || b.created_at || 0)
+    return dateB - dateA
+  })
+  this.saveChatsToLocal()
+},
 
     async startChat(userId, nickname) {
       try {

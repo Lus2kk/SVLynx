@@ -11,7 +11,7 @@ import (
 
 
 const (
-	MaxMessageSize     = 512
+	MaxMessageSize     = 65536 
 	PongWaitingTimeout = 60 * time.Second
 )
 

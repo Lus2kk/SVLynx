@@ -136,20 +136,17 @@ func (h *Hub) Run() {
 					slog.Error("error unmarshal send_message payload", "error", err)
 					continue
 				}
-
 				ctx := context.Background()
 				input := chat_service.CreatedMessage{
 					ChatID:   payload.ChatID,
 					SenderID: payload.SenderId,
 					Content:  payload.Content,
 				}
-
 				message, err := h.Mservice.SendMessage(ctx, input)
 				if err != nil {
 					slog.Error("error sending message", "error", err)
 					continue
 				}
-
 				rawPayload, err := json.Marshal(NewMessagePayload{
 					ID:        message.ID,
 					ChatID:    message.ChatID,
@@ -161,7 +158,6 @@ func (h *Hub) Run() {
 					slog.Error("error marshaling new message payload", "error", err)
 					continue
 				}
-
 				responsePayload, err := json.Marshal(BaseMessagePayload{
 					Type:    SendMessage,
 					Payload: rawPayload,
@@ -170,7 +166,6 @@ func (h *Hub) Run() {
 					slog.Error("error marshaling base message payload", "error", err)
 					continue
 				}
-
 				h.SendToUser(payload.RecipientID, responsePayload)
 
 			case DeleteMessage:
@@ -180,18 +175,15 @@ func (h *Hub) Run() {
 					slog.Error("error unmarshal delete_message payload", "error", err)
 					continue
 				}
-
 				ctx := context.Background()
 				if err := h.Mservice.DeleteMessageService(ctx, payload.ID); err != nil {
 					slog.Warn("message already deleted or not found, still notifying recipient", "error", err)
 				}
-
 				rawPayload, err := json.Marshal(payload)
 				if err != nil {
 					slog.Error("error marshaling delete payload", "error", err)
 					continue
 				}
-
 				responsePayload, err := json.Marshal(BaseMessagePayload{
 					Type:    DeleteMessage,
 					Payload: rawPayload,
@@ -200,7 +192,6 @@ func (h *Hub) Run() {
 					slog.Error("error marshaling base delete payload", "error", err)
 					continue
 				}
-
 				h.SendToUser(payload.RecipientID, responsePayload)
 
 			case MarkAsRead:
@@ -209,13 +200,11 @@ func (h *Hub) Run() {
 					slog.Error("error unmarshal mark_as_read payload", "error", err)
 					continue
 				}
-
 				ctx := context.Background()
 				if err := h.Mservice.MarkChatMessagesAsReadService(ctx, payload.ChatID, payload.UserID); err != nil {
 					slog.Error("error marking messages as read", "error", err)
 					continue
 				}
-
 				responsePayload, err := json.Marshal(BaseMessagePayload{
 					Type:    MarkAsRead,
 					Payload: event.Payload,
@@ -224,12 +213,26 @@ func (h *Hub) Run() {
 					slog.Error("error marshaling mark_as_read response", "error", err)
 					continue
 				}
+				h.SendToUser(payload.RecipientID, responsePayload)
 
+			case Typing:
+				var payload TypingPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal typing payload", "error", err)
+					continue
+				}
+				slog.Info("sending typing to", "recipient_id", payload.RecipientID)
+				rawPayload, _ := json.Marshal(payload)
+				responsePayload, _ := json.Marshal(BaseMessagePayload{
+					Type:    Typing,
+					Payload: rawPayload,
+				})
 				h.SendToUser(payload.RecipientID, responsePayload)
 			}
 		}
 	}
 }
+
 func (h *Hub) IsOnline(userID uuid.UUID) bool {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()

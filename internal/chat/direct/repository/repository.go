@@ -102,34 +102,36 @@ func (repo *PostgresRepo) GetDirectByIdRepo(ctx context.Context, MyId uuid.UUID,
 
 func (repo *PostgresRepo) GetListOfDirectsListByIDRepo(ctx context.Context, userId uuid.UUID) ([]*chat_models.DirectListItem, error) {
 	rows, err := repo.db.Query(ctx, `
-		SELECT
-			c.id,
-			c.creation_time,
-			m1.user_id AS first_user_id,
-			m2.user_id AS second_user_id,
-			u.id AS companion_id,
-			COALESCE(NULLIF(u.name, ''), NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.username, '') AS companion_name,
-			COALESCE(u.nickname, '') AS companion_nickname,
-			COALESCE(u.photo_url, '') AS companion_photo_url,
-			COALESCE(u.avatar_color, '') AS companion_avatar_color,
-			COALESCE(msg.content, '') AS last_message_content,
-			msg.created_at AS last_message_at
-		FROM chats c
-		JOIN chat_members m1
-			ON m1.chat_id = c.id AND m1.user_id = $1
-		JOIN chat_members m2
-			ON m2.chat_id = c.id AND m2.user_id != $1
-		LEFT JOIN users u
-			ON u.id = m2.user_id
-		LEFT JOIN LATERAL (
-			SELECT content, created_at
-			FROM messages
-			WHERE chat_id = c.id
-			ORDER BY created_at DESC
-			LIMIT 1
-		) msg ON true
-		ORDER BY COALESCE(msg.created_at, c.creation_time) DESC
-	`, userId)
+    SELECT
+        c.id,
+        c.creation_time,
+        m1.user_id AS first_user_id,
+        m2.user_id AS second_user_id,
+        u.id AS companion_id,
+        COALESCE(NULLIF(u.name, ''), NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.username, '') AS companion_name,
+        COALESCE(u.nickname, '') AS companion_nickname,
+        COALESCE(u.photo_url, '') AS companion_photo_url,
+        COALESCE(u.avatar_color, '') AS companion_avatar_color,
+        COALESCE(msg.content, '') AS last_message_content,
+        msg.created_at AS last_message_at,
+        msg.sender_id AS last_message_sender_id,
+        COALESCE(msg.status::text, '') AS last_message_status
+    FROM chats c
+    JOIN chat_members m1
+        ON m1.chat_id = c.id AND m1.user_id = $1
+    JOIN chat_members m2
+        ON m2.chat_id = c.id AND m2.user_id != $1
+    LEFT JOIN users u
+        ON u.id = m2.user_id
+    LEFT JOIN LATERAL (
+        SELECT content, created_at, sender_id, status
+        FROM messages
+        WHERE chat_id = c.id
+        ORDER BY created_at DESC
+        LIMIT 1
+    ) msg ON true
+    ORDER BY COALESCE(msg.created_at, c.creation_time) DESC
+`, userId)
 	if err != nil {
 		return nil, fmt.Errorf("query directs error: %w", err)
 	}
@@ -140,6 +142,8 @@ func (repo *PostgresRepo) GetListOfDirectsListByIDRepo(ctx context.Context, user
 	for rows.Next() {
 		var item chat_models.DirectListItem
 		var lastMessageAt *time.Time
+		var lastMessageSenderId *uuid.UUID
+		var lastMessageStatus *string
 
 		err := rows.Scan(
 			&item.Id,
@@ -153,13 +157,20 @@ func (repo *PostgresRepo) GetListOfDirectsListByIDRepo(ctx context.Context, user
 			&item.CompanionAvatarColor,
 			&item.LastMessageContent,
 			&lastMessageAt,
+			&lastMessageSenderId,
+			&lastMessageStatus,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan direct error: %w", err)
 		}
-
 		if lastMessageAt != nil {
 			item.LastMessageAt = *lastMessageAt
+		}
+		if lastMessageSenderId != nil {
+			item.LastMessageSenderId = *lastMessageSenderId
+		}
+		if lastMessageStatus != nil {
+			item.LastMessageStatus = *lastMessageStatus
 		}
 
 		directs = append(directs, &item)

@@ -13,10 +13,10 @@
         </div>
         <div class="chat-user-meta">
           <div class="chat-username">{{ chatTitle }}</div>
-          <div class="chat-status" :class="{ online: presence.online, offline: !presence.online }">
-            <span class="status-dot"></span>
-            <span>{{ presenceText }}</span>
-          </div>
+          <div class="chat-status" :class="{ online: !isTyping && presence.online, offline: !isTyping && !presence.online, typing: isTyping }">
+  <span class="status-dot"></span>
+  <span>{{ isTyping ? 'typing...' : presenceText }}</span>
+</div>
         </div>
       </div>
       <div class="chat-actions">
@@ -74,23 +74,24 @@
 
     <div class="messages-area-wrapper">
       <div class="messages-area" ref="messagesArea" @scroll="onScroll">
-        <div v-if="messages.length === 0" class="day-separator">Today</div>
-        <MessageBubble
-          v-for="message in messages"
-          :key="message.id"
-          :data-message-id="message.id"
-          :message="message"
-          :isMine="isMine(message)"
-          :isLight="isLight"
-          :highlight="searchResults.includes(message.id)"
-          :highlightActive="searchResults[searchIndex] === message.id"
-          @delete="confirmDelete"
-          @reply="onReply"
-          @select="onSelectMessage"
-          :isSelecting="isSelecting"
-          :isSelected="selectedMessages.some(m => String(m.id) === String(message.id))"
-        />
-      </div>
+  <template v-for="item in messagesWithSeparators" :key="item.id">
+    <div v-if="item.type === 'separator'" class="day-separator">{{ item.label }}</div>
+    <MessageBubble
+      v-else
+      :data-message-id="item.id"
+      :message="item"
+      :isMine="isMine(item)"
+      :isLight="isLight"
+      :highlight="searchResults.includes(item.id)"
+      :highlightActive="searchResults[searchIndex] === item.id"
+      @delete="confirmDelete"
+      @reply="onReply"
+      @select="onSelectMessage"
+      :isSelecting="isSelecting"
+      :isSelected="selectedMessages.some(m => String(m.id) === String(item.id))"
+    />
+  </template>
+</div>
       <div v-if="deleteModalOpen" class="delete-modal-overlay">
         <div class="delete-modal">
           <h3>Delete message?</h3>
@@ -137,6 +138,7 @@
           class="message-input"
           placeholder="Type a message..."
           ref="messageInput"
+          @input="onTyping"
         />
 
         <button type="button" class="composer-side-btn" title="Emoji">
@@ -202,15 +204,17 @@ export default {
   props: {
     chat: { type: Object, default: null },
     chatId: { type: [String, Number], default: null },
+    isVisible: { type: Boolean, default: true },
     currentUserId: { type: [String, Number], default: null },
     recipientId: { type: [String, Number], default: null },
     selectedCompanion: { type: Object, default: null },
     isLight: { type: Boolean, default: false },
     showBackButton: { type: Boolean, default: false },
-    presence: { type: Object, default: () => ({ online: false, lastSeen: null }) }
+    presence: { type: Object, default: () => ({ online: false, lastSeen: null }) },
+    isTyping: { type: Boolean, default: false }
   },
 
-  emits: ['message-sent', 'message-deleted', 'mark-as-read', 'back'],
+  emits: ['message-sent', 'message-deleted', 'mark-as-read', 'back', 'typing'],
 
   data() {
     return {
@@ -240,6 +244,7 @@ export default {
       replyTo: null,
       isSelecting: false,
       selectedMessages: [],
+      typingTimer: null,
     }
   },
 
@@ -262,7 +267,24 @@ export default {
   },
 
   computed: {
+    messagesWithSeparators() {
+  if (!this.messages.length) return [{ type: 'separator', id: 'sep-today', label: 'Сегодня' }]
 
+  const result = []
+  let lastDateKey = null
+
+  for (const msg of this.messages) {
+    const date = new Date(msg.created_at)
+    const dateKey = date.toDateString()
+
+    if (dateKey !== lastDateKey) {
+      lastDateKey = dateKey
+      result.push({ type: 'separator', id: `sep-${dateKey}`, label: this.formatDateLabel(date) })
+    }
+    result.push(msg)
+  }
+  return result
+},
     avatarColor() {
       return this.chat?.companion_avatar_color || 'linear-gradient(135deg, #6d78ff, #8866ff)'
     },
@@ -297,6 +319,9 @@ export default {
   },
 
   watch: {
+    isTyping(val) {
+    console.log('ChatWindow isTyping changed:', val)  
+  },
     chatId: {
       immediate: true,
       async handler(value) {
@@ -317,6 +342,15 @@ export default {
   },
 
   methods: {
+    onTyping() {
+  clearTimeout(this.typingTimer)
+  this.$emit('typing', {
+    chat_id: this.chatId,
+    sender_id: this.currentUserId,
+    recipient_id: this.recipientId
+  })
+  this.typingTimer = setTimeout(() => {}, 2000)
+},
     onSelectMessage(message) {
   if (!this.isSelecting) this.isSelecting = true
   const idx = this.selectedMessages.findIndex(m => String(m.id) === String(message.id))
@@ -326,6 +360,16 @@ export default {
     this.selectedMessages.splice(idx, 1)
     if (this.selectedMessages.length === 0) this.isSelecting = false
   }
+},
+formatDateLabel(date) {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterday = new Date(today - 86400000)
+  const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+
+  if (msgDay.getTime() === today.getTime()) return 'Сегодня'
+  if (msgDay.getTime() === yesterday.getTime()) return 'Вчера'
+  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
 },
 cancelSelect() {
   this.isSelecting = false
@@ -355,8 +399,10 @@ async deleteSelected() {
 },
   onReply(message) {
   this.replyTo = message
-  this.$refs.messageInput?.focus()
-  },
+  if (!('ontouchstart' in window)) {
+    this.$refs.messageInput?.focus()
+  }
+},
 
   openSearch() {
     this.searchOpen = true
@@ -694,7 +740,7 @@ this._onTouchEndNative = (e) => {
         this.messages = apiMessages
           .map(this.normalizeMessage)
           .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-        if (!skipReadPatch) await this.markIncomingAsRead()
+        if (!skipReadPatch && !document.hidden) await this.markIncomingAsRead()
         this.scrollToBottom()
       } catch (e) {
         console.error('Failed to load messages', e)
@@ -704,12 +750,12 @@ this._onTouchEndNative = (e) => {
     },
 
     handleIncomingMessage(rawPayload) {
-      const msg = this.normalizeMessage(rawPayload)
-      if (this.messages.find(m => String(m.id) === String(msg.id))) return
-      this.messages.push(msg)
-      this.scrollToBottom()
-      this.markIncomingAsRead()
-    },
+  const msg = this.normalizeMessage(rawPayload)
+  if (this.messages.find(m => String(m.id) === String(msg.id))) return
+  this.messages.push(msg)
+  this.scrollToBottom()
+  if (!document.hidden) this.markIncomingAsRead()
+},
 
     handleDeleteMessage(payload) {
       const id = payload?.id ?? payload?.message_id
@@ -725,6 +771,7 @@ this._onTouchEndNative = (e) => {
 
     async markIncomingAsRead() {
       if (!this.chatId || !this.currentUserId) return
+      if (!this.isVisible || document.hidden) return 
       const hasUnread = this.messages.some(
         m => String(m.sender_id) !== String(this.currentUserId) && m.status !== 'read'
       )
@@ -920,6 +967,11 @@ this.scrollToBottom()
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   background: transparent;
 }
+
+.messages-area > *:first-child {
+  margin-top: auto;
+}
+
 .messages-area::-webkit-scrollbar { width: 6px; }
 .messages-area::-webkit-scrollbar-thumb { background: rgba(148, 159, 212, 0.16); border-radius: 999px; }
 
@@ -1019,7 +1071,7 @@ this.scrollToBottom()
   }
   .composer { height: 50px; border-radius: 16px; padding: 0 10px 0 12px; gap: 8px; }
   .delete-modal { width: calc(100vw - 48px); max-width: 300px; }
-  .messages-area { padding: 14px 12px 80px; }
+  .messages-area { padding: 14px 12px 10px; }
 }
 
 .send-btn.recording {
@@ -1117,4 +1169,10 @@ this.scrollToBottom()
 }
 .sel-delete:hover { background: rgba(255,77,109,0.22); }
 @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.chat-status.typing { color: #6e79ff !important; }
+.chat-status.typing .status-dot { background: #6e79ff !important; animation: typingPulse 1s infinite; }
+@keyframes typingPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
 </style>

@@ -157,6 +157,7 @@ func (h *MessageHandler) SendMessageHandler(ctx *gin.Context) {
 				"content":    message.Content,
 				"created_at": message.CreatedAT,
 				"type":       message.Type,
+				"reply_to":   message.ReplyTo,
 			},
 		})
 		if err == nil {
