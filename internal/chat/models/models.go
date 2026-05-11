@@ -2,7 +2,6 @@ package chat_models
 
 import (
 	"time"
-
 	"github.com/google/uuid"
 )
 
@@ -16,7 +15,6 @@ const (
 
 	TextMessage  MessageType = "text"
 	VoiceMessage MessageType = "voice"
-
 	ImageMessage MessageType = "image"
 	VideoMessage MessageType = "video"
 	AudioMessage MessageType = "audio"
@@ -39,18 +37,27 @@ type Direct struct {
 	CompanionPhotoUrl string     `json:"companion_photo_url"`
 }
 
+type ReplyToMessage struct {
+	ID       string `json:"id"`
+	Content  string `json:"content"`
+	Type     string `json:"type"`
+	FileName string `json:"file_name,omitempty"`
+	IsMine   bool   `json:"is_mine"`
+}
+
 type Message struct {
-	ID         uuid.UUID     `json:"id"`
-	ChatID     uuid.UUID     `json:"chat_id"`
-	SenderID   uuid.UUID     `json:"sender_id"`
-	Content    string        `json:"content"`
-	Status     MessageStatus `json:"status"`
-	CreatedAT  time.Time     `json:"created_at"`
-	Type       MessageType   `json:"type"`
-	Transcript string        `json:"transcript,omitempty"`
-	Duration   int           `json:"duration,omitempty"`
-	FileName   string        `json:"file_name,omitempty"`
-	FileSize   int64         `json:"file_size,omitempty"`
+	ID         uuid.UUID       `json:"id"`
+	ChatID     uuid.UUID       `json:"chat_id"`
+	SenderID   uuid.UUID       `json:"sender_id"`
+	Content    string          `json:"content"`
+	Status     MessageStatus   `json:"status"`
+	CreatedAT  time.Time       `json:"created_at"`
+	Type       MessageType     `json:"type"`
+	Transcript string          `json:"transcript,omitempty"`
+	Duration   int             `json:"duration,omitempty"`
+	FileName   string          `json:"file_name,omitempty"`
+	FileSize   int64           `json:"file_size,omitempty"`
+	ReplyTo    *ReplyToMessage `json:"reply_to,omitempty"`
 }
 
 type DirectListItem struct {

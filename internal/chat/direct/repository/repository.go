@@ -2,6 +2,7 @@ package chat_repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -18,6 +19,14 @@ type PostgresRepo struct {
 
 func NewPostgresRepo(db *pgxpool.Pool) *PostgresRepo {
 	return &PostgresRepo{db: db}
+}
+
+func replyToJSON(rt *chat_models.ReplyToMessage) []byte {
+	if rt == nil {
+		return nil
+	}
+	b, _ := json.Marshal(rt)
+	return b
 }
 
 func (repo *PostgresRepo) CreateNewDirectRepo(ctx context.Context, chat *chat_models.Direct) (*chat_models.Direct, error) {
@@ -165,9 +174,9 @@ func (repo *PostgresRepo) GetListOfDirectsListByIDRepo(ctx context.Context, user
 
 func (repo *PostgresRepo) SendMessageRepo(ctx context.Context, message *chat_models.Message) (*chat_models.Message, error) {
 	_, err := repo.db.Exec(ctx, `
-		INSERT INTO messages (id, chat_id, sender_id, content, status, created_at, type, duration, file_name, file_size)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		message.ID, message.ChatID, message.SenderID, message.Content, message.Status, message.CreatedAT, message.Type, message.Duration, message.FileName, message.FileSize,
+		INSERT INTO messages (id, chat_id, sender_id, content, status, created_at, type, duration, file_name, file_size, reply_to)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		message.ID, message.ChatID, message.SenderID, message.Content, message.Status, message.CreatedAT, message.Type, message.Duration, message.FileName, message.FileSize, replyToJSON(message.ReplyTo),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("insert message error: %w", err)
@@ -178,7 +187,11 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 
 func (repo *PostgresRepo) GetMessagesByChatIdRepo(ctx context.Context, chatId uuid.UUID, before time.Time, limit int) ([]*chat_models.Message, error) {
 	rows, err := repo.db.Query(ctx, `
+<<<<<<< HEAD
 		SELECT id, chat_id, sender_id, content, status, created_at, type, duration, COALESCE(file_name, ''), COALESCE(file_size, 0)
+=======
+		SELECT id, chat_id, sender_id, content, status, created_at, type, duration, file_name, file_size, reply_to
+>>>>>>> main
 		FROM messages
 		WHERE chat_id = $1 AND created_at < $2
 		ORDER BY created_at DESC
@@ -193,6 +206,7 @@ func (repo *PostgresRepo) GetMessagesByChatIdRepo(ctx context.Context, chatId uu
 	messages := make([]*chat_models.Message, 0)
 	for rows.Next() {
 		var message chat_models.Message
+		var replyToRaw []byte
 		err := rows.Scan(
 			&message.ID,
 			&message.ChatID,
@@ -204,9 +218,16 @@ func (repo *PostgresRepo) GetMessagesByChatIdRepo(ctx context.Context, chatId uu
 			&message.Duration,
 			&message.FileName,
 			&message.FileSize,
+			&replyToRaw,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan message error: %w", err)
+		}
+		if replyToRaw != nil {
+			var rt chat_models.ReplyToMessage
+			if err := json.Unmarshal(replyToRaw, &rt); err == nil {
+				message.ReplyTo = &rt
+			}
 		}
 		messages = append(messages, &message)
 	}
@@ -220,7 +241,7 @@ func (repo *PostgresRepo) GetMessagesByChatIdRepo(ctx context.Context, chatId uu
 
 func (repo *PostgresRepo) SearchMesageRepo(ctx context.Context, chat_id uuid.UUID, content string) ([]*chat_models.Message, error) {
 	rows, err := repo.db.Query(ctx, `
-		SELECT id, chat_id, sender_id, content, status, created_at, type, duration, COALESCE(file_name, ''), COALESCE(file_size, 0)
+		SELECT id, chat_id, sender_id, content, status, created_at, type, duration, COALESCE(file_name, ''), COALESCE(file_size, 0), reply_to
 		FROM messages
 		WHERE chat_id = $1 AND content ILIKE $2
 		ORDER BY created_at DESC`,
@@ -234,6 +255,7 @@ func (repo *PostgresRepo) SearchMesageRepo(ctx context.Context, chat_id uuid.UUI
 	messages := make([]*chat_models.Message, 0)
 	for rows.Next() {
 		var message chat_models.Message
+		var replyToRaw []byte
 		err := rows.Scan(
 			&message.ID,
 			&message.ChatID,
@@ -245,9 +267,16 @@ func (repo *PostgresRepo) SearchMesageRepo(ctx context.Context, chat_id uuid.UUI
 			&message.Duration,
 			&message.FileName,
 			&message.FileSize,
+			&replyToRaw,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan message error: %w", err)
+		}
+		if replyToRaw != nil {
+			var rt chat_models.ReplyToMessage
+			if err := json.Unmarshal(replyToRaw, &rt); err == nil {
+				message.ReplyTo = &rt
+			}
 		}
 		messages = append(messages, &message)
 	}

@@ -39,14 +39,15 @@ func NewMessageService(repo chat_repository.MessageRepo) *MessageService {
 }
 
 type CreatedMessage struct {
-	ChatID      uuid.UUID               `json:"chat_id"`
-	SenderID    uuid.UUID               `json:"sender_id"`
-	RecipientID uuid.UUID               `json:"recipient_id"`
-	Content     string                  `json:"content"`
-	Type        chat_models.MessageType `json:"type"`
-	Duration    int                     `json:"duration"`
-	FileName    string                  `json:"file_name"`
-	FileSize    int64                   `json:"file_size"`
+	ChatID      uuid.UUID                   `json:"chat_id"`
+	SenderID    uuid.UUID                   `json:"sender_id"`
+	RecipientID uuid.UUID                   `json:"recipient_id"`
+	Content     string                      `json:"content"`
+	Type        chat_models.MessageType     `json:"type"`
+	Duration    int                         `json:"duration"`
+	FileName    string                      `json:"file_name"`
+	FileSize    int64                       `json:"file_size"`
+	ReplyTo     *chat_models.ReplyToMessage `json:"reply_to,omitempty"`
 }
 
 func (s *DirectService) CreateNewDirectService(ctx context.Context, input CreatedDirect) (*chat_models.Direct, error) {
@@ -133,6 +134,7 @@ func (s *MessageService) SendMessage(ctx context.Context, input CreatedMessage) 
 		Duration:  input.Duration,
 		FileName:  input.FileName,
 		FileSize:  input.FileSize,
+		ReplyTo:   input.ReplyTo,
 	}
 
 	result, err := s.repo.SendMessageRepo(ctx, message)

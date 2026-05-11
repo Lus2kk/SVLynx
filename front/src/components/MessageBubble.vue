@@ -1,15 +1,25 @@
 <template>
   <div
     class="message-row"
-    :class="{ mine: isMine, theirs: !isMine, 'theme-light': isLight }"
+    :class="{ mine: isMine, theirs: !isMine, 'theme-light': isLight, 'is-selected': isSelected, 'is-selecting': isSelecting }"
+    @click="isSelecting ? $emit('select', message) : null"
   >
     <!-- Lightbox -->
     <teleport to="body">
-  <div v-if="lightboxUrl" class="lightbox" @click="lightboxUrl = null">
-    <img :src="lightboxUrl" class="lightbox-img" @click.stop />
-    <button class="lightbox-close" @click="lightboxUrl = null">✕</button>
-  </div>
-</teleport>
+      <div v-if="lightboxUrl" class="lightbox" @click="lightboxUrl = null">
+        <img :src="lightboxUrl" class="lightbox-img" @click.stop />
+        <button class="lightbox-close" @click="lightboxUrl = null">✕</button>
+      </div>
+    </teleport>
+
+    <!-- Чекбокс -->
+    <transition name="cb-fade">
+      <div v-if="isSelecting" class="select-checkbox" :class="{ checked: isSelected }">
+        <svg v-if="isSelected" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="3">
+          <path d="M5 12l5 5L19 7"/>
+        </svg>
+      </div>
+    </transition>
 
     <div class="message-bubble-wrapper">
       <div
@@ -21,6 +31,15 @@
         @touchcancel="onTouchCancel"
         @contextmenu.prevent="openMenu"
       >
+        <!-- Цитата -->
+        <div v-if="message.reply_to" class="reply-quote">
+          <div class="reply-quote-bar"></div>
+          <div class="reply-quote-content">
+            <span class="reply-quote-name">{{ message.reply_to.is_mine ? 'Вы' : 'Собеседник' }}</span>
+            <span class="reply-quote-text">{{ message.reply_to.type === 'voice' ? '🎤 Голосовое' : message.reply_to.type === 'image' ? '📷 Фото' : message.reply_to.content }}</span>
+          </div>
+        </div>
+
         <!-- Текст -->
         <div v-if="message.type === 'text' || !message.type" class="message-text">
           <template v-if="isUrl(message.content)">
@@ -108,6 +127,13 @@
             </svg>
             Ответить
           </button>
+          <button class="ctx-item" @click="onSelect">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M8 12l3 3 5-5"/>
+            </svg>
+            Выбрать
+          </button>
           <div class="ctx-divider" v-if="isMine"></div>
           <button v-if="isMine" class="ctx-item ctx-delete" @click="onDelete">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -127,24 +153,25 @@
 export default {
   name: 'MessageBubble',
   props: {
-    highlight: { type: Boolean, default: false },
-    highlightActive: { type: Boolean, default: false },
-    message: { type: Object, required: true },
-    isMine: { type: Boolean, required: true },
-    isLight: { type: Boolean, default: false }
+    highlight:      { type: Boolean, default: false },
+    highlightActive:{ type: Boolean, default: false },
+    message:        { type: Object,  required: true },
+    isMine:         { type: Boolean, required: true },
+    isLight:        { type: Boolean, default: false },
+    isSelecting:    { type: Boolean, default: false },
+    isSelected:     { type: Boolean, default: false },
   },
-  emits: ['delete', 'reply'],
+  emits: ['delete', 'reply', 'select'],
 
   data() {
     return {
-      showActions: false,
-      isPlaying: false,
-      progress: 0,
-      duration: 0,
+      isPlaying:   false,
+      progress:    0,
+      duration:    0,
       lightboxUrl: null,
-      menuOpen: false,
-      menuStyle: {},
-      pressTimer: null,
+      menuOpen:    false,
+      menuStyle:   {},
+      pressTimer:  null,
     }
   },
 
@@ -153,23 +180,25 @@ export default {
 
     formatSize(bytes) {
       if (!bytes) return ''
-      if (bytes < 1024) return bytes + ' B'
+      if (bytes < 1024)    return bytes + ' B'
       if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
       return (bytes / 1048576).toFixed(1) + ' MB'
     },
 
     openMenu(e) {
+      if (this.isSelecting) { this.$emit('select', this.message); return }
       const x = e.clientX ?? e.touches?.[0]?.clientX ?? window.innerWidth / 2
       const y = e.clientY ?? e.touches?.[0]?.clientY ?? window.innerHeight / 2
-      const menuW = 200, menuH = this.isMine ? 108 : 56
+      const menuW = 200, menuH = this.isMine ? 150 : 100
       const left = Math.min(x, window.innerWidth - menuW - 12)
-      const top = Math.min(y, window.innerHeight - menuH - 12)
+      const top  = Math.min(y, window.innerHeight - menuH - 12)
       this.menuStyle = { left: left + 'px', top: top + 'px' }
       this.menuOpen = true
     },
 
-    onReply() { this.$emit('reply', this.message); this.closeMenu() },
+    onReply()  { this.$emit('reply', this.message); this.closeMenu() },
     onDelete() { this.$emit('delete', this.message.id); this.closeMenu() },
+    onSelect() { this.$emit('select', this.message); this.closeMenu() },
 
     onTouchStart(e) {
       this.pressTimer = setTimeout(() => {
@@ -232,9 +261,32 @@ export default {
 </script>
 
 <style scoped>
-.message-row { display: flex; margin-bottom: 2px; }
-.message-row.mine { justify-content: flex-end; }
+.message-row {
+  display: flex; margin-bottom: 2px; align-items: center; gap: 10px;
+  padding: 2px 0; transition: background 0.15s;
+  border-radius: 10px;
+}
+.message-row.mine   { justify-content: flex-end; }
 .message-row.theirs { justify-content: flex-start; }
+.message-row.is-selected { background: rgba(110,121,255,0.08); }
+.message-row.is-selecting { cursor: pointer; }
+
+/* чекбокс */
+.select-checkbox {
+  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid rgba(110,121,255,0.4);
+  display: grid; place-items: center;
+  background: transparent;
+  transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+.select-checkbox.checked {
+  background: #6e79ff; border-color: #6e79ff;
+  transform: scale(1.1);
+}
+.message-row.mine .select-checkbox { order: 2; }
+
+.cb-fade-enter-active, .cb-fade-leave-active { transition: all 0.2s; }
+.cb-fade-enter-from, .cb-fade-leave-to { opacity: 0; transform: scale(0.6); }
 
 .message-bubble-wrapper {
   position: relative; display: flex; align-items: center;
@@ -245,7 +297,9 @@ export default {
   padding: 6px 10px; border-radius: 14px; position: relative;
   width: 100%; word-break: break-word; overflow-wrap: anywhere; min-width: 0;
   cursor: default; user-select: none; -webkit-user-select: none;
+  transition: transform 0.1s;
 }
+.is-selecting .message-bubble { cursor: pointer; }
 .message-bubble:has(.media-image-wrap) { padding: 0; overflow: hidden; }
 
 @media (max-width: 760px) {
@@ -254,9 +308,15 @@ export default {
 }
 
 .message-bubble.theirs { background: rgba(30,35,60,0.95); border: 1px solid rgba(255,255,255,0.08); color: #eef1fb; border-bottom-left-radius: 8px; }
-.message-bubble.mine { background: linear-gradient(180deg,rgba(108,118,255,0.95),rgba(93,104,240,0.97)); color: #fff; border-bottom-right-radius: 8px; box-shadow: 0 10px 22px rgba(70,80,210,0.16); }
+.message-bubble.mine   { background: linear-gradient(180deg,rgba(108,118,255,0.95),rgba(93,104,240,0.97)); color: #fff; border-bottom-right-radius: 8px; box-shadow: 0 10px 22px rgba(70,80,210,0.16); }
 .theme-light .message-bubble.theirs { background: #fff; border-color: #e4e6f0; color: #1a1d2e; }
-.theme-light .message-bubble.mine { background: linear-gradient(180deg,#5b6aff,#6e79ff); color: #fff; }
+.theme-light .message-bubble.mine   { background: linear-gradient(180deg,#5b6aff,#6e79ff); color: #fff; }
+
+.reply-quote { display:flex; gap:8px; margin-bottom:6px; padding:6px 8px; border-radius:8px; background:rgba(0,0,0,0.15); cursor:pointer; }
+.reply-quote-bar { width:3px; border-radius:2px; background:#6e79ff; flex-shrink:0; }
+.reply-quote-content { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.reply-quote-name { font-size:12px; font-weight:700; color:#6e79ff; }
+.reply-quote-text { font-size:12px; opacity:0.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 .message-text { font-size: 14px; line-height: 1.5; font-weight: 500; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
 .message-meta { display: flex; justify-content: flex-end; align-items: center; gap: 3px; margin-top: 2px; }
