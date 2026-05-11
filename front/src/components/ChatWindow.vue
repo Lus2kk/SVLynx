@@ -86,6 +86,9 @@
           :highlightActive="searchResults[searchIndex] === message.id"
           @delete="confirmDelete"
           @reply="onReply"
+          @select="onSelectMessage"
+          :isSelecting="isSelecting"
+          :isSelected="selectedMessages.some(m => String(m.id) === String(message.id))"
         />
       </div>
       <div v-if="deleteModalOpen" class="delete-modal-overlay">
@@ -99,7 +102,18 @@
         </div>
       </div>
     </div>
-
+     <div v-if="isSelecting" class="selection-bar">
+  <button class="sel-cancel" @click="cancelSelect">Отмена</button>
+  <span class="sel-count">{{ selectedMessages.length }} выбрано</span>
+  <button class="sel-delete" @click="deleteSelected">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 6h18"/>
+      <path d="M8 6V4h8v2"/>
+      <path d="M18 6l-1 14H7L6 6"/>
+    </svg>
+    Удалить
+  </button>
+</div>
     <div class="composer-wrap">
       <div v-if="replyTo" class="reply-preview">
   <div class="reply-preview-content">
@@ -224,6 +238,8 @@ export default {
       voiceTimerSeconds: 0,
       voiceTimerInterval: null,
       replyTo: null,
+      isSelecting: false,
+      selectedMessages: [],
     }
   },
 
@@ -301,6 +317,30 @@ export default {
   },
 
   methods: {
+    onSelectMessage(message) {
+  if (!this.isSelecting) this.isSelecting = true
+  const idx = this.selectedMessages.findIndex(m => String(m.id) === String(message.id))
+  if (idx === -1) {
+    this.selectedMessages.push(message)
+  } else {
+    this.selectedMessages.splice(idx, 1)
+    if (this.selectedMessages.length === 0) this.isSelecting = false
+  }
+},
+cancelSelect() {
+  this.isSelecting = false
+  this.selectedMessages = []
+},
+async deleteSelected() {
+  const mine = this.selectedMessages.filter(m => String(m.sender_id) === String(this.currentUserId))
+  for (const msg of mine) {
+    try {
+      await apiFetch(`${BASE}/chat/messages/${msg.id}`, { method: 'DELETE' })
+      this.messages = this.messages.filter(m => String(m.id) !== String(msg.id))
+    } catch (e) { console.error(e) }
+  }
+  this.cancelSelect()
+},
     onMediaSent(message) {
   if (!message) return
   const msg = this.normalizeMessage(message)
@@ -403,15 +443,33 @@ export default {
     }
 
       this._onTouchStartNative = (e) => {
-        e.preventDefault()
-        this._onPressDown()
-      }
+  e.preventDefault()
+  e.stopPropagation()
+  this._touchMoved = false
+  this._isLongPress = false
+  clearTimeout(this._pressTimer)
+  this._pressTimer = setTimeout(() => {
+    this._isLongPress = true
+    this.startVoice()
+  }, 300)
+}
 
-      this._onTouchEndNative = (e) => {
-        e.preventDefault()
-         console.log('touchend native fired')
-        this._onPressUp()
-      }
+this._onTouchMoveNative = (e) => {
+  this._touchMoved = true
+  clearTimeout(this._pressTimer)
+}
+
+this._onTouchEndNative = (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  clearTimeout(this._pressTimer)
+  if (this.isRecordingVoice) {
+    this.stopVoice()
+  } else if (!this._isLongPress && !this._touchMoved) {
+    this.voiceMode = false
+  }
+  this._isLongPress = false
+}
 
       this._onMouseLeaveNative = () => {
         clearTimeout(this._pressTimer)
@@ -423,22 +481,24 @@ export default {
       btn.addEventListener('mouseup', this._onPressUp)
       btn.addEventListener('mouseleave', this._onMouseLeaveNative)
       btn.addEventListener('touchstart', this._onTouchStartNative, { passive: false })
+      btn.addEventListener('touchmove', this._onTouchMoveNative, { passive: false })
       btn.addEventListener('touchend', this._onTouchEndNative, { passive: false })
       btn.addEventListener('touchcancel', this._onTouchEndNative, { passive: false })
     },
 
     _removeBtnListeners() {
-      const btn = this.$refs.voiceBtn
-      if (!btn) return
-      if (this._onPressDown) btn.removeEventListener('mousedown', this._onPressDown)
-      if (this._onPressUp) btn.removeEventListener('mouseup', this._onPressUp)
-      if (this._onMouseLeaveNative) btn.removeEventListener('mouseleave', this._onMouseLeaveNative)
-      if (this._onTouchStartNative) btn.removeEventListener('touchstart', this._onTouchStartNative)
-      if (this._onTouchEndNative) {
-        btn.removeEventListener('touchend', this._onTouchEndNative)
-        btn.removeEventListener('touchcancel', this._onTouchEndNative)
-      }
-    },
+  const btn = this.$refs.voiceBtn
+  if (!btn) return
+  if (this._onPressDown) btn.removeEventListener('mousedown', this._onPressDown)
+  if (this._onPressUp) btn.removeEventListener('mouseup', this._onPressUp)
+  if (this._onMouseLeaveNative) btn.removeEventListener('mouseleave', this._onMouseLeaveNative)
+  if (this._onTouchStartNative) btn.removeEventListener('touchstart', this._onTouchStartNative)
+  if (this._onTouchMoveNative) btn.removeEventListener('touchmove', this._onTouchMoveNative)
+  if (this._onTouchEndNative) {
+    btn.removeEventListener('touchend', this._onTouchEndNative)
+    btn.removeEventListener('touchcancel', this._onTouchEndNative)
+  }
+},
 
     onSendClick() {
       if (this.newMessage.trim()) {
@@ -704,10 +764,17 @@ export default {
         status: 'sent'
       }
 
-      this.messages.push(optimistic)
-      this.newMessage = ''
-      this.replyTo = null
-      this.scrollToBottom()
+      const pendingReplyTo = this.replyTo ? {
+    id: String(this.replyTo.id),
+    content: this.replyTo.content || '',
+    type: this.replyTo.type || 'text',
+    file_name: this.replyTo.file_name || '',
+    is_mine: String(this.replyTo.sender_id) === String(this.currentUserId)
+} : null
+this.messages.push(optimistic)
+this.newMessage = ''
+this.replyTo = null
+this.scrollToBottom()
 
       this.$emit('message-sent', {
         chatId: this.chatId,
@@ -720,11 +787,12 @@ export default {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            chat_id: this.chatId,
-            sender_id: this.currentUserId,
-            recipient_id: this.recipientId,
-            content: text
-          })
+    chat_id: this.chatId,
+    sender_id: this.currentUserId,
+    recipient_id: this.recipientId,
+    content: text,
+    reply_to: pendingReplyTo
+})
         })
 
         if (!res.ok) throw new Error('Network response was not ok')
@@ -1017,4 +1085,36 @@ export default {
 .reply-preview-name { font-size: 12px; font-weight: 700; color: #6e79ff; }
 .reply-preview-text { font-size: 13px; color: #a6afd4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .reply-preview-close { background: none; border: none; color: #a6afd4; cursor: pointer; font-size: 16px; flex-shrink: 0; }
+.selection-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px;
+  background: rgba(16,20,40,0.95);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(110,121,255,0.15);
+  flex-shrink: 0;
+  animation: slideUp 0.2s ease;
+}
+.sel-cancel {
+  background: none; border: none; color: #7880a0;
+  cursor: pointer; font-size: 14px; font-family: inherit;
+  padding: 6px 10px; border-radius: 8px; transition: color 0.15s;
+}
+.sel-cancel:hover { color: #eef1fb; }
+.sel-count {
+  font-size: 14px; color: #eef1fb; font-weight: 700;
+  background: rgba(110,121,255,0.12);
+  padding: 4px 12px; border-radius: 20px;
+  border: 1px solid rgba(110,121,255,0.2);
+}
+.sel-delete {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(255,77,109,0.12);
+  border: 1px solid rgba(255,77,109,0.25);
+  color: #ff4d6d; border-radius: 10px;
+  padding: 7px 16px; cursor: pointer;
+  font-size: 14px; font-family: inherit;
+  font-weight: 600; transition: all 0.15s;
+}
+.sel-delete:hover { background: rgba(255,77,109,0.22); }
+@keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 </style>

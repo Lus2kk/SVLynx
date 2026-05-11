@@ -121,12 +121,13 @@ func (h *DirectHandler) GetListOfDirectsByIDHandler(ctx *gin.Context) {
 
 func (h *MessageHandler) SendMessageHandler(ctx *gin.Context) {
 	var input struct {
-		ChatID      uuid.UUID               `json:"chat_id" binding:"required"`
-		SenderID    uuid.UUID               `json:"sender_id" binding:"required"`
-		RecipientID uuid.UUID               `json:"recipient_id" binding:"required"`
-		Content     string                  `json:"content" binding:"required"`
-		Type        chat_models.MessageType `json:"type"`
-		SenderName  string                  `json:"sender_name"`
+		ChatID      uuid.UUID                   `json:"chat_id" binding:"required"`
+		SenderID    uuid.UUID                   `json:"sender_id" binding:"required"`
+		RecipientID uuid.UUID                   `json:"recipient_id" binding:"required"`
+		Content     string                      `json:"content" binding:"required"`
+		Type        chat_models.MessageType     `json:"type"`
+		SenderName  string                      `json:"sender_name"`
+		ReplyTo     *chat_models.ReplyToMessage `json:"reply_to"`
 	}
 
 	if err := ctx.ShouldBindJSON(&input); err != nil {
@@ -139,6 +140,7 @@ func (h *MessageHandler) SendMessageHandler(ctx *gin.Context) {
 		SenderID: input.SenderID,
 		Content:  input.Content,
 		Type:     input.Type,
+		ReplyTo:  input.ReplyTo,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
