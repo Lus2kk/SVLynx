@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	channelhandler "github.com/svlynx/messenger/internal/chat/channel/channel_handler"
 	chat_handler "github.com/svlynx/messenger/internal/chat/direct/handler"
 )
 
@@ -41,4 +42,48 @@ func MessageRouter(engine *gin.Engine, handler *chat_handler.MessageHandler) {
 
 func WsRouter(engine *gin.Engine, handler *chat_handler.WsHandler) {
 	engine.GET("/ws", handler.ServeWs)
+}
+
+
+func RegisterChannelRoutes(engine *gin.Engine, h *channelhandler.ChannelHandler) {
+	
+
+	channels := engine.Group("/channels")
+	{
+		channels.POST("", h.CreateChannelHandler)           
+		channels.GET("", h.GetUserChannelsHandler)          
+		channels.GET("/search", h.SearchChannelsHandler)    
+		channels.GET("/handle/:handle", h.GetChannelByHandleHandler)
+
+		channels.GET("/:id", h.GetChannelByIDHandler)       
+		channels.PATCH("/:id", h.UpdateChannelHandler)      
+		channels.DELETE("/:id", h.DeleteChannelHandler)     
+
+	
+		channels.POST("/:id/join", h.JoinChannelHandler)   
+		channels.POST("/:id/leave", h.LeaveChannelHandler)  
+		channels.GET("/:id/members", h.GetMembersHandler)   
+
+		channels.DELETE("/:id/members/:user_id", h.KickMemberHandler)              
+		channels.PATCH("/:id/members/:user_id/role", h.UpdateMemberRoleHandler)    
+		channels.POST("/:id/transfer", h.TransferOwnershipHandler)                
+
+		
+		channels.POST("/:id/posts", h.CreatePostHandler)               
+		channels.GET("/:id/posts", h.GetPostsHandler)                 
+		channels.GET("/:id/posts/pinned", h.GetPinnedPostsHandler)      
+		channels.GET("/:id/posts/search", h.SearchPostsHandler)         
+
+		channels.PATCH("/:id/posts/:post_id", h.UpdatePostHandler)      
+		channels.DELETE("/:id/posts/:post_id", h.DeletePostHandler)     
+		channels.PATCH("/:id/posts/:post_id/pin", h.PinPostHandler)    
+		channels.POST("/:id/posts/:post_id/view", h.ViewPostHandler)   
+
+		channels.POST("/:id/invites", h.CreateInviteLinkHandler)       
+		channels.GET("/:id/invites", h.GetInviteLinksHandler)          
+		channels.DELETE("/:id/invites/:link_id", h.DeactivateInviteLinkHandler) 
+	}
+
+	
+	engine.POST("/invites/:token/join", h.JoinByInviteHandler)
 }
