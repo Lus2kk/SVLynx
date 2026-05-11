@@ -4,6 +4,9 @@
       <ChatSidebar
         :directs="directs"
         :activeId="activeChatId"
+        :channels="channels"
+        :activeChannelId="activeChannelId"
+        @select-channel="selectChannel"
         :currentUserId="currentUserId"
         :isLight="isLight"
         :class="{ 'mobile-hidden': mobileView === 'chat' }"
@@ -14,25 +17,37 @@
         @open-profile="$emit('open-profile')"
       />
 
+      <ChannelView
+      v-if="activeChannel && !activeChat"
+      ref="channelView"
+      :channel="activeChannel"
+      :currentUserId="currentUserId"
+      :userRole="activeChannelRole"
+      :isLight="isLight"
+      :showBackButton="isMobile"
+      @back="goBackToSidebar"
+      @channel-updated="onChannelUpdated"
+      @channel-created="ch => { channels.push(ch); selectChannel(ch) }"
+      />
 
       <div class="content-area" :class="{ 'mobile-hidden': mobileView === 'sidebar' }">
         <ChatWindow
-  v-if="activeChat"
-  ref="chatWindow"
-  :key="`${activeChatId}-${activeRecipientId}-${chatWindowKey}`"
-  :chat="activeChat"
-  :chatId="activeChatId"
-  :currentUserId="currentUserId"
-  :currentUserName="currentUserName"
-  :recipientId="activeRecipientId"
-  :presence="activePresence"
-  :isLight="isLight"
-  :showBackButton="isMobile"
-  @message-sent="updateChatPreview"
-  @message-deleted="onMessageDeleted"
-  @mark-as-read="onMarkAsRead"
-  @back="goBackToSidebar"
-/>
+        v-if="activeChat"
+        ref="chatWindow"
+        :key="`${activeChatId}-${activeRecipientId}-${chatWindowKey}`"
+        :chat="activeChat"
+        :chatId="activeChatId"
+        :currentUserId="currentUserId"
+        :currentUserName="currentUserName"
+        :recipientId="activeRecipientId"
+        :presence="activePresence"
+        :isLight="isLight"
+        :showBackButton="isMobile"
+        @message-sent="updateChatPreview"
+        @message-deleted="onMessageDeleted"
+        @mark-as-read="onMarkAsRead"
+        @back="goBackToSidebar"
+      />
 
 
         <div v-else class="empty-chat">
@@ -55,6 +70,7 @@
 <script>
 import ChatSidebar from './ChatSidebar.vue'
 import ChatWindow from './ChatWindow.vue'
+import ChannelView from './ChannelView.vue'
 import { apiFetch, getCookie } from '../api.js'
 
 
@@ -64,7 +80,7 @@ const WS_BASE = BASE.replace(/^http/, 'ws')
 
 export default {
   name: 'ChatLayout',
-  components: { ChatSidebar, ChatWindow },
+  components: { ChatSidebar, ChatWindow, ChannelView },
 
   emits: ['theme-changed', 'open-profile'],
 
@@ -82,7 +98,11 @@ export default {
       userStatuses: {},
       mobileView: 'sidebar',
       isMobile: false,
-      currentUserName: null
+      currentUserName: null,
+      channels: [],
+      activeChannelId: null,
+      activeChannel: null,
+      activeChannelRole: 'member',
 
     }
   },
@@ -119,6 +139,7 @@ export default {
   
   this.updateThemeColor()
   await this.loadDirects()
+  await this.loadChannels()
   this.connectWebSocket()
   this.checkMobile()
   window.addEventListener('resize', this.checkMobile)
@@ -229,6 +250,38 @@ export default {
             return
           }
 
+          if (type === 'new_channel_post') {
+        const channelId = payload?.channel_id
+        if (channelId && String(this.activeChannelId) === String(channelId)) {
+          this.$refs.channelView?.handleNewPost?.(payload)
+        }
+        return
+      }
+
+      if (type === 'delete_channel_post') {
+        if (String(this.activeChannelId) === String(payload?.channel_id)) {
+          this.$refs.channelView?.handleDeletePost?.(payload?.post_id)
+        }
+        return
+      }
+
+      if (type === 'update_channel_post') {
+        if (String(this.activeChannelId) === String(payload?.channel_id)) {
+          this.$refs.channelView?.handleUpdatePost?.(payload)
+        }
+        return
+      }
+
+      if (type === 'channel_deleted') {
+        const channelId = payload?.channel_id
+        this.channels = this.channels.filter(c => String(c.id) !== String(channelId))
+        if (String(this.activeChannelId) === String(channelId)) {
+          this.activeChannelId = null
+          this.activeChannel = null
+        }
+        return
+      }
+
           if (type === 'mark_as_read') {
             const chatId = payload?.chat_id
             if (chatId && String(this.activeChatId) === String(chatId)) {
@@ -284,6 +337,35 @@ export default {
         if (!payload) return null
         return String(payload?.user_id ?? payload?.sub ?? payload?.id ?? '').trim()
       } catch { return null }
+    },
+
+    async loadChannels() {
+      if (!this.currentUserId) return
+      try {
+        const url = new URL(`${BASE}/channels`)
+        url.searchParams.set('user_id', this.currentUserId)
+        const res = await apiFetch(url.toString())
+        if (!res.ok) return
+        const data = await res.json()
+        this.channels = data.channels || []
+      } catch (e) {
+        console.error('loadChannels error', e)
+      }
+    },
+
+    selectChannel(channel) {
+      this.activeChannelId = channel.id
+      this.activeChannel = channel
+      this.activeChannelRole = channel.user_role || 'member'
+      this.activeChatId = null
+      this.activeRecipientId = null
+      if (this.isMobile) this.mobileView = 'chat'
+    },
+
+    onChannelUpdated(channel) {
+      const idx = this.channels.findIndex(c => c.id === channel.id)
+      if (idx !== -1) this.channels[idx] = { ...this.channels[idx], ...channel }
+      this.activeChannel = { ...this.activeChannel, ...channel }
     },
 
     async loadDirects() {

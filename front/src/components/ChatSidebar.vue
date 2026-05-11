@@ -47,22 +47,26 @@
         <button class="tab-btn" :class="{ active: activeTab === 'chats' }" type="button" @click="activeTab = 'chats'">Chats</button>
         <button class="tab-btn" :class="{ active: activeTab === 'groups' }" type="button" @click="activeTab = 'groups'">Groups</button>
         <button class="tab-btn" :class="{ active: activeTab === 'channels' }" type="button" @click="activeTab = 'channels'">Channels</button>
+        <button class="tab-btn new-channel-btn" type="button" title="Create channel" @click="showCreateChannel = true">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+        </button>
       </div>
 
       <div class="sidebar-list">
         <template v-if="search.trim().length > 0">
           <div v-if="isSearching" class="list-state">Searching...</div>
 
-         <div
-          v-else
-          v-for="user in searchResults"
-          :key="user.id"
-          class="chat-item"
-          @touchstart="onTouchStart"
-          @touchmove="onTouchMove"
-          @click="() => { if (!scrolling) handleStartChat(user.id, user.nickname) }"
-        >
-            <div class="chat-avatar" :style="!user.photo_url ? { background: user.avatar_color || 'linear-gradient(135deg, #6572ff, #8a67ff)' } : {}">
+          <div
+            v-else
+            v-for="user in searchResults"
+            :key="user.id"
+            class="chat-item"
+            @click="handleStartChat(user.id, user.nickname)"
+            @touchend.prevent="handleStartChat(user.id, user.nickname)"
+          >
+            <div class="chat-avatar">
               <img v-if="user.photo_url" :src="user.photo_url" alt="" class="avatar-image" />
               <span v-else>{{ (user.name || user.first_name || user.nickname)?.[0]?.toUpperCase() || '?' }}</span>
             </div>
@@ -91,7 +95,7 @@
               type="button"
               @click="!deleteMode && $emit('select', { chatId: direct.id, recipientId: getRecipientId(direct) })"
             >
-              <div class="chat-avatar" :style="!getAvatarUrl(direct) ? { background: direct.companion_avatar_color || 'linear-gradient(135deg, #6572ff, #8a67ff)' } : {}">
+              <div class="chat-avatar">
                 <img v-if="getAvatarUrl(direct)" :src="getAvatarUrl(direct)" alt="" class="avatar-image" />
                 <span v-else>{{ getAvatarLetter(direct) }}</span>
               </div>
@@ -123,19 +127,18 @@
             </button>
           </div>
 
-          <div v-if="filteredDirects.length === 0" class="list-state">
-            <span v-if="activeTab === 'chats' || activeTab === 'all'">No chats yet. Search to start one.</span>
-            <span v-else>No {{ activeTab }} yet.</span>
+          <div v-if="filteredDirects.length === 0 && (activeTab === 'chats' || activeTab === 'all')" class="list-state">
+            No chats yet. Search to start one.
           </div>
         </template>
       </div>
 
       <footer class="sidebar-footer">
         <div class="footer-actions">
-          <button class="footer-btn" title="My profile" type="button" @click="$emit('open-profile')">
+          <button class="footer-btn" title="Settings" type="button">
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8">
-              <circle cx="12" cy="8" r="4"></circle>
-              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.7 1.7 0 0 0 .33 1.82l.05.05a2 2 0 1 1-2.83 2.83l-.05-.05a1.7 1.7 0 0 0-1.82-.33 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.08a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.82.33l-.05.05a2 2 0 1 1-2.83-2.83l.05-.05A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.08A1.7 1.7 0 0 0 4.64 8.94a1.7 1.7 0 0 0-.33-1.82l-.05-.05a2 2 0 1 1 2.83-2.83l.05.05A1.7 1.7 0 0 0 8.96 4.6a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.08a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.82-.33l.05-.05a2 2 0 1 1 2.83 2.83l-.05.05A1.7 1.7 0 0 0 19.4 8.94c.12.39.6 1.03 1.56 1.03H21a2 2 0 1 1 0 4h-.08A1.7 1.7 0 0 0 19.4 15z"></path>
             </svg>
           </button>
 
@@ -169,11 +172,26 @@
         </div>
       </div>
     </div>
+
+    <CreateChannelModal
+      v-if="showCreateChannel"
+      :currentUserId="currentUserId"
+      :isLight="isLight"
+      @close="showCreateChannel = false"
+      @created="ch => { $emit('channel-created', ch); showCreateChannel = false }"
+    />
   </aside>
 </template>
 
 <script>
 import { apiFetch } from '../api.js'
+
+import CreateChannelModal from './CreateChannelModal.vue'
+
+components: { CreateChannelModal }
+
+
+
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
@@ -187,19 +205,18 @@ export default {
     isLight: { type: Boolean, default: false }
   },
 
-  emits: ['select', 'start-chat', 'toggle-theme', 'chat-deleted', 'open-profile'],
+  emits: ['select', 'select-channel', 'channel-created', 'start-chat', 'toggle-theme', 'chat-deleted', 'open-profile'],
 
   data() {
     return {
+      showCreateChannel: false,
       search: '',
       searchResults: [],
       isSearching: false,
       searchTimeout: null,
       activeTab: 'chats',
       deleteMode: false,
-      chatToDelete: null,
-      scrolling: false,
-      touchStartY: 0
+      chatToDelete: null
     }
   },
 
@@ -229,14 +246,6 @@ export default {
   methods: {
     toggleTheme() {
   this.$emit('toggle-theme')
-},
-onTouchStart(e) {
-  this.touchStartY = e.touches[0].clientY
-  this.scrolling = false
-},
-onTouchMove(e) {
-  const diff = Math.abs(e.touches[0].clientY - this.touchStartY)
-  if (diff > 5) this.scrolling = true
 },
     handleStartChat(userId, nickname) {
     this.search = ''
@@ -284,21 +293,17 @@ onTouchMove(e) {
     },
 
     getChatPreview(direct) {
-  const content = direct.last_message_content || ''
-  if (content.startsWith('http') && (
-    content.includes('/voice/') ||
-    content.includes('.webm') ||
-    content.includes('.ogg') ||
-    content.includes('.mp3')
-  )) {
-    return '🎤 Голосовое сообщение'
-  }
-  if (content.startsWith('http') && content.includes('/media/images/')) return '📷 Фото'
-  if (content.startsWith('http') && content.includes('/media/videos/')) return '🎥 Видео'
-  if (content.startsWith('http') && content.includes('/media/audio/')) return '🎵 Аудио'
-  if (content.startsWith('http') && content.includes('/media/files/')) return '📎 Файл'
-  return content
-},
+      const content = direct.last_message_content || ''
+      if (content.startsWith('http') && (
+        content.includes('/voice/') ||
+        content.includes('.webm') ||
+        content.includes('.ogg') ||
+        content.includes('.mp3')
+      )) {
+        return 'Голосовое сообщение'
+      }
+      return content
+    },
 
     getUnreadCount(direct) {
       return Number(direct.unread_count || direct.unreadcount || 0)
@@ -440,17 +445,17 @@ onTouchMove(e) {
 .sidebar-list::-webkit-scrollbar { width: 6px; }
 .sidebar-list::-webkit-scrollbar-thumb { background: rgba(147, 158, 211, 0.16); border-radius: 999px; }
 
-.chat-item {
-  flex: 1; min-width: 0; overflow: hidden;
-  display: flex; align-items: center; gap: 12px;
-  padding: 8px 12px; border-radius: 12px; text-align: left;
-  background: transparent; border: 1px solid transparent;
-  transition: all 0.16s ease; cursor: pointer;
-}
-
 .chat-item-wrap {
   display: flex; align-items: center; gap: 6px;
-  margin-bottom: 1px; min-width: 0; overflow: hidden;
+  margin-bottom: 6px; min-width: 0; overflow: hidden;
+}
+
+.chat-item {
+  flex: 1; min-width: 0; overflow: hidden;
+  display: flex; align-items: center; gap: 11px;
+  padding: 11px 10px; border-radius: 16px; text-align: left;
+  background: transparent; border: 1px solid transparent;
+  transition: all 0.16s ease; cursor: pointer;
 }
 .chat-item:hover { background: rgba(255, 255, 255, 0.025); }
 .chat-item.active {
@@ -468,7 +473,12 @@ onTouchMove(e) {
 }
 .delete-chat-btn:hover { background: rgba(255, 77, 109, 0.2); }
 
-
+.chat-avatar {
+  width: 42px; height: 42px; border-radius: 14px; flex-shrink: 0;
+  display: grid; place-items: center; overflow: hidden;
+  color: #fff; font-size: 13px; font-weight: 700;
+  background: linear-gradient(135deg, #6572ff, #8a67ff);
+}
 .avatar-image { width: 100%; height: 100%; object-fit: cover; }
 .chat-body { flex: 1; min-width: 0; }
 .chat-topline, .chat-bottomline { display: flex; align-items: center; justify-content: space-between; gap: 8px; overflow: hidden; }
@@ -558,34 +568,12 @@ onTouchMove(e) {
   .sidebar-header { height: 64px; padding: 12px 14px 10px; }
   .search-wrap { padding: 0 12px 10px; }
   .sidebar-tabs { padding: 0 12px 12px; }
-  .sidebar-list { padding: 2px 0 12px; }
+  .sidebar-list { padding: 2px 8px 12px; }
   .confirm-modal { width: calc(100vw - 48px); max-width: 280px; }
   .sidebar-footer { padding-bottom: env(safe-area-inset-bottom, 14px); }
-
-  .chat-item.active {
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
-  }
-
-  .chat-item-wrap {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    margin-bottom: 0;
-  }
-
-  .theme-light .chat-item-wrap {
-    border-bottom-color: rgba(0, 0, 0, 0.06);
-  }
-
-  .chat-item {
-    border-radius: 0;
-    padding: 10px 16px;
-  }
 }
-
-.chat-avatar {
-  width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0;
-  display: grid; place-items: center; overflow: hidden;
-  color: #fff; font-size: 16px; font-weight: 700;
+.new-channel-btn {
+  padding: 0 8px; color: #6e79ff;
+  background: rgba(110,121,255,0.1); border-color: rgba(110,121,255,0.2);
 }
 </style>
