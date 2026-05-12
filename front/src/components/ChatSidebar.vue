@@ -67,10 +67,15 @@
           @touchmove="onTouchMove"
           @click="() => { if (!scrolling) handleStartChat(user.id, user.nickname) }"
         >
-            <div class="chat-avatar" :style="!user.photo_url ? { background: user.avatar_color || 'linear-gradient(135deg, #6572ff, #8a67ff)' } : {}">
-              <img v-if="user.photo_url" :src="user.photo_url" alt="" class="avatar-image" />
-              <span v-else>{{ (user.name || user.first_name || user.nickname)?.[0]?.toUpperCase() || '?' }}</span>
-            </div>
+            <div class="chat-avatar-wrap">
+  <div class="chat-avatar" :style="!getAvatarUrl(direct) ? { background: direct.companion_avatar_color || 'linear-gradient(135deg, #6572ff, #8a67ff)' } : {}">
+    <img v-if="getAvatarUrl(direct)" :src="getAvatarUrl(direct)" alt="" class="avatar-image"
+      @error="e => { e.target.style.display='none'; e.target.parentElement.style.background = direct.companion_avatar_color || 'linear-gradient(135deg, #6572ff, #8a67ff)' }"
+    />
+    <span v-else>{{ getAvatarLetter(direct) }}</span>
+  </div>
+  <span v-if="isUserOnline(getRecipientId(direct))" class="online-dot"></span>
+</div>
             <div class="chat-body">
               <div class="chat-topline">
                 <span class="chat-name">{{ user.name || (user.first_name ? (user.first_name + (user.last_name ? ' ' + user.last_name : '')) : null) || user.nickname || user.username || 'Unknown' }}</span>
@@ -196,7 +201,8 @@ export default {
     directs: { type: Array, default: () => [] },
     activeId: { type: [String, Number], default: null },
     currentUserId: { type: String, default: null },
-    isLight: { type: Boolean, default: false }
+    isLight: { type: Boolean, default: false },
+    userStatuses: { type: Object, default: () => ({}) }
   },
 
   emits: ['select', 'start-chat', 'toggle-theme', 'chat-deleted', 'open-profile'],
@@ -276,7 +282,9 @@ onTouchMove(e) {
         this.isSearching = false
       }
     },
-
+     isUserOnline(userId) {
+  return this.userStatuses?.[String(userId)]?.online === true
+},
     getRecipientId(direct) {
       const first = direct.first_user_id ?? direct.firstuserid
       const second = direct.second_user_id ?? direct.seconduserid
