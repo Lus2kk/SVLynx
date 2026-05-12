@@ -3,11 +3,16 @@
     <div class="sidebar-shell">
       <header class="sidebar-header">
         <div class="brand">
-          <div class="brand-mark">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9">
-              <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7A2.5 2.5 0 0 1 17.5 16H11l-4.5 4V16A2.5 2.5 0 0 1 4 13.5v-7z" />
-            </svg>
-          </div>
+          <div class="brand-mark" aria-label="SVLynx logo">
+  <!-- Lynx mark: pointed ears + diamond face. Replaces generic chat-bubble. -->
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 4 L7 9 L4 11" />
+    <path d="M20 4 L17 9 L20 11" />
+    <circle cx="12" cy="14" r="3.6" />
+    <circle cx="10.5" cy="13.6" r="0.55" fill="currentColor" stroke="none" />
+    <circle cx="13.5" cy="13.6" r="0.55" fill="currentColor" stroke="none" />
+  </svg>
+</div>
           <div class="brand-text">
             <span class="brand-main">SV</span><span class="brand-accent">Lynx</span>
           </div>
@@ -101,11 +106,12 @@
   <span class="chat-name">{{ getRecipientName(direct) }}</span>
   <span class="chat-time-wrap">
     <span v-if="isLastMessageMine(direct)" class="chat-tick" :class="{ read: isLastMessageRead(direct) }">
-      <svg viewBox="0 0 22 12" width="18" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M1 6l3 3 5-6"/>
-        <path d="M9 6l3 3 5-6"/>
-      </svg>
-    </span>
+  <svg viewBox="0 0 20 10" width="17" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2 5 L5 8 L10 2"/>
+    <path d="M7 5 L10 8 L15 2"/>
+    <circle v-if="isLastMessageRead(direct)" cx="17.5" cy="7.5" r="1.1" fill="currentColor" stroke="none"/>
+  </svg>
+</span>
     <span class="chat-time">{{ getChatTime(direct) }}</span>
   </span>
 </div>

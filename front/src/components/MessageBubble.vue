@@ -55,9 +55,11 @@
           <div class="image-meta">
             <span class="message-time">{{ formatTime(message.created_at || message.createdat) }}</span>
             <span v-if="isMine" class="message-status" :class="{ read: message.status === 'read' }">
-              <svg viewBox="0 0 22 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 6l3 3 5-6"/><path d="M9 6l3 3 5-6"/>
-              </svg>
+              <svg viewBox="0 0 20 10" width="18" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M2 5 L5 8 L10 2"/>
+  <path d="M7 5 L10 8 L15 2"/>
+  <circle v-if="message.status === 'read'" cx="17.5" cy="7.5" r="1.1" fill="currentColor" stroke="none"/>
+</svg>
             </span>
           </div>
         </div>
@@ -109,10 +111,11 @@
         <div class="message-meta" v-if="message.type !== 'image'">
           <span class="message-time">{{ formatTime(message.created_at || message.createdat) }}</span>
           <span v-if="isMine" class="message-status" :class="{ read: message.status === 'read' }">
-            <svg viewBox="0 0 22 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M1 6l3 3 5-6"></path>
-              <path d="M9 6l3 3 5-6"></path>
-            </svg>
+            <svg viewBox="0 0 20 10" width="18" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M2 5 L5 8 L10 2"></path>
+  <path d="M7 5 L10 8 L15 2"></path>
+  <circle v-if="message.status === 'read'" cx="17.5" cy="7.5" r="1.1" fill="currentColor" stroke="none"></circle>
+</svg>
           </span>
         </div>
       </div>
@@ -310,9 +313,8 @@ export default {
   .message-row.theirs .message-bubble-wrapper { max-width: 85%; }
 }
 
-.message-bubble.theirs { background: rgba(30,35,60,0.95); border: 1px solid rgba(255,255,255,0.08); color: #eef1fb; border-bottom-left-radius: 8px; }
-.message-bubble.mine   { background: linear-gradient(180deg,rgba(108,118,255,0.95),rgba(93,104,240,0.97)); color: #fff; border-bottom-right-radius: 8px; box-shadow: 0 10px 22px rgba(70,80,210,0.16); }
-.theme-light .message-bubble.theirs { background: #fff; border-color: #e4e6f0; color: #1a1d2e; }
+.message-bubble.theirs { background: rgba(30,35,60,0.95); border: 1px solid rgba(255,255,255,0.08); color: #eef1fb; border-radius: 16px 16px 16px 4px; }
+.message-bubble.mine   { background: linear-gradient(180deg,rgba(108,118,255,0.95),rgba(93,104,240,0.97)); color: #fff; border-radius: 16px 16px 4px 16px; box-shadow: 0 10px 22px rgba(70,80,210,0.16); }.theme-light .message-bubble.theirs { background: #fff; border-color: #e4e6f0; color: #1a1d2e; }
 .theme-light .message-bubble.mine   { background: linear-gradient(180deg,#5b6aff,#6e79ff); color: #fff; }
 
 .reply-quote { display:flex; gap:8px; margin-bottom:6px; padding:6px 8px; border-radius:8px; background:rgba(0,0,0,0.15); cursor:pointer; }
