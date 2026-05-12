@@ -42,7 +42,7 @@
             v-model="search"
             type="text"
             class="search-input"
-            placeholder="Search..."
+            placeholder="Поиск..."
           />
         </div>
       </div>

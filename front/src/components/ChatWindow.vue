@@ -15,7 +15,7 @@
           <div class="chat-username">{{ chatTitle }}</div>
           <div class="chat-status" :class="{ online: !isTyping && presence.online, offline: !isTyping && !presence.online, typing: isTyping }">
   <span class="status-dot"></span>
-  <span>{{ isTyping ? 'typing...' : presenceText }}</span>
+  <span>{{ isTyping ? 'печатает...' : presenceText }}</span>
 </div>
         </div>
       </div>
@@ -136,7 +136,7 @@
           v-model="newMessage"
           type="text"
           class="message-input"
-          placeholder="Type a message..."
+          placeholder="Сообщение..."
           ref="messageInput"
           @input="onTyping"
         />
@@ -315,9 +315,9 @@ export default {
     },
     presenceText() {
       void this.nowTick
-      if (this.presence?.online) return 'Online'
+      if (this.presence?.online) return 'В сети'
       if (this.presence?.lastSeen) return this.formatLastSeen(this.presence.lastSeen)
-      return 'Offline'
+      return 'Не в сети'
     }
   },
 
