@@ -45,7 +45,7 @@
             v-model="searchQuery"
             type="text"
             class="search-input"
-            placeholder="Search messages..."
+            placeholder="Поиск сообщений..."
             @input="onSearchInput"
             @keydown.escape="closeSearch"
           />
@@ -713,11 +713,11 @@ this._onTouchEndNative = (e) => {
       const date = new Date(normalized)
       if (isNaN(date.getTime())) return 'Offline'
       const diff = Math.floor((Date.now() - date.getTime()) / 1000)
-      if (diff < 60) return 'last seen just now'
-      if (diff < 3600) return `last seen ${Math.floor(diff / 60)}m ago`
-      if (diff < 86400) return `last seen today at ${date.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}`
-      if (diff < 172800) return `last seen yesterday at ${date.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}`
-      return `last seen ${date.toLocaleDateString('en', { day: 'numeric', month: 'short' })}`
+      if (diff < 60) return 'был только что'
+if (diff < 3600) return `был ${Math.floor(diff / 60)} мин назад`
+if (diff < 86400) return `был сегодня в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+if (diff < 172800) return `был вчера в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+return `был ${date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}`
     },
 
     normalizeMessage(message) {
