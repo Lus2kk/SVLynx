@@ -18,7 +18,13 @@
         </div>
       </div>
       <div class="channel-actions">
-        <button class="icon-btn" title="Search" @click="searchOpen = !searchOpen" :class="{ active: searchOpen }">
+        <button v-if="isAdmin" class="icon-btn" title="Invite link" @click="openInvite">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+        </button>
+        <button class="icon-btn" :class="{ active: searchOpen }" title="Search" @click="searchOpen = !searchOpen">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8">
             <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
           </svg>
@@ -31,7 +37,6 @@
         </button>
       </div>
 
-      <!-- Search bar -->
       <transition name="search-slide">
         <div v-if="searchOpen" class="search-bar">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" class="search-icon">
@@ -48,65 +53,88 @@
       </transition>
     </header>
 
-    <!-- Posts feed -->
+    <!-- Posts -->
     <div class="posts-area" ref="postsArea" @scroll="onScroll">
-      <div v-if="pinnedPosts.length" class="pinned-section">
-        <div class="section-label">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
-          Pinned
+      <div v-if="loading" class="feed-state"><div class="spinner"></div></div>
+
+      <template v-else>
+        <div v-if="pinnedPosts.length" class="pinned-section">
+          <div class="section-label">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+            Pinned
+          </div>
+          <ChannelPost
+            v-for="post in pinnedPosts" :key="'pinned-' + post.id"
+            :post="post" :isAdmin="isAdmin" :isLight="isLight" :currentUserId="currentUserId"
+            @delete="deletePost" @pin="togglePin" @edit="startEdit"
+          />
         </div>
-        <ChannelPost
-          v-for="post in pinnedPosts" :key="'pinned-' + post.id"
-          :post="post" :isAdmin="isAdmin" :isLight="isLight"
-          :currentUserId="currentUserId"
-          @delete="deletePost" @pin="togglePin" @edit="startEdit"
-        />
-      </div>
 
-      <div v-if="loading" class="feed-state">
-        <div class="spinner"></div>
-      </div>
+        <template v-if="displayPosts.length">
+          <ChannelPost
+            v-for="post in displayPosts" :key="post.id"
+            :post="post" :isAdmin="isAdmin" :isLight="isLight" :currentUserId="currentUserId"
+            @delete="deletePost" @pin="togglePin" @edit="startEdit"
+          />
+          <div v-if="loadingMore" class="feed-state"><div class="spinner"></div></div>
+        </template>
 
-      <template v-else-if="displayPosts.length">
-        <ChannelPost
-          v-for="post in displayPosts" :key="post.id"
-          :post="post" :isAdmin="isAdmin" :isLight="isLight"
-          :currentUserId="currentUserId"
-          @delete="deletePost" @pin="togglePin" @edit="startEdit"
-        />
-        <div v-if="loadingMore" class="feed-state"><div class="spinner"></div></div>
+        <div v-else-if="!pinnedPosts.length" class="feed-state empty">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.4">
+            <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+          </svg>
+          <span>No posts yet</span>
+        </div>
       </template>
-
-      <div v-else class="feed-state empty">
-        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.4">
-          <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-        </svg>
-        <span>No posts yet</span>
-      </div>
     </div>
 
-    <!-- Composer (only for admin/editor) -->
+    <!-- Composer (owner/admin/editor only) -->
     <div v-if="isEditor" class="composer-wrap">
       <div v-if="editingPost" class="edit-banner">
         <span>Editing post</span>
         <button @click="cancelEdit">✕</button>
       </div>
       <form class="composer" @submit.prevent="submitPost">
-        <textarea
+        <input
           v-model="newPostContent"
+          type="text"
           class="post-input"
           placeholder="Write a post..."
-          rows="1"
-          @input="autoResize"
           ref="postInput"
-        ></textarea>
-        <div class="composer-actions">
-          <button type="submit" class="send-btn" :disabled="!newPostContent.trim()">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <path d="M21.8 2.2a1 1 0 0 0-1.04-.23L2.76 8.97a1 1 0 0 0 .08 1.89l7.14 2.38 2.38 7.14a1 1 0 0 0 .91.68h.05a1 1 0 0 0 .9-.59l7-18a1 1 0 0 0-.22-1.03z"/>
-            </svg>
-          </button>
-        </div>
+        />
+
+        <!-- Send / voice toggle -->
+        <button
+          v-show="!voiceMode"
+          type="button"
+          class="send-btn"
+          @click="onSendClick"
+        >
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
+            <path d="M21.8 2.2a1 1 0 0 0-1.04-.23L2.76 8.97a1 1 0 0 0 .08 1.89l7.14 2.38 2.38 7.14a1 1 0 0 0 .91.68h.05a1 1 0 0 0 .9-.59l7-18a1 1 0 0 0-.22-1.03z"/>
+          </svg>
+        </button>
+
+        <!-- Voice record button -->
+        <button
+          v-show="voiceMode"
+          ref="voiceBtn"
+          type="button"
+          class="send-btn"
+          :class="{ recording: isRecordingVoice }"
+          title="Hold to record"
+        >
+          <svg v-if="!isRecordingVoice" viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
+            <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4z"/>
+            <path d="M19 10a7 7 0 0 1-14 0H3a9 9 0 0 0 18 0h-2z"/>
+            <line x1="12" y1="19" x2="12" y2="23" stroke="white" stroke-width="2"/>
+            <line x1="8" y1="23" x2="16" y2="23" stroke="white" stroke-width="2"/>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
+            <rect x="6" y="6" width="12" height="12" rx="2"/>
+          </svg>
+          <span v-if="isRecordingVoice" class="rec-timer">{{ voiceTimerText }}</span>
+        </button>
       </form>
     </div>
 
@@ -114,18 +142,9 @@
     <div v-if="settingsOpen" class="modal-overlay" @click.self="settingsOpen = false">
       <div class="settings-modal">
         <h3>Channel Settings</h3>
-        <div class="settings-field">
-          <label>Name</label>
-          <input v-model="editName" type="text" />
-        </div>
-        <div class="settings-field">
-          <label>Handle</label>
-          <input v-model="editHandle" type="text" />
-        </div>
-        <div class="settings-field">
-          <label>Description</label>
-          <textarea v-model="editDescription" rows="3"></textarea>
-        </div>
+        <div class="settings-field"><label>Name</label><input v-model="editName" type="text" /></div>
+        <div class="settings-field"><label>Handle</label><input v-model="editHandle" type="text" /></div>
+        <div class="settings-field"><label>Description</label><textarea v-model="editDescription" rows="3"></textarea></div>
         <div class="settings-field">
           <label>Type</label>
           <select v-model="editType">
@@ -139,137 +158,121 @@
         </div>
       </div>
     </div>
+
+    <!-- Invite modal -->
+    <div v-if="inviteOpen" class="modal-overlay" @click.self="inviteOpen = false">
+      <div class="invite-modal">
+        <div class="invite-modal-header">
+          <h3>Invite Link</h3>
+          <button class="invite-close" @click="inviteOpen = false">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <p class="invite-desc">Anyone with this link can join the channel.</p>
+        <div v-if="inviteLoading" class="invite-loading"><div class="spinner"></div></div>
+        <div v-else class="invite-link-wrap">
+          <span class="invite-link-text">{{ inviteLink }}</span>
+          <button class="invite-copy-btn" :class="{ copied: inviteCopied }" @click="copyInviteLink">
+            <svg v-if="!inviteCopied" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            {{ inviteCopied ? 'Copied!' : 'Copy' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
 <script>
 import { apiFetch, getCookie } from '../api.js'
+import ChannelPost from './ChannelPost.vue'
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
-
-// Inline ChannelPost component
-const ChannelPost = {
-  name: 'ChannelPost',
-  props: {
-    post: { type: Object, required: true },
-    isAdmin: { type: Boolean, default: false },
-    isLight: { type: Boolean, default: false },
-    currentUserId: { type: String, default: null }
-  },
-  emits: ['delete', 'pin', 'edit'],
-  data() { return { showActions: false } },
-  computed: {
-    isAuthor() { return String(this.post.author_id) === String(this.currentUserId) },
-    canEdit() { return this.isAuthor || this.isAdmin },
-    timeText() {
-      if (!this.post.created_at) return ''
-      const d = new Date(this.post.created_at)
-      return d.toLocaleString('ru-RU', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-    }
-  },
-  template: `
-    <article class="channel-post" :class="{ 'theme-light': isLight, pinned: post.pinned }"
-      @mouseenter="showActions = true" @mouseleave="showActions = false">
-      <div v-if="post.pinned" class="pin-badge">
-        <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
-        Pinned
-      </div>
-      <div class="post-body">
-        <p v-if="post.content" class="post-text">{{ post.content }}</p>
-        <img v-if="post.media_url && post.media_type === 'image'" :src="post.media_url" class="post-media-img" />
-        <video v-else-if="post.media_url && post.media_type === 'video'" :src="post.media_url" class="post-media-video" controls />
-        <a v-else-if="post.media_url" :href="post.media_url" class="post-file" target="_blank">
-          📎 {{ post.file_name || 'File' }}
-        </a>
-      </div>
-      <div class="post-footer">
-        <span class="post-time">{{ timeText }}</span>
-        <span v-if="post.view_count" class="post-views">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-          </svg>
-          {{ post.view_count }}
-        </span>
-        <div v-if="canEdit && showActions" class="post-actions">
-          <button v-if="isAdmin" class="post-action-btn" @click="$emit('pin', post)" :title="post.pinned ? 'Unpin' : 'Pin'">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
-          </button>
-          <button v-if="isAuthor || isAdmin" class="post-action-btn" @click="$emit('edit', post)" title="Edit">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-          </button>
-          <button class="post-action-btn danger" @click="$emit('delete', post.id)" title="Delete">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M3 6h18"/><path d="M8 6V4.8c0-.99.81-1.8 1.8-1.8h4.4c.99 0 1.8.81 1.8 1.8V6"/>
-              <path d="M18.2 6l-.72 11.02A2 2 0 0 1 15.48 19H8.52a2 2 0 0 1-1.99-1.98L5.8 6"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-    </article>
-  `
-}
+const BASE       = import.meta.env.VITE_API_URL       || 'http://localhost:8080'
+const VOICE_BASE = import.meta.env.VITE_VOICE_API_URL || 'http://localhost:9090'
 
 export default {
   name: 'ChannelView',
   components: { ChannelPost },
 
   props: {
-    channel: { type: Object, required: true },
-    currentUserId: { type: String, default: null },
-    userRole: { type: String, default: 'member' },
-    isLight: { type: Boolean, default: false },
-    showBackButton: { type: Boolean, default: false }
+    channel:       { type: Object,  required: true },
+    currentUserId: { type: String,  default: null },
+    userRole:      { type: String,  default: 'member' },
+    isLight:       { type: Boolean, default: false },
+    showBackButton:{ type: Boolean, default: false }
   },
 
   emits: ['back', 'channel-updated'],
 
   data() {
     return {
-      posts: [],
-      pinnedPosts: [],
-      loading: false,
-      loadingMore: false,
-      hasMore: true,
-      newPostContent: '',
-      editingPost: null,
-      searchOpen: false,
-      searchQuery: '',
-      searchResults: [],
-      searchDebounce: null,
-      settingsOpen: false,
-      editName: '',
-      editHandle: '',
-      editDescription: '',
-      editType: 'public',
+      posts: [], pinnedPosts: [],
+      loading: false, loadingMore: false, hasMore: true,
+      newPostContent: '', editingPost: null,
+      searchOpen: false, searchQuery: '', searchResults: [], searchDebounce: null,
+      settingsOpen: false, editName: '', editHandle: '', editDescription: '', editType: 'public',
+      inviteOpen: false, inviteLink: '', inviteLoading: false, inviteCopied: false,
+      // voice
+      voiceMode: false,
+      isRecordingVoice: false,
+      voiceMediaRecorder: null,
+      voiceChunks: [],
+      voiceTimerSeconds: 0,
+      voiceTimerInterval: null,
+      waveformData: [],
+      waveformInterval: null,
+      audioContext: null,
+      analyser: null,
     }
   },
 
   computed: {
-    isAdmin() { return ['owner', 'admin'].includes(this.userRole) },
+    isAdmin()  { return ['owner', 'admin'].includes(this.userRole) },
     isEditor() { return ['owner', 'admin', 'editor'].includes(this.userRole) },
     displayPosts() {
       if (this.searchQuery.trim() && this.searchResults.length) return this.searchResults
       return this.posts
+    },
+    voiceTimerText() {
+      const m = Math.floor(this.voiceTimerSeconds / 60).toString().padStart(2, '0')
+      const s = (this.voiceTimerSeconds % 60).toString().padStart(2, '0')
+      return `${m}:${s}`
     }
   },
 
   async mounted() {
     await this.loadPosts()
     await this.loadPinnedPosts()
-    if (this.settingsOpen) this.initEditFields()
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach(t => t.stop())
+    } catch {}
+  },
+
+  beforeUnmount() {
+    this._removeBtnListeners()
   },
 
   watch: {
-    channel: {
-      immediate: true,
-      handler(val) {
-        if (val) { this.loadPosts(); this.loadPinnedPosts() }
+    channel(val) {
+      if (val) {
+        this.posts = []
+        this.pinnedPosts = []
+        this.loadPosts()
+        this.loadPinnedPosts()
       }
     },
-    settingsOpen(val) {
-      if (val) this.initEditFields()
+    settingsOpen(val) { if (val) this.initEditFields() },
+    voiceMode(val) {
+      this._removeBtnListeners()
+      if (val) this.$nextTick(() => this._addBtnListeners())
     }
   },
 
@@ -293,11 +296,8 @@ export default {
         const data = await res.json()
         this.posts = (data.posts || []).reverse()
         this.hasMore = (data.posts || []).length === 50
-      } catch (e) {
-        console.error('loadPosts error', e)
-      } finally {
-        this.loading = false
-      }
+      } catch (e) { console.error('loadPosts error', e) }
+      finally { this.loading = false }
     },
 
     async loadPinnedPosts() {
@@ -309,9 +309,7 @@ export default {
         if (!res.ok) return
         const data = await res.json()
         this.pinnedPosts = data.posts || []
-      } catch (e) {
-        console.error('loadPinnedPosts error', e)
-      }
+      } catch (e) { console.error('loadPinnedPosts error', e) }
     },
 
     async loadMorePosts() {
@@ -329,11 +327,8 @@ export default {
         const older = (data.posts || []).reverse()
         if (!older.length) { this.hasMore = false; return }
         this.posts = [...older, ...this.posts]
-      } catch (e) {
-        console.error('loadMorePosts error', e)
-      } finally {
-        this.loadingMore = false
-      }
+      } catch (e) { console.error('loadMorePosts error', e) }
+      finally { this.loadingMore = false }
     },
 
     onScroll() {
@@ -342,18 +337,21 @@ export default {
       if (el.scrollTop < 100 && this.hasMore && !this.loadingMore) this.loadMorePosts()
     },
 
+    onSendClick() {
+      if (this.newPostContent.trim()) {
+        this.submitPost()
+      } else {
+        this.voiceMode = !this.voiceMode
+      }
+    },
+
     async submitPost() {
       const content = this.newPostContent.trim()
       if (!content) return
-
-      if (this.editingPost) {
-        await this.updatePost(content)
-      } else {
-        await this.createPost(content)
-      }
+      if (this.editingPost) { await this.updatePost(content) }
+      else { await this.createPost(content) }
       this.newPostContent = ''
       this.editingPost = null
-      this.$nextTick(() => { if (this.$refs.postInput) this.$refs.postInput.style.height = 'auto' })
     },
 
     async createPost(content) {
@@ -370,9 +368,7 @@ export default {
           const el = this.$refs.postsArea
           if (el) el.scrollTop = el.scrollHeight
         })
-      } catch (e) {
-        console.error('createPost error', e)
-      }
+      } catch (e) { console.error('createPost error', e) }
     },
 
     async updatePost(content) {
@@ -386,9 +382,7 @@ export default {
         const data = await res.json()
         const idx = this.posts.findIndex(p => p.id === data.post.id)
         if (idx !== -1) this.posts[idx] = data.post
-      } catch (e) {
-        console.error('updatePost error', e)
-      }
+      } catch (e) { console.error('updatePost error', e) }
     },
 
     async deletePost(postId) {
@@ -399,9 +393,7 @@ export default {
         if (!res.ok) return
         this.posts = this.posts.filter(p => p.id !== postId)
         this.pinnedPosts = this.pinnedPosts.filter(p => p.id !== postId)
-      } catch (e) {
-        console.error('deletePost error', e)
-      }
+      } catch (e) { console.error('deletePost error', e) }
     },
 
     async togglePin(post) {
@@ -415,21 +407,16 @@ export default {
         const idx = this.posts.findIndex(p => p.id === post.id)
         if (idx !== -1) this.posts[idx] = { ...this.posts[idx], pinned: !post.pinned }
         await this.loadPinnedPosts()
-      } catch (e) {
-        console.error('togglePin error', e)
-      }
+      } catch (e) { console.error('togglePin error', e) }
     },
 
     startEdit(post) {
       this.editingPost = post
       this.newPostContent = post.content
-      this.$nextTick(() => { this.$refs.postInput?.focus(); this.autoResize() })
+      this.$nextTick(() => this.$refs.postInput?.focus())
     },
 
-    cancelEdit() {
-      this.editingPost = null
-      this.newPostContent = ''
-    },
+    cancelEdit() { this.editingPost = null; this.newPostContent = '' },
 
     onSearchInput() {
       clearTimeout(this.searchDebounce)
@@ -446,9 +433,7 @@ export default {
         if (!res.ok) return
         const data = await res.json()
         this.searchResults = (data.posts || []).reverse()
-      } catch (e) {
-        console.error('search error', e)
-      }
+      } catch (e) { console.error('search error', e) }
     },
 
     async saveSettings() {
@@ -458,44 +443,158 @@ export default {
         const res = await apiFetch(url.toString(), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: this.editName,
-            handle: this.editHandle,
-            description: this.editDescription,
-            type: this.editType
-          })
+          body: JSON.stringify({ name: this.editName, handle: this.editHandle, description: this.editDescription, type: this.editType })
         })
         if (!res.ok) return
         const data = await res.json()
         this.$emit('channel-updated', data.channel)
         this.settingsOpen = false
-      } catch (e) {
-        console.error('saveSettings error', e)
+      } catch (e) { console.error('saveSettings error', e) }
+    },
+
+    async openInvite() {
+      this.inviteOpen = true; this.inviteLink = ''; this.inviteCopied = false; this.inviteLoading = true
+      try {
+        const res = await apiFetch(`${BASE}/channels/${this.channel.id}/invites`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ created_by: this.currentUserId })
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        const token = data.invite?.token || ''
+        this.inviteLink = `${import.meta.env.VITE_APP_URL || window.location.origin}/invite/${token}`
+      } catch (e) { console.error('openInvite error', e) }
+      finally { this.inviteLoading = false }
+    },
+
+    async copyInviteLink() {
+      if (!this.inviteLink) return
+      try {
+        await navigator.clipboard.writeText(this.inviteLink)
+        this.inviteCopied = true
+        setTimeout(() => { this.inviteCopied = false }, 2000)
+      } catch {}
+    },
+
+    // Voice recording
+    _addBtnListeners() {
+      const btn = this.$refs.voiceBtn
+      if (!btn) return
+
+      this._onPressDown = () => {
+        this._isLongPress = false
+        clearTimeout(this._pressTimer)
+        this._pressTimer = setTimeout(() => { this._isLongPress = true; this.startVoice() }, 300)
       }
+      this._onPressUp = () => {
+        clearTimeout(this._pressTimer)
+        if (this.isRecordingVoice) { this.stopVoice() }
+        else if (!this._isLongPress) { this.voiceMode = false }
+        this._isLongPress = false
+      }
+      this._onTouchStart = (e) => { e.preventDefault(); this._isLongPress = false; clearTimeout(this._pressTimer); this._pressTimer = setTimeout(() => { this._isLongPress = true; this.startVoice() }, 300) }
+      this._onTouchEnd   = (e) => { e.preventDefault(); clearTimeout(this._pressTimer); if (this.isRecordingVoice) { this.stopVoice() } else if (!this._isLongPress) { this.voiceMode = false }; this._isLongPress = false }
+      this._onMouseLeave = () => { clearTimeout(this._pressTimer); if (this.isRecordingVoice) this.stopVoice(); this._isLongPress = false }
+
+      btn.addEventListener('mousedown', this._onPressDown)
+      btn.addEventListener('mouseup', this._onPressUp)
+      btn.addEventListener('mouseleave', this._onMouseLeave)
+      btn.addEventListener('touchstart', this._onTouchStart, { passive: false })
+      btn.addEventListener('touchend', this._onTouchEnd, { passive: false })
+      btn.addEventListener('touchcancel', this._onTouchEnd, { passive: false })
     },
 
-    autoResize() {
-      const el = this.$refs.postInput
-      if (!el) return
-      el.style.height = 'auto'
-      el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+    _removeBtnListeners() {
+      const btn = this.$refs.voiceBtn
+      if (!btn) return
+      if (this._onPressDown)  btn.removeEventListener('mousedown',  this._onPressDown)
+      if (this._onPressUp)    btn.removeEventListener('mouseup',    this._onPressUp)
+      if (this._onMouseLeave) btn.removeEventListener('mouseleave', this._onMouseLeave)
+      if (this._onTouchStart) btn.removeEventListener('touchstart', this._onTouchStart)
+      if (this._onTouchEnd)   { btn.removeEventListener('touchend', this._onTouchEnd); btn.removeEventListener('touchcancel', this._onTouchEnd) }
     },
 
-    // Called from parent when WS event arrives
+    async startVoice() {
+      if (this.isRecordingVoice) return
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        this.voiceChunks = []; this.waveformData = []
+        this.audioContext = new AudioContext()
+        this.analyser = this.audioContext.createAnalyser()
+        this.analyser.fftSize = 256
+        this.audioContext.createMediaStreamSource(stream).connect(this.analyser)
+
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+          : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm'
+
+        this.voiceMediaRecorder = new MediaRecorder(stream, { mimeType })
+        this.voiceMediaRecorder.ondataavailable = e => { if (e.data.size > 0) this.voiceChunks.push(e.data) }
+        this.voiceMediaRecorder.onstop = this.handleVoiceStop
+        this.voiceMediaRecorder.start()
+        this.isRecordingVoice = true
+        this.voiceTimerSeconds = 0
+        this.voiceTimerInterval = setInterval(() => this.voiceTimerSeconds++, 1000)
+        this.waveformInterval = setInterval(() => {
+          const arr = new Uint8Array(this.analyser.frequencyBinCount)
+          this.analyser.getByteFrequencyData(arr)
+          this.waveformData.push(arr.reduce((a, b) => a + b, 0) / arr.length / 255)
+        }, 100)
+      } catch (e) { console.error('Microphone error', e) }
+    },
+
+    stopVoice() {
+      if (!this.voiceMediaRecorder || !this.isRecordingVoice) return
+      this.isRecordingVoice = false
+      clearInterval(this.voiceTimerInterval)
+      clearInterval(this.waveformInterval)
+      if (this.audioContext) { this.audioContext.close(); this.audioContext = null }
+      this.voiceMediaRecorder.requestData()
+      this.voiceMediaRecorder.stream.getTracks().forEach(t => t.stop())
+      this.voiceMediaRecorder.stop()
+    },
+
+    async handleVoiceStop() {
+      if (!this.voiceChunks.length) return
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm'
+      const blob = new Blob(this.voiceChunks, { type: mimeType })
+      const ext  = mimeType.includes('mp4') ? '.mp4' : '.webm'
+
+      const form = new FormData()
+      form.append('file', blob, `voice_${Date.now()}${ext}`)
+      form.append('chat_id', String(this.channel.id))
+      form.append('sender_id', String(this.currentUserId))
+      form.append('recipient_id', String(this.currentUserId)) // channel posts
+      form.append('waveform', JSON.stringify(this.waveformData))
+      form.append('duration', String(this.voiceTimerSeconds))
+
+      try {
+        const res = await fetch(`${VOICE_BASE}/voice/upload`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${getCookie('access_token') || ''}` },
+          body: form
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        // Сохраняем как пост в канале
+        if (data.message?.content) {
+          await this.createPost(data.message.content)
+        }
+      } catch (e) { console.error('Voice upload error', e) }
+      finally { this.voiceMode = false }
+    },
+
+    // Called from parent (WS)
     handleNewPost(post) {
       if (this.posts.find(p => p.id === post.id)) return
       this.posts.push(post)
-      this.$nextTick(() => {
-        const el = this.$refs.postsArea
-        if (el) el.scrollTop = el.scrollHeight
-      })
+      this.$nextTick(() => { const el = this.$refs.postsArea; if (el) el.scrollTop = el.scrollHeight })
     },
-
     handleDeletePost(postId) {
       this.posts = this.posts.filter(p => p.id !== postId)
       this.pinnedPosts = this.pinnedPosts.filter(p => p.id !== postId)
     },
-
     handleUpdatePost(post) {
       const idx = this.posts.findIndex(p => p.id === post.id)
       if (idx !== -1) this.posts[idx] = { ...this.posts[idx], ...post }
@@ -513,12 +612,10 @@ export default {
 .channel-view.theme-light { background: #f5f6fc; }
 
 .channel-header {
-  flex-shrink: 0; height: 78px; min-height: 78px;
-  padding: 14px 20px;
+  flex-shrink: 0; height: 78px; min-height: 78px; padding: 14px 20px;
   display: flex; align-items: center; justify-content: space-between;
   border-bottom: 1px solid rgba(255,255,255,0.05);
-  background: rgba(255,255,255,0.015);
-  position: relative;
+  background: rgba(255,255,255,0.015); position: relative;
 }
 .theme-light .channel-header { background: #fff; border-bottom-color: #e4e6f0; }
 
@@ -538,16 +635,12 @@ export default {
 .icon-btn {
   width: 32px; height: 32px; border-radius: 10px;
   display: grid; place-items: center;
-  color: #95a0c8; background: transparent; border: 1px solid transparent; cursor: pointer;
-  transition: all 0.15s;
+  color: #95a0c8; background: transparent; border: 1px solid transparent; cursor: pointer; transition: all 0.15s;
 }
 .icon-btn:hover, .icon-btn.active { background: rgba(110,121,255,0.15); border-color: rgba(110,121,255,0.3); color: #6e79ff; }
-
 .back-btn {
-  width: 34px; height: 34px; border-radius: 11px;
-  display: grid; place-items: center; flex-shrink: 0;
-  color: #a6afd4; background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06); cursor: pointer; transition: all 0.2s;
+  width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; flex-shrink: 0;
+  color: #a6afd4; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); cursor: pointer;
 }
 
 .search-bar {
@@ -557,105 +650,33 @@ export default {
 }
 .theme-light .search-bar { background: #fff; }
 .search-icon { color: #6e79ff; flex-shrink: 0; }
-.search-input {
-  flex: 1; background: transparent; border: none; outline: none;
-  color: #eef2ff; font-size: 14px; font-weight: 500;
-}
+.search-input { flex: 1; background: transparent; border: none; outline: none; color: #eef2ff; font-size: 14px; font-weight: 500; }
 .theme-light .search-input { color: #1a1d2e; }
 .search-input::placeholder { color: #4a5270; }
-.search-close-btn {
-  width: 26px; height: 26px; border-radius: 8px;
-  display: grid; place-items: center;
-  color: #a6afd4; background: transparent; border: none; cursor: pointer;
-}
+.search-close-btn { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; color: #a6afd4; background: transparent; border: none; cursor: pointer; }
 .search-close-btn:hover { color: #ff4d6d; }
 .search-slide-enter-active, .search-slide-leave-active { transition: opacity 0.2s, transform 0.2s; }
 .search-slide-enter-from, .search-slide-leave-to { opacity: 0; transform: translateY(-6px); }
 
 .posts-area {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
-  padding: 16px 24px; display: flex; flex-direction: column; gap: 12px;
+  padding: 16px 28px; display: flex; flex-direction: column; gap: 4px;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 48px 48px;
 }
 .posts-area::-webkit-scrollbar { width: 6px; }
 .posts-area::-webkit-scrollbar-thumb { background: rgba(148,159,212,0.16); border-radius: 999px; }
 
-.pinned-section { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
-.section-label {
-  display: flex; align-items: center; gap: 5px;
-  color: #7d87ab; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-}
+.pinned-section { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.section-label { display: flex; align-items: center; gap: 5px; color: #7d87ab; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
 
-.feed-state {
-  display: flex; align-items: center; justify-content: center;
-  flex-direction: column; gap: 10px; padding: 40px 0;
-  color: #7d87ab; font-size: 13px;
-}
-.spinner {
-  width: 22px; height: 22px; border-radius: 50%;
-  border: 2px solid rgba(110,121,255,0.2); border-top-color: #6e79ff;
-  animation: spin 0.7s linear infinite;
-}
+.feed-state { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; padding: 40px 0; color: #7d87ab; font-size: 13px; }
+.spinner { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(110,121,255,0.2); border-top-color: #6e79ff; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Post styles (used by inline ChannelPost) */
-:deep(.channel-post) {
-  padding: 14px 16px; border-radius: 14px;
-  background: rgba(20,26,50,0.7);
-  border: 1px solid rgba(255,255,255,0.06);
-  position: relative; transition: border-color 0.15s;
-}
-:deep(.channel-post:hover) { border-color: rgba(110,121,255,0.2); }
-:deep(.channel-post.pinned) { border-color: rgba(110,121,255,0.25); background: rgba(110,121,255,0.06); }
-:deep(.channel-post.theme-light) { background: #fff; border-color: #e4e6f0; }
-:deep(.channel-post.theme-light.pinned) { background: rgba(91,106,255,0.04); border-color: rgba(91,106,255,0.2); }
-
-:deep(.pin-badge) {
-  display: flex; align-items: center; gap: 4px;
-  font-size: 10px; font-weight: 700; color: #6e79ff;
-  margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;
-}
-
-:deep(.post-body) { margin-bottom: 8px; }
-:deep(.post-text) {
-  color: #dde2f8; font-size: 14px; line-height: 1.6; font-weight: 500;
-  white-space: pre-wrap; word-break: break-word;
-}
-:deep(.theme-light .post-text) { color: #1a1d2e; }
-
-:deep(.post-media-img) {
-  max-width: 100%; border-radius: 10px; margin-top: 8px; display: block;
-}
-:deep(.post-media-video) {
-  max-width: 100%; border-radius: 10px; margin-top: 8px; display: block;
-}
-:deep(.post-file) {
-  display: inline-flex; align-items: center; gap: 6px; margin-top: 8px;
-  color: #6e79ff; font-size: 13px; text-decoration: none;
-  padding: 6px 12px; border-radius: 8px; background: rgba(110,121,255,0.1);
-  border: 1px solid rgba(110,121,255,0.2);
-}
-
-:deep(.post-footer) {
-  display: flex; align-items: center; gap: 10px;
-}
-:deep(.post-time) { color: #5d6888; font-size: 11px; font-weight: 500; flex: 1; }
-:deep(.post-views) {
-  display: flex; align-items: center; gap: 3px;
-  color: #5d6888; font-size: 11px;
-}
-:deep(.post-actions) { display: flex; gap: 4px; }
-:deep(.post-action-btn) {
-  width: 26px; height: 26px; border-radius: 8px;
-  display: grid; place-items: center;
-  color: #a6afd4; background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06); cursor: pointer; transition: all 0.15s;
-}
-:deep(.post-action-btn:hover) { background: rgba(110,121,255,0.15); color: #6e79ff; border-color: rgba(110,121,255,0.3); }
-:deep(.post-action-btn.danger:hover) { background: rgba(255,77,109,0.12); color: #ff4d6d; border-color: rgba(255,77,109,0.25); }
-
 .composer-wrap {
-  flex-shrink: 0; padding: 12px 24px 16px;
+  flex-shrink: 0; padding: 12px 28px 16px;
   background: linear-gradient(180deg, rgba(8,12,24,0.18), rgba(8,12,24,0.32));
 }
 .theme-light .composer-wrap { background: #f5f6fc; }
@@ -669,66 +690,64 @@ export default {
 .edit-banner button { background: none; border: none; color: #a6afd4; cursor: pointer; font-size: 14px; }
 
 .composer {
-  display: flex; align-items: flex-end; gap: 10px;
-  padding: 10px 14px; border-radius: 18px;
+  height: 56px; display: flex; align-items: center; gap: 12px;
+  padding: 0 12px 0 16px; border-radius: 18px;
   border: 1px solid rgba(110,123,255,0.18);
   background: linear-gradient(180deg, rgba(25,30,58,0.68), rgba(18,23,46,0.78));
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18);
 }
 .theme-light .composer { background: #fff; border-color: rgba(91,106,255,0.2); }
 
 .post-input {
   flex: 1; background: transparent; border: none; outline: none;
-  color: #eef2ff; font-size: 14px; font-weight: 500; line-height: 1.5;
-  resize: none; min-height: 22px; max-height: 120px; overflow-y: auto;
-  font-family: inherit;
+  color: #eef2ff; font-size: 16px; font-weight: 500;
 }
 .theme-light .post-input { color: #1a1d2e; }
 .post-input::placeholder { color: #747ea2; }
 
 .send-btn {
   width: 34px; height: 34px; border-radius: 11px; flex-shrink: 0;
-  display: grid; place-items: center; cursor: pointer; border: none;
+  display: grid; place-items: center; cursor: pointer; border: none; position: relative;
   color: #fff; background: linear-gradient(135deg, #6e79ff, #8669ff);
-  box-shadow: 0 8px 18px rgba(94,102,255,0.28); transition: opacity 0.15s;
+  box-shadow: 0 8px 18px rgba(94,102,255,0.28);
+  user-select: none; -webkit-user-select: none; touch-action: none;
 }
-.send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.send-btn.recording { background: linear-gradient(135deg, #ff4d6d, #d93856); box-shadow: 0 0 0 4px rgba(255,77,109,0.2); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100% { box-shadow: 0 0 0 4px rgba(255,77,109,0.2); } 50% { box-shadow: 0 0 0 8px rgba(255,77,109,0.1); } }
+.rec-timer { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 700; color: #ff4d6d; white-space: nowrap; background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 6px; }
 
-.modal-overlay {
-  position: fixed; inset: 0;
-  background: rgba(5,8,18,0.6); backdrop-filter: blur(4px);
-  display: grid; place-items: center; z-index: 100;
-}
-.settings-modal {
-  background: linear-gradient(180deg, rgba(22,28,52,0.97), rgba(16,20,38,0.99));
-  border: 1px solid rgba(132,144,224,0.15);
-  border-radius: 18px; padding: 28px; width: 360px;
-  box-shadow: 0 24px 48px rgba(0,0,0,0.4);
-}
+.modal-overlay { position: fixed; inset: 0; background: rgba(5,8,18,0.6); backdrop-filter: blur(4px); display: grid; place-items: center; z-index: 100; }
+.settings-modal { background: linear-gradient(180deg, rgba(22,28,52,0.97), rgba(16,20,38,0.99)); border: 1px solid rgba(132,144,224,0.15); border-radius: 18px; padding: 28px; width: 360px; box-shadow: 0 24px 48px rgba(0,0,0,0.4); }
 .settings-modal h3 { color: #eef2ff; font-size: 16px; font-weight: 700; margin-bottom: 20px; }
 .settings-field { margin-bottom: 14px; }
 .settings-field label { display: block; color: #7d87ab; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-.settings-field input, .settings-field textarea, .settings-field select {
-  width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px; padding: 9px 12px; color: #eef2ff; font-size: 13px; outline: none;
-  font-family: inherit; box-sizing: border-box; resize: vertical;
-}
+.settings-field input, .settings-field textarea, .settings-field select { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 9px 12px; color: #eef2ff; font-size: 13px; outline: none; font-family: inherit; box-sizing: border-box; resize: vertical; }
 .settings-field textarea { min-height: 70px; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
-.btn-cancel {
-  padding: 9px 18px; border-radius: 10px;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.06);
-  color: #a6afd4; font-size: 13px; cursor: pointer;
-}
-.btn-save {
-  padding: 9px 18px; border-radius: 10px;
-  background: linear-gradient(135deg, #6e79ff, #8669ff); border: none;
-  color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
-}
+.btn-cancel { padding: 9px 18px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.06); color: #a6afd4; font-size: 13px; cursor: pointer; }
+.btn-save { padding: 9px 18px; border-radius: 10px; background: linear-gradient(135deg, #6e79ff, #8669ff); border: none; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+.invite-modal { background: linear-gradient(180deg, rgba(22,28,52,0.97), rgba(16,20,38,0.99)); border: 1px solid rgba(132,144,224,0.15); border-radius: 18px; padding: 24px; width: 380px; box-shadow: 0 24px 48px rgba(0,0,0,0.4); }
+.theme-light .invite-modal { background: #fff; border-color: #dde1f0; }
+.invite-modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.invite-modal-header h3 { color: #eef2ff; font-size: 15px; font-weight: 700; }
+.theme-light .invite-modal-header h3 { color: #1a1d2e; }
+.invite-close { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; color: #7d87ab; background: transparent; border: none; cursor: pointer; }
+.invite-close:hover { color: #ff4d6d; }
+.invite-desc { color: #7d87ab; font-size: 12px; margin-bottom: 16px; }
+.invite-loading { display: flex; justify-content: center; padding: 16px 0; }
+.invite-link-wrap { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 11px; padding: 10px 12px; }
+.theme-light .invite-link-wrap { background: #f5f6fc; border-color: #e4e6f0; }
+.invite-link-text { flex: 1; min-width: 0; color: #6e79ff; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.invite-copy-btn { display: flex; align-items: center; gap: 5px; flex-shrink: 0; padding: 6px 12px; border-radius: 8px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; color: #6e79ff; background: rgba(110,121,255,0.12); transition: all 0.15s; }
+.invite-copy-btn:hover { background: rgba(110,121,255,0.2); }
+.invite-copy-btn.copied { color: #22c55e; background: rgba(34,197,94,0.12); }
 
 @media (max-width: 760px) {
   .channel-header { height: 64px; min-height: 64px; padding: 10px 14px; }
   .posts-area { padding: 12px 14px; }
   .composer-wrap { padding: 8px 14px calc(8px + env(safe-area-inset-bottom)); }
-  .settings-modal { width: calc(100vw - 32px); }
+  .composer { height: 50px; border-radius: 16px; }
+  .settings-modal, .invite-modal { width: calc(100vw - 32px); }
 }
 </style>

@@ -17,22 +17,22 @@
         @open-profile="$emit('open-profile')"
       />
 
-      <ChannelView
-      v-if="activeChannel && !activeChat"
-      ref="channelView"
-      :channel="activeChannel"
-      :currentUserId="currentUserId"
-      :userRole="activeChannelRole"
-      :isLight="isLight"
-      :showBackButton="isMobile"
-      @back="goBackToSidebar"
-      @channel-updated="onChannelUpdated"
-      @channel-created="ch => { channels.push(ch); selectChannel(ch) }"
+      <div class="content-area" :class="{ 'mobile-hidden': mobileView === 'sidebar' }">
+
+        <ChannelView
+        v-if="activeChannel && !activeChatId"
+        ref="channelView"
+        :channel="activeChannel"
+        :currentUserId="currentUserId"
+        :userRole="activeChannelRole"
+        :isLight="isLight"
+        :showBackButton="isMobile"
+        @back="goBackToSidebar"
+        @channel-updated="onChannelUpdated"
       />
 
-      <div class="content-area" :class="{ 'mobile-hidden': mobileView === 'sidebar' }">
         <ChatWindow
-        v-if="activeChat"
+        v-if="activeChatId && !activeChannel"
         ref="chatWindow"
         :key="`${activeChatId}-${activeRecipientId}-${chatWindowKey}`"
         :chat="activeChat"
@@ -50,7 +50,7 @@
       />
 
 
-        <div v-else class="empty-chat">
+        <div v-else-if="!activeChannel && !activeChatId" class="empty-chat">
           <div class="empty-card">
             <div class="empty-logo">
               <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.9">
@@ -407,6 +407,8 @@ export default {
     },
 
     selectChat({ chatId, recipientId }) {
+      this.activeChannel = null      
+      this.activeChannelId = null
       this.activeChatId = chatId
       this.activeRecipientId = recipientId
       this.chatWindowKey++

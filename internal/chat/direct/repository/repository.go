@@ -187,11 +187,7 @@ func (repo *PostgresRepo) SendMessageRepo(ctx context.Context, message *chat_mod
 
 func (repo *PostgresRepo) GetMessagesByChatIdRepo(ctx context.Context, chatId uuid.UUID, before time.Time, limit int) ([]*chat_models.Message, error) {
 	rows, err := repo.db.Query(ctx, `
-<<<<<<< HEAD
-		SELECT id, chat_id, sender_id, content, status, created_at, type, duration, COALESCE(file_name, ''), COALESCE(file_size, 0)
-=======
-		SELECT id, chat_id, sender_id, content, status, created_at, type, duration, file_name, file_size, reply_to
->>>>>>> main
+		SELECT id, chat_id, sender_id, content, status, created_at, type, duration, COALESCE(file_name, ''), COALESCE(file_size, 0),  reply_to
 		FROM messages
 		WHERE chat_id = $1 AND created_at < $2
 		ORDER BY created_at DESC

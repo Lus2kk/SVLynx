@@ -35,7 +35,7 @@ async function refreshAccessToken() {
   }
 
   const data = await res.json()
-  setCookie('access_token', data.access_token, 60)
+  setCookie('access_token', data.access_token, 900)
   if (data.refresh_token) {
     setCookie('refresh_token', data.refresh_token, 2592000)
   }
