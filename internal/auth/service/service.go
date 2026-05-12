@@ -353,6 +353,8 @@ func (s *Service) TelegramCallback(ctx context.Context, telegramToken string, re
 		return nil, apperrors.ErrInvalidHash
 	}
 
+	slog.Info("telegram callback", "username", req.Username, "photo_url", req.PhotoURL)
+
 	if time.Now().Unix()-req.AuthDate > 86400 {
 		slog.Warn("auth data expired", "telegram_id", req.ID, "auth_date", req.AuthDate)
 		return nil, apperrors.ErrAuthExpired
@@ -368,13 +370,23 @@ func (s *Service) TelegramCallback(ctx context.Context, telegramToken string, re
 		if err := s.userRepo.SaveUserTelegram(
 			ctx,
 			req.ID,
-			req.Username, 
+			req.Username,
 			req.FirstName,
 			req.LastName,
 			req.PhotoURL); err != nil {
-				slog.Warn("error when save telegram user", "telegram_id", req.ID, "err", err)
-				return nil, apperrors.ErrInternal
-			}
+			slog.Warn("error when save telegram user", "telegram_id", req.ID, "err", err)
+			return nil, apperrors.ErrInternal
+		}
+	} else {
+		if err := s.userRepo.UpdateTelegramUser(
+			ctx,
+			req.ID,
+			req.Username,
+			req.FirstName,
+			req.LastName,
+			req.PhotoURL); err != nil {
+			slog.Warn("error updating telegram user", "telegram_id", req.ID, "err", err)
+		}
 	}
 
 	user, err := s.userRepo.GetUserByTgID(ctx, req.ID)
@@ -385,23 +397,23 @@ func (s *Service) TelegramCallback(ctx context.Context, telegramToken string, re
 
 	accessToken, err := jwt.GenerateAccessToken(user.ID, s.jwtSecret)
 	if err != nil {
-		slog.Warn("error when generate access token", "user_id", user.ID ,"err", err)
+		slog.Warn("error when generate access token", "user_id", user.ID, "err", err)
 		return nil, apperrors.ErrInternal
 	}
 
 	refreshToken, err := jwt.GenerateRefreshToken(user.ID, s.jwtSecret)
 	if err != nil {
-		slog.Warn("error when generate refresh token", "user_id", user.ID ,"err", err)
+		slog.Warn("error when generate refresh token", "user_id", user.ID, "err", err)
 		return nil, apperrors.ErrInternal
 	}
-	
+
 	if err := s.repo.SaveRefreshToken(ctx, refreshToken, user.ID); err != nil {
-		slog.Warn("error when save refresh token","user_id", user.ID, "err", err)
+		slog.Warn("error when save refresh token", "user_id", user.ID, "err", err)
 		return nil, apperrors.ErrInternal
 	}
 
 	return &auth_models.TokenPair{
-		AccessToken: accessToken,
+		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
 }

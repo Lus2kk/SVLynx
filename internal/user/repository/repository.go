@@ -126,7 +126,8 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*user_mo
 			COALESCE(name, ''),
 			COALESCE(avatar_color, ''),
 			COALESCE(status, ''),
-			profile_completed
+			profile_completed,
+			COALESCE(is_developer, false)
 		FROM users
 		WHERE email = $1
 	`, email).Scan(
@@ -142,6 +143,7 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*user_mo
 		&u.AvatarColor,
 		&u.Status,
 		&u.ProfileCompleted,
+		&u.IsDeveloper,
 	)
 
 	return u, err
@@ -163,7 +165,8 @@ func (r *Repository) GetUserByTgID(ctx context.Context, telegramID int64) (*user
 			COALESCE(name, ''),
 			COALESCE(avatar_color, ''),
 			COALESCE(status, ''),
-			profile_completed
+			profile_completed,
+			COALESCE(is_developer, false)
 		FROM users
 		WHERE telegram_id = $1
 	`, telegramID).Scan(
@@ -179,6 +182,7 @@ func (r *Repository) GetUserByTgID(ctx context.Context, telegramID int64) (*user
 		&u.AvatarColor,
 		&u.Status,
 		&u.ProfileCompleted,
+		&u.IsDeveloper,
 	)
 
 	return u, err
@@ -200,7 +204,8 @@ func (r *Repository) GetUserByUserID(ctx context.Context, userID string) (*user_
 			COALESCE(name, ''),
 			COALESCE(avatar_color, ''),
 			COALESCE(status, ''),
-			profile_completed
+			profile_completed,
+			COALESCE(is_developer, false)
 		FROM users
 		WHERE id = $1
 	`, userID).Scan(
@@ -216,6 +221,7 @@ func (r *Repository) GetUserByUserID(ctx context.Context, userID string) (*user_
 		&u.AvatarColor,
 		&u.Status,
 		&u.ProfileCompleted,
+		&u.IsDeveloper,
 	)
 
 	return u, err
@@ -268,7 +274,8 @@ func (r *Repository) SearchUsers(
             COALESCE(name, ''),
             COALESCE(avatar_color, ''),
             COALESCE(status, ''),
-            profile_completed
+            profile_completed,
+			COALESCE(is_developer, false)
         FROM users
         WHERE id != $1
           AND (
@@ -307,6 +314,7 @@ func (r *Repository) SearchUsers(
             &u.AvatarColor,
             &u.Status,
             &u.ProfileCompleted,
+			&u.IsDeveloper,
         ); err != nil {
             return nil, err
         }

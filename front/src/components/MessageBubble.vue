@@ -26,6 +26,7 @@
         class="message-bubble"
         :class="{ mine: isMine, theirs: !isMine, highlight: highlight, 'highlight-active': highlightActive }"
         @touchstart="onTouchStart"
+         @touchend.prevent="onTouchEnd"
         @touchend.stop="onTouchEnd"
         @touchmove="onTouchCancel"
         @touchcancel="onTouchCancel"
@@ -196,7 +197,7 @@ export default {
       this.menuOpen = true
     },
 
-    onReply()  { this.$emit('reply', this.message); this.closeMenu() },
+    onReply() { this.$emit('reply', this.message); this.closeMenu() },
     onDelete() { this.$emit('delete', this.message.id); this.closeMenu() },
     onSelect() { this.$emit('select', this.message); this.closeMenu() },
 
@@ -206,11 +207,13 @@ export default {
         this._justOpened = true
       }, 500)
     },
-    onTouchEnd() { clearTimeout(this.pressTimer) },
+    onTouchEnd() { 
+  clearTimeout(this.pressTimer) 
+},
     closeMenu() {
-      if (this._justOpened) { this._justOpened = false; return }
-      this.menuOpen = false
-    },
+  this._justOpened = false
+  this.menuOpen = false
+},
     onTouchCancel() { clearTimeout(this.pressTimer) },
 
     getDurationText() {
@@ -369,4 +372,9 @@ export default {
 .message-row { animation: msgFade 0.2s ease-out both; }
 .message-bubble.highlight { outline: 2px solid rgba(110,121,255,0.5); outline-offset: 2px; }
 .message-bubble.highlight-active { outline: 2px solid #6e79ff; outline-offset: 2px; box-shadow: 0 0 0 4px rgba(110,121,255,0.15); }
+.message-bubble {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
 </style>

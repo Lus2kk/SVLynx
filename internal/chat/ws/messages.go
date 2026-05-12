@@ -20,6 +20,7 @@ const (
 	MarkAsRead          EventType = "mark_as_read"
 	NewChat             EventType = "new_chat"
 	DeleteChat          EventType = "delete_chat"
+	Typing              EventType = "typing"
 
 	// channel
 	NewChannelPost    EventType = "new_channel_post"
@@ -33,9 +34,15 @@ const (
 	ChannelUpdated    EventType = "channel_updated"
 )
 
+type TypingPayload struct {
+	ChatID      uuid.UUID `json:"chat_id"`
+	SenderID    uuid.UUID `json:"sender_id"`
+	RecipientID uuid.UUID `json:"recipient_id"`
+}
+
 type DeleteChatPayload struct {
-    ChatID      uuid.UUID `json:"chat_id"`
-    RecipientID uuid.UUID `json:"recipient_id"`
+	ChatID      uuid.UUID `json:"chat_id"`
+	RecipientID uuid.UUID `json:"recipient_id"`
 }
 
 type NewChatPayload struct {
