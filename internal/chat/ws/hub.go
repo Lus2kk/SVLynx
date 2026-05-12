@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	channel_repo "github.com/svlynx/messenger/internal/chat/channel/repo"
 	chat_service "github.com/svlynx/messenger/internal/chat/direct/service"
 )
 
@@ -19,9 +20,10 @@ type Hub struct {
 	mutex      sync.RWMutex
 	Mservice   *chat_service.MessageService
 	Dservice   *chat_service.DirectService
+	CRepo      channel_repo.ChannelRepo
 }
 
-func NewHub(Mservice *chat_service.MessageService, Dservice *chat_service.DirectService) *Hub {
+func NewHub(Mservice *chat_service.MessageService, Dservice *chat_service.DirectService, CRepo channel_repo.ChannelRepo) *Hub {
 	return &Hub{
 		clients:    make(map[uuid.UUID]*Client),
 		register:   make(chan *Client),
@@ -29,6 +31,7 @@ func NewHub(Mservice *chat_service.MessageService, Dservice *chat_service.Direct
 		broadcast:  make(chan []byte),
 		Mservice:   Mservice,
 		Dservice:   Dservice,
+		CRepo:      CRepo,
 	}
 }
 
@@ -65,6 +68,34 @@ func (h *Hub) BroadcastExcept(exceptUserID uuid.UUID, message []byte) {
 		default:
 			slog.Warn("client buffer full", "user_id", userID)
 		}
+	}
+}
+
+func (h *Hub) broadcastToChannelMembers(ctx context.Context, channelID uuid.UUID, exceptUserID uuid.UUID, message []byte) {
+	const pageSize = 200
+	offset := 0
+
+	for {
+		members, err := h.CRepo.GetMembersRepo(ctx, channelID, pageSize, offset)
+		if err != nil {
+			slog.Error("broadcastToChannelMembers: GetMembersRepo error", "channel_id", channelID, "error", err)
+			return
+		}
+		if len(members) == 0 {
+			break
+		}
+
+		for _, m := range members {
+			if m.UserID == exceptUserID {
+				continue
+			}
+			h.SendToUser(m.UserID, message)
+		}
+
+		if len(members) < pageSize {
+			break
+		}
+		offset += pageSize
 	}
 }
 
@@ -226,6 +257,135 @@ func (h *Hub) Run() {
 				}
 
 				h.SendToUser(payload.RecipientID, responsePayload)
+
+			case NewChannelPost:
+				var payload NewChannelPostPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal new_channel_post payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    NewChannelPost,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling new_channel_post response", "error", err)
+					continue
+				}
+				h.broadcastToChannelMembers(context.Background(), payload.ChannelID, payload.AuthorID, responsePayload)
+
+			case UpdateChannelPost:
+				var payload UpdateChannelPostPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal update_channel_post payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    UpdateChannelPost,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling update_channel_post response", "error", err)
+					continue
+				}
+				h.broadcastToChannelMembers(context.Background(), payload.ChannelID, uuid.Nil, responsePayload)
+
+			case DeleteChannelPost:
+				var payload DeleteChannelPostPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal delete_channel_post payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    DeleteChannelPost,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling delete_channel_post response", "error", err)
+					continue
+				}
+				h.broadcastToChannelMembers(context.Background(), payload.ChannelID, uuid.Nil, responsePayload)
+
+			case PinChannelPost:
+				var payload PinChannelPostPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal pin_channel_post payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    PinChannelPost,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling pin_channel_post response", "error", err)
+					continue
+				}
+				h.broadcastToChannelMembers(context.Background(), payload.ChannelID, uuid.Nil, responsePayload)
+
+			case ChannelMemberJoin:
+				// Уведомляем всех участников что кто-то вступил
+				var payload ChannelMemberEventPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal channel_member_join payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    ChannelMemberJoin,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling channel_member_join response", "error", err)
+					continue
+				}
+				h.broadcastToChannelMembers(context.Background(), payload.ChannelID, payload.UserID, responsePayload)
+
+			case ChannelMemberLeft:
+				var payload ChannelMemberEventPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal channel_member_left payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    ChannelMemberLeft,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling channel_member_left response", "error", err)
+					continue
+				}
+				h.broadcastToChannelMembers(context.Background(), payload.ChannelID, payload.UserID, responsePayload)
+
+			case ChannelDeleted:
+				var payload ChannelDeletedPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal channel_deleted payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    ChannelDeleted,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling channel_deleted response", "error", err)
+					continue
+				}
+				h.broadcastToChannelMembers(context.Background(), payload.ChannelID, uuid.Nil, responsePayload)
+
+			case ChannelUpdated:
+				var payload ChannelUpdatedPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal channel_updated payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    ChannelUpdated,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling channel_updated response", "error", err)
+					continue
+				}
+				h.broadcastToChannelMembers(context.Background(), payload.ChannelID, uuid.Nil, responsePayload)
 			}
 		}
 	}

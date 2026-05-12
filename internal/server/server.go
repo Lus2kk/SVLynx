@@ -84,10 +84,12 @@ func NewServer(cfg *config.Config) *Server {
 	pushHandler := push.NewHandler(pushRepo, cfg.JWTSecret)
 	pushSender := push.NewSender(pushRepo, cfg.VAPIDPrivateKey, cfg.VAPIDPublicKey, cfg.VAPIDEmail)
 
-	hub := ws.NewHub(messageService, directService)
+	channelRepo := channel_repo.NewPostgresChannelRepo(db)
+
+	hub := ws.NewHub(messageService, directService, channelRepo)
 	go hub.Run()
 
-	channelRepo := channel_repo.NewPostgresChannelRepo(db)
+	
 	channelService := channel_service.NewChannelService(channelRepo)
 	channelHandler := channel_handler.NewChannelHandler(channelService, hub)
 
