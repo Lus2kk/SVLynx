@@ -4,27 +4,19 @@
       <header class="sidebar-header">
         <div class="brand">
           <div class="brand-mark" aria-label="SVLynx logo">
-  <!-- Lynx mark: pointed ears + diamond face. Replaces generic chat-bubble. -->
-  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M4 4 L7 9 L4 11" />
-    <path d="M20 4 L17 9 L20 11" />
-    <circle cx="12" cy="14" r="3.6" />
-    <circle cx="10.5" cy="13.6" r="0.55" fill="currentColor" stroke="none" />
-    <circle cx="13.5" cy="13.6" r="0.55" fill="currentColor" stroke="none" />
-  </svg>
-</div>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4 L7 9 L4 11" />
+              <path d="M20 4 L17 9 L20 11" />
+              <circle cx="12" cy="14" r="3.6" />
+              <circle cx="10.5" cy="13.6" r="0.55" fill="currentColor" stroke="none" />
+              <circle cx="13.5" cy="13.6" r="0.55" fill="currentColor" stroke="none" />
+            </svg>
+          </div>
           <div class="brand-text">
             <span class="brand-main">SV</span><span class="brand-accent">Lynx</span>
           </div>
         </div>
-
-        <button
-          class="header-btn"
-          :class="{ 'delete-mode-active': deleteMode }"
-          title="Manage chats"
-          type="button"
-          @click="deleteMode = !deleteMode"
-        >
+        <button class="header-btn" :class="{ 'delete-mode-active': deleteMode }" title="Управление чатами" type="button" @click="deleteMode = !deleteMode">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M5 20h14"></path>
             <path d="M15.5 4.5l4 4L10 18l-4 1 1-4 9.5-10.5z"></path>
@@ -38,47 +30,44 @@
             <circle cx="11" cy="11" r="7"></circle>
             <path d="M20 20l-3.5-3.5"></path>
           </svg>
-          <input
-            v-model="search"
-            type="text"
-            class="search-input"
-            placeholder="Поиск..."
-          />
+          <input v-model="search" type="text" class="search-input" placeholder="Поиск..." />
         </div>
       </div>
 
       <div class="sidebar-tabs">
-        <button class="tab-btn" :class="{ active: activeTab === 'all' }" type="button" @click="activeTab = 'all'">All</button>
-        <button class="tab-btn" :class="{ active: activeTab === 'chats' }" type="button" @click="activeTab = 'chats'">Chats</button>
-        <button class="tab-btn" :class="{ active: activeTab === 'groups' }" type="button" @click="activeTab = 'groups'">Groups</button>
-        <button class="tab-btn" :class="{ active: activeTab === 'channels' }" type="button" @click="activeTab = 'channels'">Channels</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'all' }" type="button" @click="activeTab = 'all'">Все</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'chats' }" type="button" @click="activeTab = 'chats'">Чаты</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'groups' }" type="button" @click="activeTab = 'groups'">Группы</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'channels' }" type="button" @click="activeTab = 'channels'">Каналы</button>
       </div>
 
       <div class="sidebar-list">
         <template v-if="search.trim().length > 0">
-          <div v-if="isSearching" class="list-state">Searching...</div>
+          <div v-if="isSearching" class="list-state">Поиск...</div>
 
-         <div
-          v-else
-          v-for="user in searchResults"
-          :key="user.id"
-          class="chat-item"
-          @touchstart="onTouchStart"
-          @touchmove="onTouchMove"
-          @click="() => { if (!scrolling) handleStartChat(user.id, user.nickname) }"
-        >
+          <div
+            v-else
+            v-for="user in searchResults"
+            :key="user.id"
+            class="chat-item"
+            @touchstart="onTouchStart"
+            @touchmove="onTouchMove"
+            @click="() => { if (!scrolling) handleStartChat(user.id, user.nickname) }"
+          >
             <div class="chat-avatar-wrap">
-  <div class="chat-avatar" :style="!getAvatarUrl(direct) ? { background: direct.companion_avatar_color || 'linear-gradient(135deg, #6572ff, #8a67ff)' } : {}">
-    <img v-if="getAvatarUrl(direct)" :src="getAvatarUrl(direct)" alt="" class="avatar-image"
-      @error="e => { e.target.style.display='none'; e.target.parentElement.style.background = direct.companion_avatar_color || 'linear-gradient(135deg, #6572ff, #8a67ff)' }"
-    />
-    <span v-else>{{ getAvatarLetter(direct) }}</span>
-  </div>
-  <span v-if="isUserOnline(getRecipientId(direct))" class="online-dot"></span>
-</div>
+              <div class="chat-avatar" :style="!user.photo_url ? { background: user.avatar_color || 'linear-gradient(135deg, #6572ff, #8a67ff)' } : {}">
+                <img v-if="user.photo_url" :src="user.photo_url" alt="" class="avatar-image"
+                  @error="e => { e.target.style.display='none'; e.target.parentElement.style.background = user.avatar_color || 'linear-gradient(135deg, #6572ff, #8a67ff)' }"
+                />
+                <span v-else>{{ (user.name || user.first_name || user.nickname)?.[0]?.toUpperCase() || '?' }}</span>
+              </div>
+            </div>
             <div class="chat-body">
               <div class="chat-topline">
-                <span class="chat-name">{{ user.name || (user.first_name ? (user.first_name + (user.last_name ? ' ' + user.last_name : '')) : null) || user.nickname || user.username || 'Unknown' }}</span>
+                <span class="chat-name-wrap">
+                  <span class="chat-name">{{ user.name || (user.first_name ? (user.first_name + (user.last_name ? ' ' + user.last_name : '')) : null) || user.nickname || user.username || 'Без имени' }}</span>
+                  <span v-if="user.is_developer" class="dev-star" aria-label="Разработчик" title="Разработчик">★</span>
+                </span>
               </div>
               <div class="chat-bottomline">
                 <span class="chat-preview">@{{ user.nickname || user.username || '' }}</span>
@@ -86,40 +75,44 @@
             </div>
           </div>
 
-          <div v-if="!isSearching && searchResults.length === 0" class="list-state">No users found</div>
+          <div v-if="!isSearching && searchResults.length === 0" class="list-state">Пользователи не найдены</div>
         </template>
 
         <template v-else>
-          <div
-            v-for="direct in filteredDirects"
-            :key="direct.id"
-            class="chat-item-wrap"
-          >
+          <div v-for="direct in filteredDirects" :key="direct.id" class="chat-item-wrap">
             <button
               class="chat-item"
               :class="{ active: String(activeId) === String(direct.id) }"
               type="button"
               @click="!deleteMode && $emit('select', { chatId: direct.id, recipientId: getRecipientId(direct) })"
             >
-              <div class="chat-avatar" :style="!getAvatarUrl(direct) ? { background: direct.companion_avatar_color || 'linear-gradient(135deg, #6572ff, #8a67ff)' } : {}">
-                <img v-if="getAvatarUrl(direct)" :src="getAvatarUrl(direct)" alt="" class="avatar-image" />
-                <span v-else>{{ getAvatarLetter(direct) }}</span>
+              <div class="chat-avatar-wrap">
+                <div class="chat-avatar" :style="!getAvatarUrl(direct) ? { background: direct.companion_avatar_color || 'linear-gradient(135deg, #6572ff, #8a67ff)' } : {}">
+                  <img v-if="getAvatarUrl(direct)" :src="getAvatarUrl(direct)" alt="" class="avatar-image"
+                    @error="e => { e.target.style.display='none'; e.target.parentElement.style.background = direct.companion_avatar_color || 'linear-gradient(135deg, #6572ff, #8a67ff)' }"
+                  />
+                  <span v-else>{{ getAvatarLetter(direct) }}</span>
+                </div>
+                <span v-if="isUserOnline(getRecipientId(direct))" class="online-dot"></span>
               </div>
 
               <div class="chat-body">
                 <div class="chat-topline">
-  <span class="chat-name">{{ getRecipientName(direct) }}</span>
-  <span class="chat-time-wrap">
-    <span v-if="isLastMessageMine(direct)" class="chat-tick" :class="{ read: isLastMessageRead(direct) }">
-  <svg viewBox="0 0 20 10" width="17" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M2 5 L5 8 L10 2"/>
-    <path d="M7 5 L10 8 L15 2"/>
-    <circle v-if="isLastMessageRead(direct)" cx="17.5" cy="7.5" r="1.1" fill="currentColor" stroke="none"/>
-  </svg>
-</span>
-    <span class="chat-time">{{ getChatTime(direct) }}</span>
-  </span>
-</div>
+                  <span class="chat-name-wrap">
+                    <span class="chat-name">{{ getRecipientName(direct) }}</span>
+                    <span v-if="direct.companion_is_developer" class="dev-star" aria-label="Разработчик" title="Разработчик">★</span>
+                  </span>
+                  <span class="chat-time-wrap">
+                    <span v-if="isLastMessageMine(direct)" class="chat-tick" :class="{ read: isLastMessageRead(direct) }">
+                      <svg viewBox="0 0 20 10" width="17" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2 5 L5 8 L10 2"/>
+                        <path d="M7 5 L10 8 L15 2"/>
+                        <circle v-if="isLastMessageRead(direct)" cx="17.5" cy="7.5" r="1.1" fill="currentColor" stroke="none"/>
+                      </svg>
+                    </span>
+                    <span class="chat-time">{{ getChatTime(direct) }}</span>
+                  </span>
+                </div>
                 <div class="chat-bottomline">
                   <span class="chat-preview">{{ getChatPreview(direct) }}</span>
                   <span v-if="getUnreadCount(direct) > 0" class="unread-badge">{{ getUnreadCount(direct) }}</span>
@@ -127,13 +120,7 @@
               </div>
             </button>
 
-            <button
-              v-if="deleteMode"
-              class="delete-chat-btn"
-              type="button"
-              title="Delete chat"
-              @click="askDeleteChat(direct)"
-            >
+            <button v-if="deleteMode" class="delete-chat-btn" type="button" title="Удалить чат" @click="askDeleteChat(direct)">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path d="M3 6h18"></path>
                 <path d="M8 6V4.8c0-.99.81-1.8 1.8-1.8h4.4c.99 0 1.8.81 1.8 1.8V6"></path>
@@ -143,22 +130,21 @@
           </div>
 
           <div v-if="filteredDirects.length === 0" class="list-state">
-            <span v-if="activeTab === 'chats' || activeTab === 'all'">No chats yet. Search to start one.</span>
-            <span v-else>No {{ activeTab }} yet.</span>
+            <span v-if="activeTab === 'chats' || activeTab === 'all'">Чатов пока нет. Найдите собеседника через поиск.</span>
+            <span v-else>Пока пусто.</span>
           </div>
         </template>
       </div>
 
       <footer class="sidebar-footer">
         <div class="footer-actions">
-          <button class="footer-btn" title="My profile" type="button" @click="$emit('open-profile')">
+          <button class="footer-btn" title="Мой профиль" type="button" @click="$emit('open-profile')">
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8">
               <circle cx="12" cy="8" r="4"></circle>
               <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"></path>
             </svg>
           </button>
-
-          <button class="footer-btn" title="Toggle theme" type="button" @click="toggleTheme">
+          <button class="footer-btn" title="Сменить тему" type="button" @click="toggleTheme">
             <svg v-if="!isLight" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
             </svg>
@@ -181,9 +167,11 @@
     <div v-if="chatToDelete" class="modal-overlay" @click.self="chatToDelete = null">
       <div class="confirm-modal">
         <h3>Удалить чат?</h3>
-<p>Чат и все сообщения будут удалены для обоих пользователей.</p>
-<button class="btn-cancel" type="button" @click="chatToDelete = null">Отмена</button>
-<button class="btn-delete" type="button" @click="confirmDeleteChat">Удалить</button>
+        <p>Чат и все сообщения будут удалены для обоих пользователей.</p>
+        <div class="modal-actions">
+          <button class="btn-cancel" type="button" @click="chatToDelete = null">Отмена</button>
+          <button class="btn-delete" type="button" @click="confirmDeleteChat">Удалить</button>
+        </div>
       </div>
     </div>
   </aside>
@@ -622,4 +610,19 @@ isLastMessageRead(direct) {
   color: #7580a6; display: flex; align-items: center; transition: color 0.2s;
 }
 .chat-tick.read { color: #6a76ff; }
+.chat-avatar-wrap {
+  position: relative; flex-shrink: 0;
+}
+.online-dot {
+  position: absolute; bottom: 1px; right: 1px;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid rgba(8, 12, 26, 0.98);
+}
+.theme-light .online-dot { border-color: #ffffff; }
+.chat-name-wrap {
+  display: flex; align-items: center; gap: 4px;
+  min-width: 0; overflow: hidden;
+}
+.dev-star { color: #AFA9EC; font-size: 12px; flex-shrink: 0; }
 </style>
