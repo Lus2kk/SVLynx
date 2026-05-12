@@ -2,7 +2,7 @@
   <aside class="chat-sidebar" :class="{ 'theme-light': isLight }">
     <div class="sidebar-shell">
 
-      
+      <!-- Header -->
       <header class="sidebar-header">
         <div class="brand">
           <div class="brand-mark">
@@ -16,7 +16,6 @@
         </div>
 
         <div class="header-actions">
-          
           <div class="compose-wrap">
             <button class="header-btn" title="New" type="button" @click="showCompose = !showCompose">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
@@ -57,7 +56,6 @@
             </transition>
           </div>
 
-          
           <button
             class="header-btn"
             :class="{ 'delete-mode-active': deleteMode }"
@@ -73,7 +71,7 @@
         </div>
       </header>
 
-      
+      <!-- Search -->
       <div class="search-wrap">
         <div class="search-box">
           <svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -88,7 +86,7 @@
         </div>
       </div>
 
-      
+      <!-- Tabs -->
       <div class="sidebar-tabs">
         <button class="tab-btn" :class="{ active: activeTab === 'all' }"      type="button" @click="activeTab = 'all'">All</button>
         <button class="tab-btn" :class="{ active: activeTab === 'chats' }"    type="button" @click="activeTab = 'chats'">Chats</button>
@@ -96,15 +94,15 @@
         <button class="tab-btn" :class="{ active: activeTab === 'channels' }" type="button" @click="activeTab = 'channels'">Channels</button>
       </div>
 
-      
+      <!-- List -->
       <div class="sidebar-list">
 
-        
+        <!-- SEARCH MODE -->
         <template v-if="search.trim().length > 0">
           <div v-if="isSearching" class="list-state">Searching...</div>
           <template v-else>
 
-            
+            <!-- Search: users -->
             <template v-if="activeTab !== 'channels' && searchUsers.length">
               <div v-if="activeTab === 'all' && searchChannels.length" class="section-label">Chats</div>
               <div
@@ -128,7 +126,7 @@
               </div>
             </template>
 
-            
+            <!-- Search: channels -->
             <template v-if="activeTab !== 'chats' && activeTab !== 'groups' && searchChannels.length">
               <div v-if="activeTab === 'all' && searchUsers.length" class="section-label">Channels</div>
               <button
@@ -151,6 +149,7 @@
                   <div class="chat-bottomline">
                     <span class="chat-preview">@{{ ch.handle }}</span>
                     <span v-if="!isMyChannel(ch)" class="join-badge">Subscribe</span>
+                    <span v-else class="joined-badge">Joined</span>
                   </div>
                 </div>
               </button>
@@ -160,10 +159,10 @@
           </template>
         </template>
 
-        
+        <!-- BROWSE MODE -->
         <template v-else>
 
-          
+          <!-- Tab: All — Chats section -->
           <template v-if="activeTab === 'all' || activeTab === 'chats'">
             <div v-if="activeTab === 'all' && channels.length" class="section-label">Chats</div>
             <div v-for="direct in directs" :key="direct.id" class="chat-item-wrap">
@@ -179,7 +178,10 @@
                 </div>
                 <div class="chat-body">
                   <div class="chat-topline">
-                    <span class="chat-name">{{ getRecipientName(direct) }}</span>
+                    <!-- В режиме All — добавляем значок чата чтобы отличать от каналов -->
+                    <span class="chat-name">
+                      {{ getRecipientName(direct) }}
+                    </span>
                     <span class="chat-time">{{ getChatTime(direct) }}</span>
                   </div>
                   <div class="chat-bottomline">
@@ -199,42 +201,97 @@
             <div v-if="directs.length === 0 && activeTab === 'chats'" class="list-state">No chats yet. Search to start one.</div>
           </template>
 
-          
+          <!-- Tab: All + Channels — channel section -->
           <template v-if="activeTab === 'all' || activeTab === 'channels'">
             <div v-if="activeTab === 'all' && directs.length && channels.length" class="section-label">Channels</div>
-            <button
-              v-for="ch in channels"
-              :key="'ch-' + ch.id"
-              class="chat-item"
-              :class="{ active: String(activeChannelId) === String(ch.id) }"
-              type="button"
-              @click="$emit('select-channel', ch)"
-            >
-              <div class="chat-avatar channel-avatar" :style="avatarBg(ch.avatar_url, ch.avatar_color)">
-                <img v-if="ch.avatar_url" :src="ch.avatar_url" alt="" class="avatar-img" />
-                <span v-else>{{ ch.name?.[0]?.toUpperCase() || '#' }}</span>
+
+            <!-- MY CHANNELS subsection (only in Channels tab) -->
+            <template v-if="activeTab === 'channels'">
+              <div v-if="myOwnedChannels.length" class="section-label sub-label">
+                <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" style="opacity:0.7"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                My Channels
               </div>
-              <div class="chat-body">
-                <div class="chat-topline">
-                  <span class="chat-name">{{ ch.name }}</span>
-                  <span class="chat-time">{{ getChannelTime(ch) }}</span>
-                </div>
-                <div class="chat-bottomline">
-                  <span class="chat-preview">{{ ch.last_post_content || '@' + ch.handle }}</span>
-                  <span class="channel-badge">{{ ch.member_count }}</span>
-                </div>
+              <div v-for="ch in myOwnedChannels" :key="'own-' + ch.id" class="chat-item-wrap">
+                <button
+                  class="chat-item channel-item"
+                  :class="{ active: String(activeChannelId) === String(ch.id) }"
+                  type="button"
+                  @click="$emit('select-channel', ch)"
+                >
+                  <div class="chat-avatar channel-avatar" :style="avatarBg(ch.avatar_url, ch.avatar_color)">
+                    <img v-if="ch.avatar_url" :src="ch.avatar_url" alt="" class="avatar-img" />
+                    <span v-else>{{ ch.name?.[0]?.toUpperCase() || '#' }}</span>
+                  </div>
+                  <div class="chat-body">
+                    <div class="chat-topline">
+                      <span class="chat-name">{{ ch.name }}</span>
+                      <span class="chat-time">{{ getChannelTime(ch) }}</span>
+                    </div>
+                    <div class="chat-bottomline">
+                      <span class="chat-preview">{{ ch.last_post_content || '@' + ch.handle }}</span>
+                      <span class="channel-badge owner-badge">owner</span>
+                    </div>
+                  </div>
+                </button>
+                <button class="leave-btn" type="button" title="Leave channel" @click="confirmLeave(ch)">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                  </svg>
+                </button>
               </div>
-            </button>
+
+              <div v-if="myOwnedChannels.length && subscribedChannels.length" class="section-label sub-label" style="margin-top:8px">
+                <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                Subscribed
+              </div>
+            </template>
+
+            <!-- All channels (in All tab) or subscribed (in Channels tab) -->
+            <div v-for="ch in (activeTab === 'channels' ? subscribedChannels : channels)" :key="'ch-' + ch.id" class="chat-item-wrap">
+              <button
+                class="chat-item channel-item"
+                :class="{ active: String(activeChannelId) === String(ch.id) }"
+                type="button"
+                @click="$emit('select-channel', ch)"
+              >
+                <div class="chat-avatar channel-avatar" :style="avatarBg(ch.avatar_url, ch.avatar_color)">
+                  <img v-if="ch.avatar_url" :src="ch.avatar_url" alt="" class="avatar-img" />
+                  <span v-else>{{ ch.name?.[0]?.toUpperCase() || '#' }}</span>
+                </div>
+                <div class="chat-body">
+                  <div class="chat-topline">
+                    <!-- В режиме All — значок канала для отличия от чатов -->
+                    <span class="chat-name">
+                      {{ ch.name }}
+                    </span>
+                    <span class="chat-time">{{ getChannelTime(ch) }}</span>
+                  </div>
+                  <div class="chat-bottomline">
+                    <span class="chat-preview">{{ ch.last_post_content || '@' + ch.handle }}</span>
+                    <span class="channel-badge">{{ ch.member_count }}</span>
+                  </div>
+                </div>
+              </button>
+              <button class="leave-btn" type="button" title="Leave channel" @click="confirmLeave(ch)">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+              </button>
+            </div>
+
             <div v-if="channels.length === 0 && activeTab === 'channels'" class="list-state">No channels yet.</div>
           </template>
 
-          
           <div v-if="activeTab === 'groups'" class="list-state">Groups coming soon.</div>
 
         </template>
       </div>
 
-      
+      <!-- Footer -->
       <footer class="sidebar-footer">
         <div class="footer-actions">
           <button class="footer-btn" title="My profile" type="button" @click="$emit('open-profile')">
@@ -259,7 +316,7 @@
       </footer>
     </div>
 
-    
+    <!-- Delete chat confirm -->
     <div v-if="chatToDelete" class="modal-overlay" @click.self="chatToDelete = null">
       <div class="confirm-modal">
         <h3>Delete chat?</h3>
@@ -271,13 +328,32 @@
       </div>
     </div>
 
-    
+    <!-- Leave channel confirm -->
+    <div v-if="channelToLeave" class="modal-overlay" @click.self="channelToLeave = null">
+      <div class="confirm-modal">
+        <div class="leave-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </div>
+        <h3>Leave "{{ channelToLeave.name }}"?</h3>
+        <p>You will stop receiving posts from this channel. You can re-subscribe at any time.</p>
+        <div class="modal-actions">
+          <button class="btn-cancel" type="button" @click="channelToLeave = null">Cancel</button>
+          <button class="btn-leave" type="button" @click="doLeaveChannel">Leave</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create channel modal -->
     <CreateChannelModal
       v-if="showCreateChannel"
       :currentUserId="currentUserId"
       :isLight="isLight"
       @close="showCreateChannel = false"
-      @created="ch => { $emit('channel-created', ch); showCreateChannel = false }"
+      @created="onChannelCreated"
     />
   </aside>
 </template>
@@ -311,7 +387,7 @@ export default {
     isLight:         { type: Boolean,          default: false }
   },
 
-  emits: ['select', 'select-channel', 'channel-created', 'start-chat', 'toggle-theme', 'chat-deleted', 'open-profile'],
+  emits: ['select', 'select-channel', 'channel-created', 'start-chat', 'toggle-theme', 'chat-deleted', 'open-profile', 'leave-channel'],
 
   data() {
     return {
@@ -323,8 +399,20 @@ export default {
       activeTab: 'all',
       deleteMode: false,
       chatToDelete: null,
+      channelToLeave: null,
       showCreateChannel: false,
       showCompose: false,
+    }
+  },
+
+  computed: {
+    // Каналы где юзер — owner/admin (Мои каналы)
+    myOwnedChannels() {
+      return this.channels.filter(c => ['owner', 'admin'].includes(c.user_role))
+    },
+    // Каналы где юзер подписан но не owner/admin
+    subscribedChannels() {
+      return this.channels.filter(c => !['owner', 'admin'].includes(c.user_role))
     }
   },
 
@@ -337,14 +425,8 @@ export default {
         this.isSearching = false
         return
       }
-
-      
       const inviteMatch = value.match(/\/invite\/([a-f0-9]{32})/)
-      if (inviteMatch) {
-        this.joinByInvite(inviteMatch[1])
-        return
-      }
-
+      if (inviteMatch) { this.joinByInvite(inviteMatch[1]); return }
       this.isSearching = true
       this.searchTimeout = setTimeout(() => this.doSearch(value.trim()), 350)
     },
@@ -389,11 +471,7 @@ export default {
           body: JSON.stringify({ user_id: this.currentUserId })
         })
         const data = await res.json()
-        if (!res.ok) {
-          this.searchUsers = []
-          this.searchChannels = []
-          return
-        }
+        if (!res.ok) { this.searchUsers = []; this.searchChannels = []; return }
         const channel = data.channel
         this.$emit('channel-created', channel)
         this.$emit('select-channel', channel)
@@ -466,17 +544,47 @@ export default {
         return
       }
       try {
-        const res = await apiFetch(`${BASE}/channels/${ch.id}/join`, {
+        const res = await apiFetch(`${BASE}/channels/${ch.id}/subscribe`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_id: this.currentUserId })
         })
         if (!res.ok) return
-        this.$emit('channel-created', ch)
-        this.$emit('select-channel', ch)
+        // Запросить разрешение на уведомления при подписке
+        if ('Notification' in window && Notification.permission === 'default') {
+          await Notification.requestPermission()
+        }
+        this.$emit('channel-created', { ...ch, user_role: 'member' })
+        this.$emit('select-channel', { ...ch, user_role: 'member' })
         this.search = ''
       } catch (e) {
-        console.error('join channel error', e)
+        console.error('subscribe channel error', e)
+      }
+    },
+
+    onChannelCreated(ch) {
+      this.$emit('channel-created', ch)
+      this.showCreateChannel = false
+    },
+
+    confirmLeave(channel) {
+      this.channelToLeave = channel
+    },
+
+    async doLeaveChannel() {
+      if (!this.channelToLeave) return
+      const ch = this.channelToLeave
+      this.channelToLeave = null
+      try {
+        const res = await apiFetch(`${BASE}/channels/${ch.id}/leave`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: this.currentUserId })
+        })
+        if (!res.ok) return
+        this.$emit('leave-channel', ch.id)
+      } catch (e) {
+        console.error('leave channel error', e)
       }
     },
 
@@ -539,7 +647,7 @@ export default {
 .theme-light .header-btn { color: #7880a0; background: #f3f4f8; border-color: #e4e6f0; }
 .header-btn.delete-mode-active { color: #ff4d6d; background: rgba(255,77,109,0.12); border-color: rgba(255,77,109,0.25); }
 
-/* Compose */
+/* Compose dropdown */
 .compose-wrap { position: relative; }
 .compose-dropdown {
   position: absolute; top: calc(100% + 8px); right: 0; width: 220px; z-index: 50;
@@ -606,8 +714,11 @@ export default {
 .section-label {
   padding: 10px 4px 4px; color: #5d6888;
   font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  display: flex; align-items: center; gap: 5px;
 }
+.sub-label { color: #7d87ab; }
 
+/* Item wrap with leave button */
 .chat-item-wrap { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
 
 .chat-item {
@@ -619,6 +730,8 @@ export default {
 }
 .chat-item:hover { background: rgba(255,255,255,0.03); }
 .theme-light .chat-item:hover { background: #f3f4f8; }
+
+/* P2P chats — active: синяя оболочка */
 .chat-item.active {
   background: linear-gradient(180deg, rgba(75,88,228,0.17), rgba(64,78,210,0.12));
   border-color: rgba(110,122,255,0.26);
@@ -629,6 +742,18 @@ export default {
   border-color: rgba(91,106,255,0.22);
 }
 
+/* Channels — active: тоже синяя оболочка, идентично чатам */
+.channel-item.active {
+  background: linear-gradient(180deg, rgba(75,88,228,0.17), rgba(64,78,210,0.12));
+  border-color: rgba(110,122,255,0.26);
+  box-shadow: 0 0 0 1px rgba(98,112,255,0.08) inset, 0 8px 20px rgba(49,61,180,0.14);
+}
+.theme-light .channel-item.active {
+  background: linear-gradient(180deg, rgba(91,106,255,0.1), rgba(91,106,255,0.07));
+  border-color: rgba(91,106,255,0.22);
+}
+
+/* Delete chat button */
 .delete-chat-btn {
   flex-shrink: 0; width: 30px; height: 30px; border-radius: 10px;
   display: grid; place-items: center;
@@ -638,6 +763,19 @@ export default {
 .delete-chat-btn:hover { background: rgba(255,77,109,0.2); }
 .theme-light .delete-chat-btn { background: rgba(255,60,80,0.06); border-color: rgba(255,60,80,0.15); color: #ff3c50; }
 
+/* Leave channel button */
+.leave-btn {
+  flex-shrink: 0; width: 28px; height: 28px; border-radius: 9px;
+  display: grid; place-items: center;
+  color: #7d87ab; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+  cursor: pointer; transition: all 0.15s; opacity: 0;
+}
+.chat-item-wrap:hover .leave-btn { opacity: 1; }
+.leave-btn:hover { color: #ff4d6d; background: rgba(255,77,109,0.1); border-color: rgba(255,77,109,0.2); }
+.theme-light .leave-btn { color: #9098b8; background: #f3f4f8; border-color: #e4e6f0; }
+.theme-light .leave-btn:hover { color: #ff3c50; background: rgba(255,60,80,0.06); }
+
+/* Avatar */
 .chat-avatar {
   width: 42px; height: 42px; border-radius: 14px; flex-shrink: 0;
   display: grid; place-items: center; overflow: hidden;
@@ -650,7 +788,7 @@ export default {
 .chat-body { flex: 1; min-width: 0; }
 .chat-topline, .chat-bottomline { display: flex; align-items: center; justify-content: space-between; gap: 8px; overflow: hidden; }
 .chat-topline { margin-bottom: 3px; }
-.chat-name { color: #eef2ff; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-name { color: #eef2ff; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 3px; }
 .theme-light .chat-name { color: #1a1d2e; }
 .chat-time { flex-shrink: 0; color: #7580a6; font-size: 10.5px; font-weight: 600; }
 .theme-light .chat-time { color: #9098b8; }
@@ -666,7 +804,24 @@ export default {
   font-size: 10px; font-weight: 600; color: #7d87ab;
   background: rgba(255,255,255,0.04); padding: 2px 6px; border-radius: 999px; flex-shrink: 0;
 }
+.owner-badge {
+  color: #f0b429; background: rgba(240,180,41,0.12); border: 1px solid rgba(240,180,41,0.2);
+}
 .theme-light .channel-badge { background: #f0f1f8; }
+
+.join-badge {
+  font-size: 10px; font-weight: 700;
+  color: #6e79ff; background: rgba(110,121,255,0.12);
+  border: 1px solid rgba(110,121,255,0.25);
+  padding: 2px 8px; border-radius: 999px; flex-shrink: 0; white-space: nowrap;
+}
+.joined-badge {
+  font-size: 10px; font-weight: 700;
+  color: #22c55e; background: rgba(34,197,94,0.1);
+  border: 1px solid rgba(34,197,94,0.2);
+  padding: 2px 8px; border-radius: 999px; flex-shrink: 0; white-space: nowrap;
+}
+
 .list-state { padding: 26px 12px; text-align: center; color: #7c86ad; font-size: 12px; }
 .theme-light .list-state { color: #9098b8; }
 
@@ -699,6 +854,11 @@ export default {
   text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.4);
 }
 .theme-light .confirm-modal { background: #ffffff; border-color: #dde1f0; box-shadow: 0 12px 40px rgba(90,106,200,0.15); }
+.leave-icon {
+  width: 44px; height: 44px; border-radius: 13px;
+  display: grid; place-items: center; margin: 0 auto 12px;
+  color: #ff4d6d; background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.2);
+}
 .confirm-modal h3 { color: #eef2ff; font-size: 15px; margin-bottom: 8px; }
 .confirm-modal p  { color: #8d96ba; font-size: 12px; line-height: 1.6; margin-bottom: 20px; }
 .theme-light .confirm-modal h3 { color: #1a1d2e; }
@@ -707,18 +867,11 @@ export default {
 .btn-cancel { padding: 8px 14px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.06); color: #a6afd4; font-size: 13px; cursor: pointer; }
 .theme-light .btn-cancel { background: #f3f4f8; border-color: #e2e4ee; color: #7880a0; }
 .btn-delete { padding: 8px 14px; border-radius: 10px; background: linear-gradient(135deg, #ff4d6d, #d93856); border: none; color: #fff; font-size: 13px; cursor: pointer; }
+.btn-leave  { padding: 8px 14px; border-radius: 10px; background: linear-gradient(135deg, #ff4d6d, #d93856); border: none; color: #fff; font-size: 13px; cursor: pointer; }
 
 /* Animations */
 .dropdown-enter-active, .dropdown-leave-active { transition: opacity 0.15s, transform 0.15s; }
 .dropdown-enter-from, .dropdown-leave-to { opacity: 0; transform: translateY(-6px) scale(0.97); }
-
-.join-badge {
-  font-size: 10px; font-weight: 700;
-  color: #6e79ff; background: rgba(110,121,255,0.12);
-  border: 1px solid rgba(110,121,255,0.25);
-  padding: 2px 8px; border-radius: 999px; flex-shrink: 0;
-  white-space: nowrap;
-}
 
 @media (max-width: 760px) {
   .chat-sidebar { border-radius: 0; }
@@ -731,5 +884,6 @@ export default {
   .confirm-modal { width: calc(100vw - 48px); max-width: 280px; }
   .sidebar-footer { padding-bottom: env(safe-area-inset-bottom, 14px); }
   .compose-dropdown { right: -8px; }
+  .leave-btn { opacity: 1; }
 }
 </style>

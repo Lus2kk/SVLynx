@@ -6,13 +6,17 @@
         <!-- Header -->
         <div class="modal-header">
           <div class="modal-icon">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.82a16 16 0 0 0 6.27 6.27l.97-.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+            <!-- Иконка канала (такая же как в sidebar) -->
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 10h3l6-4v12l-6-4H4z" />
+              <path d="M7 14.5v3a2 2 0 0 0 2 2h1" />
+              <path d="M18 9a3 3 0 0 1 0 6" />
+              <path d="M20.5 7.5a5 5 0 0 1 0 9" />
             </svg>
           </div>
           <div>
-            <h2 class="modal-title">New Channel</h2>
-            <p class="modal-subtitle">Create a public or private channel</p>
+            <h2 class="modal-title">Create Channel</h2>
+            <p class="modal-subtitle">Broadcast posts to your subscribers</p>
           </div>
           <button class="close-btn" @click="$emit('close')">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
@@ -45,32 +49,36 @@
             <input
               v-model="form.name"
               type="text"
-              placeholder="e.g. Tech News"
+              placeholder="e.g. Daily Tech Digest"
               maxlength="100"
               @input="autoHandle"
             />
           </div>
 
           <div class="field">
-            <label>Handle <span class="required">*</span></label>
+            <label>
+              Channel Username
+              <span class="required">*</span>
+              <span class="label-hint">— used to find and mention your channel</span>
+            </label>
             <div class="handle-input">
               <span class="handle-prefix">@</span>
               <input
                 v-model="form.handle"
                 type="text"
-                placeholder="tech_news"
+                placeholder="daily_tech_digest"
                 maxlength="32"
                 @input="sanitizeHandle"
               />
             </div>
-            <span class="field-hint">3–32 chars, letters, digits, underscores</span>
+            <span class="field-hint">3–32 characters: letters, digits, underscores only</span>
           </div>
 
           <div class="field">
             <label>Description</label>
             <textarea
               v-model="form.description"
-              placeholder="What's this channel about?"
+              placeholder="What will you post about?"
               rows="3"
               maxlength="500"
             ></textarea>
@@ -90,7 +98,7 @@
                   <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
                 </svg>
                 Public
-                <span class="type-hint">Anyone can join</span>
+                <span class="type-hint">Anyone can find & join</span>
               </button>
               <button
                 class="type-btn"
@@ -103,7 +111,7 @@
                   <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                 </svg>
                 Private
-                <span class="type-hint">Invite only</span>
+                <span class="type-hint">Invite link only</span>
               </button>
             </div>
           </div>
@@ -222,7 +230,7 @@ export default {
           return
         }
 
-        this.$emit('created', data.channel)
+        this.$emit('created', { ...data.channel, user_role: 'owner' })
         this.$emit('close')
       } catch (e) {
         this.error = 'Network error'
@@ -266,21 +274,16 @@ export default {
 .theme-light .modal-header { border-bottom-color: #f0f1f8; }
 
 .modal-icon {
-  width: 42px; height: 42px; border-radius: 13px; flex-shrink: 0;
+  width: 44px; height: 44px; border-radius: 13px; flex-shrink: 0;
   display: grid; place-items: center;
   color: #6e79ff;
   background: rgba(110, 121, 255, 0.12);
   border: 1px solid rgba(110, 121, 255, 0.2);
 }
 
-.modal-title {
-  color: #eef2ff; font-size: 16px; font-weight: 700; margin: 0 0 2px;
-}
+.modal-title { color: #eef2ff; font-size: 16px; font-weight: 700; margin: 0 0 2px; }
 .theme-light .modal-title { color: #1a1d2e; }
-
-.modal-subtitle {
-  color: #7d87ab; font-size: 12px; margin: 0;
-}
+.modal-subtitle { color: #7d87ab; font-size: 12px; margin: 0; }
 
 .close-btn {
   margin-left: auto; width: 30px; height: 30px; border-radius: 9px;
@@ -291,37 +294,31 @@ export default {
 .close-btn:hover { color: #ff4d6d; background: rgba(255,77,109,0.1); border-color: rgba(255,77,109,0.2); }
 
 /* Avatar */
-.avatar-section {
-  display: flex; align-items: center; gap: 16px;
-  padding: 18px 22px;
-}
-
+.avatar-section { display: flex; align-items: center; gap: 16px; padding: 18px 22px; }
 .avatar-preview {
   width: 56px; height: 56px; border-radius: 16px; flex-shrink: 0;
   display: grid; place-items: center;
   color: #fff; font-size: 22px; font-weight: 800;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
-  transition: background 0.2s;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.25); transition: background 0.2s;
 }
-
 .color-picker { display: flex; flex-wrap: wrap; gap: 8px; }
 .color-dot {
   width: 22px; height: 22px; border-radius: 50%;
-  cursor: pointer; border: 2px solid transparent;
-  transition: transform 0.15s, border-color 0.15s;
+  cursor: pointer; border: 2px solid transparent; transition: transform 0.15s, border-color 0.15s;
 }
 .color-dot:hover { transform: scale(1.15); }
 .color-dot.active { border-color: #fff; transform: scale(1.15); }
 
 /* Form */
 .form { padding: 0 22px; display: flex; flex-direction: column; gap: 14px; }
-
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label {
   color: #7d87ab; font-size: 11px; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.05em;
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
 }
 .theme-light .field label { color: #9098b8; }
+.label-hint { color: #5d6888; font-size: 10px; font-weight: 500; text-transform: none; letter-spacing: 0; }
 .required { color: #ff4d6d; }
 
 .field input, .field textarea {
@@ -329,37 +326,24 @@ export default {
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 11px; padding: 10px 13px;
   color: #eef2ff; font-size: 13px; font-weight: 500;
-  outline: none; font-family: inherit;
-  transition: border-color 0.15s;
+  outline: none; font-family: inherit; transition: border-color 0.15s;
   box-sizing: border-box; width: 100%;
 }
-.theme-light .field input, .theme-light .field textarea {
-  background: #f5f6fc; border-color: #e4e6f0; color: #1a1d2e;
-}
-.field input:focus, .field textarea:focus {
-  border-color: rgba(110,121,255,0.4);
-}
+.theme-light .field input, .theme-light .field textarea { background: #f5f6fc; border-color: #e4e6f0; color: #1a1d2e; }
+.field input:focus, .field textarea:focus { border-color: rgba(110,121,255,0.4); }
 .field textarea { resize: none; line-height: 1.5; }
 
 .handle-input {
   display: flex; align-items: center;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 11px; overflow: hidden;
-  transition: border-color 0.15s;
+  border-radius: 11px; overflow: hidden; transition: border-color 0.15s;
 }
 .theme-light .handle-input { background: #f5f6fc; border-color: #e4e6f0; }
 .handle-input:focus-within { border-color: rgba(110,121,255,0.4); }
-.handle-prefix {
-  padding: 10px 4px 10px 13px;
-  color: #6e79ff; font-size: 13px; font-weight: 700; flex-shrink: 0;
-}
-.handle-input input {
-  background: transparent; border: none; border-radius: 0;
-  padding: 10px 13px 10px 0; flex: 1;
-}
+.handle-prefix { padding: 10px 4px 10px 13px; color: #6e79ff; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.handle-input input { background: transparent; border: none; border-radius: 0; padding: 10px 13px 10px 0; flex: 1; }
 .handle-input input:focus { border-color: transparent; }
-
 .field-hint { color: #5d6888; font-size: 11px; margin-top: 2px; }
 
 /* Type selector */
@@ -368,49 +352,35 @@ export default {
   flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
   padding: 10px 12px; border-radius: 11px; cursor: pointer; text-align: left;
   color: #7d87ab; font-size: 12px; font-weight: 600;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.07);
-  transition: all 0.15s;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); transition: all 0.15s;
 }
 .theme-light .type-btn { background: #f5f6fc; border-color: #e4e6f0; color: #9098b8; }
 .type-btn svg { margin-bottom: 4px; }
-.type-btn.active {
-  color: #6e79ff;
-  background: rgba(110,121,255,0.1);
-  border-color: rgba(110,121,255,0.3);
-}
+.type-btn.active { color: #6e79ff; background: rgba(110,121,255,0.1); border-color: rgba(110,121,255,0.3); }
 .type-hint { font-size: 10px; font-weight: 500; opacity: 0.7; }
 
 /* Error */
 .error-msg {
-  margin: 8px 22px 0;
-  padding: 10px 13px; border-radius: 10px;
+  margin: 8px 22px 0; padding: 10px 13px; border-radius: 10px;
   background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.2);
   color: #ff4d6d; font-size: 12px; font-weight: 500;
 }
 
 /* Footer */
-.modal-footer {
-  display: flex; gap: 10px; justify-content: flex-end;
-  padding: 18px 22px 22px;
-}
-
+.modal-footer { display: flex; gap: 10px; justify-content: flex-end; padding: 18px 22px 22px; }
 .btn-cancel {
   padding: 10px 18px; border-radius: 11px;
   background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07);
-  color: #a6afd4; font-size: 13px; font-weight: 600; cursor: pointer;
-  transition: all 0.15s;
+  color: #a6afd4; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
 }
 .theme-light .btn-cancel { background: #f3f4f8; border-color: #e2e4ee; color: #7880a0; }
 .btn-cancel:hover { background: rgba(255,255,255,0.08); }
-
 .btn-create {
   padding: 10px 22px; border-radius: 11px; border: none;
   background: linear-gradient(135deg, #6e79ff, #8669ff);
   color: #fff; font-size: 13px; font-weight: 700; cursor: pointer;
-  box-shadow: 0 8px 20px rgba(94,102,255,0.3);
-  transition: all 0.15s; display: flex; align-items: center; gap: 8px;
-  min-width: 130px; justify-content: center;
+  box-shadow: 0 8px 20px rgba(94,102,255,0.3); transition: all 0.15s;
+  display: flex; align-items: center; gap: 8px; min-width: 130px; justify-content: center;
 }
 .btn-create:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 .btn-create:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 12px 24px rgba(94,102,255,0.4); }
@@ -422,7 +392,6 @@ export default {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Transition */
 .modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.2s, transform 0.2s; }
 .modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; transform: scale(0.96) translateY(8px); }
 

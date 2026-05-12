@@ -18,6 +18,22 @@
         </div>
       </div>
       <div class="channel-actions">
+        <!-- Кнопка подписки — показывается только не-членам -->
+        <button
+          v-if="!isSubscribed && !isEditor"
+          class="subscribe-btn"
+          :class="{ loading: subscribing }"
+          type="button"
+          @click="subscribeToChannel"
+          :disabled="subscribing"
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          Subscribe
+        </button>
+
         <button v-if="isAdmin" class="icon-btn" title="Invite link" @click="openInvite">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
@@ -103,19 +119,12 @@
           ref="postInput"
         />
 
-        <!-- Send / voice toggle -->
-        <button
-          v-show="!voiceMode"
-          type="button"
-          class="send-btn"
-          @click="onSendClick"
-        >
+        <button v-show="!voiceMode" type="button" class="send-btn" @click="onSendClick">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
             <path d="M21.8 2.2a1 1 0 0 0-1.04-.23L2.76 8.97a1 1 0 0 0 .08 1.89l7.14 2.38 2.38 7.14a1 1 0 0 0 .91.68h.05a1 1 0 0 0 .9-.59l7-18a1 1 0 0 0-.22-1.03z"/>
           </svg>
         </button>
 
-        <!-- Voice record button -->
         <button
           v-show="voiceMode"
           ref="voiceBtn"
@@ -209,7 +218,7 @@ export default {
     showBackButton:{ type: Boolean, default: false }
   },
 
-  emits: ['back', 'channel-updated'],
+  emits: ['back', 'channel-updated', 'post-created', 'post-deleted', 'post-pinned', 'post-edited', 'subscribe', 'unsubscribe'],
 
   data() {
     return {
@@ -219,6 +228,7 @@ export default {
       searchOpen: false, searchQuery: '', searchResults: [], searchDebounce: null,
       settingsOpen: false, editName: '', editHandle: '', editDescription: '', editType: 'public',
       inviteOpen: false, inviteLink: '', inviteLoading: false, inviteCopied: false,
+      subscribing: false,
       // voice
       voiceMode: false,
       isRecordingVoice: false,
@@ -234,8 +244,10 @@ export default {
   },
 
   computed: {
-    isAdmin()  { return ['owner', 'admin'].includes(this.userRole) },
-    isEditor() { return ['owner', 'admin', 'editor'].includes(this.userRole) },
+    isAdmin()      { return ['owner', 'admin'].includes(this.userRole) },
+    isEditor()     { return ['owner', 'admin', 'editor'].includes(this.userRole) },
+    // Считается подписанным если userRole не пустой (member / editor / admin / owner)
+    isSubscribed() { return !!this.userRole && this.userRole !== '' },
     displayPosts() {
       if (this.searchQuery.trim() && this.searchResults.length) return this.searchResults
       return this.posts
@@ -284,6 +296,29 @@ export default {
       this.editType = this.channel.type || 'public'
     },
 
+    // ─── Subscribe ───────────────────────────────────────────────────
+    async subscribeToChannel() {
+      this.subscribing = true
+      try {
+        const res = await apiFetch(`${BASE}/channels/${this.channel.id}/subscribe`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: this.currentUserId })
+        })
+        if (!res.ok) return
+        // Запросить разрешение на push-уведомления
+        if ('Notification' in window && Notification.permission === 'default') {
+          await Notification.requestPermission()
+        }
+        this.$emit('subscribe', this.channel)
+      } catch (e) {
+        console.error('subscribe error', e)
+      } finally {
+        this.subscribing = false
+      }
+    },
+
+    // ─── Load posts ───────────────────────────────────────────────────
     async loadPosts() {
       if (!this.channel?.id) return
       this.loading = true
@@ -337,12 +372,10 @@ export default {
       if (el.scrollTop < 100 && this.hasMore && !this.loadingMore) this.loadMorePosts()
     },
 
+    // ─── Post actions ─────────────────────────────────────────────────
     onSendClick() {
-      if (this.newPostContent.trim()) {
-        this.submitPost()
-      } else {
-        this.voiceMode = !this.voiceMode
-      }
+      if (this.newPostContent.trim()) { this.submitPost() }
+      else { this.voiceMode = !this.voiceMode }
     },
 
     async submitPost() {
@@ -368,6 +401,8 @@ export default {
           const el = this.$refs.postsArea
           if (el) el.scrollTop = el.scrollHeight
         })
+        // Уведомляем ChatLayout — он рассылает по WS
+        this.$emit('post-created', data.post)
       } catch (e) { console.error('createPost error', e) }
     },
 
@@ -382,6 +417,7 @@ export default {
         const data = await res.json()
         const idx = this.posts.findIndex(p => p.id === data.post.id)
         if (idx !== -1) this.posts[idx] = data.post
+        this.$emit('post-edited', data.post)
       } catch (e) { console.error('updatePost error', e) }
     },
 
@@ -393,6 +429,7 @@ export default {
         if (!res.ok) return
         this.posts = this.posts.filter(p => p.id !== postId)
         this.pinnedPosts = this.pinnedPosts.filter(p => p.id !== postId)
+        this.$emit('post-deleted', postId)
       } catch (e) { console.error('deletePost error', e) }
     },
 
@@ -407,6 +444,7 @@ export default {
         const idx = this.posts.findIndex(p => p.id === post.id)
         if (idx !== -1) this.posts[idx] = { ...this.posts[idx], pinned: !post.pinned }
         await this.loadPinnedPosts()
+        this.$emit('post-pinned', { ...post, pinned: !post.pinned })
       } catch (e) { console.error('togglePin error', e) }
     },
 
@@ -418,6 +456,7 @@ export default {
 
     cancelEdit() { this.editingPost = null; this.newPostContent = '' },
 
+    // ─── Search ───────────────────────────────────────────────────────
     onSearchInput() {
       clearTimeout(this.searchDebounce)
       if (!this.searchQuery.trim()) { this.searchResults = []; return }
@@ -436,6 +475,7 @@ export default {
       } catch (e) { console.error('search error', e) }
     },
 
+    // ─── Settings ─────────────────────────────────────────────────────
     async saveSettings() {
       try {
         const url = new URL(`${BASE}/channels/${this.channel.id}`)
@@ -452,6 +492,7 @@ export default {
       } catch (e) { console.error('saveSettings error', e) }
     },
 
+    // ─── Invite ───────────────────────────────────────────────────────
     async openInvite() {
       this.inviteOpen = true; this.inviteLink = ''; this.inviteCopied = false; this.inviteLoading = true
       try {
@@ -477,14 +518,39 @@ export default {
       } catch {}
     },
 
-    // Voice recording
+    // ─── WS handlers (called from ChatLayout via ref) ────────────────
+    handleNewPost(post) {
+      if (this.posts.find(p => p.id === post.id)) return
+      this.posts.push(post)
+      this.$nextTick(() => { const el = this.$refs.postsArea; if (el) el.scrollTop = el.scrollHeight })
+    },
+    handleDeletePost(postId) {
+      this.posts = this.posts.filter(p => String(p.id) !== String(postId))
+      this.pinnedPosts = this.pinnedPosts.filter(p => String(p.id) !== String(postId))
+    },
+    handleUpdatePost(post) {
+      const idx = this.posts.findIndex(p => String(p.id) === String(post.id))
+      if (idx !== -1) this.posts[idx] = { ...this.posts[idx], ...post }
+    },
+    handlePinPost(post) {
+      const idx = this.posts.findIndex(p => String(p.id) === String(post.id))
+      if (idx !== -1) this.posts[idx] = { ...this.posts[idx], pinned: post.pinned }
+      // Обновляем pinnedPosts
+      if (post.pinned) {
+        if (!this.pinnedPosts.find(p => String(p.id) === String(post.id))) {
+          this.pinnedPosts.push(post)
+        }
+      } else {
+        this.pinnedPosts = this.pinnedPosts.filter(p => String(p.id) !== String(post.id))
+      }
+    },
+
+    // ─── Voice ───────────────────────────────────────────────────────
     _addBtnListeners() {
       const btn = this.$refs.voiceBtn
       if (!btn) return
-
       this._onPressDown = () => {
-        this._isLongPress = false
-        clearTimeout(this._pressTimer)
+        this._isLongPress = false; clearTimeout(this._pressTimer)
         this._pressTimer = setTimeout(() => { this._isLongPress = true; this.startVoice() }, 300)
       }
       this._onPressUp = () => {
@@ -493,10 +559,17 @@ export default {
         else if (!this._isLongPress) { this.voiceMode = false }
         this._isLongPress = false
       }
-      this._onTouchStart = (e) => { e.preventDefault(); this._isLongPress = false; clearTimeout(this._pressTimer); this._pressTimer = setTimeout(() => { this._isLongPress = true; this.startVoice() }, 300) }
-      this._onTouchEnd   = (e) => { e.preventDefault(); clearTimeout(this._pressTimer); if (this.isRecordingVoice) { this.stopVoice() } else if (!this._isLongPress) { this.voiceMode = false }; this._isLongPress = false }
+      this._onTouchStart = (e) => {
+        e.preventDefault(); this._isLongPress = false; clearTimeout(this._pressTimer)
+        this._pressTimer = setTimeout(() => { this._isLongPress = true; this.startVoice() }, 300)
+      }
+      this._onTouchEnd = (e) => {
+        e.preventDefault(); clearTimeout(this._pressTimer)
+        if (this.isRecordingVoice) { this.stopVoice() }
+        else if (!this._isLongPress) { this.voiceMode = false }
+        this._isLongPress = false
+      }
       this._onMouseLeave = () => { clearTimeout(this._pressTimer); if (this.isRecordingVoice) this.stopVoice(); this._isLongPress = false }
-
       btn.addEventListener('mousedown', this._onPressDown)
       btn.addEventListener('mouseup', this._onPressUp)
       btn.addEventListener('mouseleave', this._onMouseLeave)
@@ -524,10 +597,8 @@ export default {
         this.analyser = this.audioContext.createAnalyser()
         this.analyser.fftSize = 256
         this.audioContext.createMediaStreamSource(stream).connect(this.analyser)
-
         const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
           : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm'
-
         this.voiceMediaRecorder = new MediaRecorder(stream, { mimeType })
         this.voiceMediaRecorder.ondataavailable = e => { if (e.data.size > 0) this.voiceChunks.push(e.data) }
         this.voiceMediaRecorder.onstop = this.handleVoiceStop
@@ -546,8 +617,7 @@ export default {
     stopVoice() {
       if (!this.voiceMediaRecorder || !this.isRecordingVoice) return
       this.isRecordingVoice = false
-      clearInterval(this.voiceTimerInterval)
-      clearInterval(this.waveformInterval)
+      clearInterval(this.voiceTimerInterval); clearInterval(this.waveformInterval)
       if (this.audioContext) { this.audioContext.close(); this.audioContext = null }
       this.voiceMediaRecorder.requestData()
       this.voiceMediaRecorder.stream.getTracks().forEach(t => t.stop())
@@ -560,15 +630,13 @@ export default {
         : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm'
       const blob = new Blob(this.voiceChunks, { type: mimeType })
       const ext  = mimeType.includes('mp4') ? '.mp4' : '.webm'
-
       const form = new FormData()
       form.append('file', blob, `voice_${Date.now()}${ext}`)
       form.append('chat_id', String(this.channel.id))
       form.append('sender_id', String(this.currentUserId))
-      form.append('recipient_id', String(this.currentUserId)) // channel posts
+      form.append('recipient_id', String(this.currentUserId))
       form.append('waveform', JSON.stringify(this.waveformData))
       form.append('duration', String(this.voiceTimerSeconds))
-
       try {
         const res = await fetch(`${VOICE_BASE}/voice/upload`, {
           method: 'POST',
@@ -577,27 +645,11 @@ export default {
         })
         if (!res.ok) return
         const data = await res.json()
-        // Сохраняем как пост в канале
         if (data.message?.content) {
           await this.createPost(data.message.content)
         }
       } catch (e) { console.error('Voice upload error', e) }
       finally { this.voiceMode = false }
-    },
-
-    // Called from parent (WS)
-    handleNewPost(post) {
-      if (this.posts.find(p => p.id === post.id)) return
-      this.posts.push(post)
-      this.$nextTick(() => { const el = this.$refs.postsArea; if (el) el.scrollTop = el.scrollHeight })
-    },
-    handleDeletePost(postId) {
-      this.posts = this.posts.filter(p => p.id !== postId)
-      this.pinnedPosts = this.pinnedPosts.filter(p => p.id !== postId)
-    },
-    handleUpdatePost(post) {
-      const idx = this.posts.findIndex(p => p.id === post.id)
-      if (idx !== -1) this.posts[idx] = { ...this.posts[idx], ...post }
     }
   }
 }
@@ -631,7 +683,7 @@ export default {
 .theme-light .channel-name { color: #1a1d2e; }
 .channel-handle { color: #7d87ab; font-size: 11px; font-weight: 500; margin-top: 2px; }
 
-.channel-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.channel-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
 .icon-btn {
   width: 32px; height: 32px; border-radius: 10px;
   display: grid; place-items: center;
@@ -643,6 +695,20 @@ export default {
   color: #a6afd4; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); cursor: pointer;
 }
 
+/* Subscribe button */
+.subscribe-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 10px; border: none; cursor: pointer;
+  font-size: 12px; font-weight: 700; font-family: inherit;
+  color: #fff; background: linear-gradient(135deg, #6e79ff, #8669ff);
+  box-shadow: 0 6px 16px rgba(94,102,255,0.3);
+  transition: all 0.2s; white-space: nowrap;
+}
+.subscribe-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(94,102,255,0.4); }
+.subscribe-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.subscribe-btn.loading { opacity: 0.7; }
+
+/* Search bar */
 .search-bar {
   position: absolute; top: 0; left: 0; right: 0; bottom: 0;
   display: flex; align-items: center; gap: 8px; padding: 0 16px;
@@ -658,6 +724,7 @@ export default {
 .search-slide-enter-active, .search-slide-leave-active { transition: opacity 0.2s, transform 0.2s; }
 .search-slide-enter-from, .search-slide-leave-to { opacity: 0; transform: translateY(-6px); }
 
+/* Posts area */
 .posts-area {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
   padding: 16px 28px; display: flex; flex-direction: column; gap: 4px;
@@ -670,17 +737,16 @@ export default {
 
 .pinned-section { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .section-label { display: flex; align-items: center; gap: 5px; color: #7d87ab; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
-
 .feed-state { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; padding: 40px 0; color: #7d87ab; font-size: 13px; }
 .spinner { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(110,121,255,0.2); border-top-color: #6e79ff; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Composer */
 .composer-wrap {
   flex-shrink: 0; padding: 12px 28px 16px;
   background: linear-gradient(180deg, rgba(8,12,24,0.18), rgba(8,12,24,0.32));
 }
 .theme-light .composer-wrap { background: #f5f6fc; }
-
 .edit-banner {
   display: flex; align-items: center; justify-content: space-between;
   padding: 6px 12px; margin-bottom: 6px; border-radius: 8px;
@@ -688,7 +754,6 @@ export default {
   color: #6e79ff; font-size: 12px; font-weight: 600;
 }
 .edit-banner button { background: none; border: none; color: #a6afd4; cursor: pointer; font-size: 14px; }
-
 .composer {
   height: 56px; display: flex; align-items: center; gap: 12px;
   padding: 0 12px 0 16px; border-radius: 18px;
@@ -697,14 +762,12 @@ export default {
   box-shadow: 0 10px 30px rgba(0,0,0,0.18);
 }
 .theme-light .composer { background: #fff; border-color: rgba(91,106,255,0.2); }
-
 .post-input {
   flex: 1; background: transparent; border: none; outline: none;
   color: #eef2ff; font-size: 16px; font-weight: 500;
 }
 .theme-light .post-input { color: #1a1d2e; }
 .post-input::placeholder { color: #747ea2; }
-
 .send-btn {
   width: 34px; height: 34px; border-radius: 11px; flex-shrink: 0;
   display: grid; place-items: center; cursor: pointer; border: none; position: relative;
@@ -716,6 +779,7 @@ export default {
 @keyframes pulse { 0%,100% { box-shadow: 0 0 0 4px rgba(255,77,109,0.2); } 50% { box-shadow: 0 0 0 8px rgba(255,77,109,0.1); } }
 .rec-timer { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 700; color: #ff4d6d; white-space: nowrap; background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 6px; }
 
+/* Modals */
 .modal-overlay { position: fixed; inset: 0; background: rgba(5,8,18,0.6); backdrop-filter: blur(4px); display: grid; place-items: center; z-index: 100; }
 .settings-modal { background: linear-gradient(180deg, rgba(22,28,52,0.97), rgba(16,20,38,0.99)); border: 1px solid rgba(132,144,224,0.15); border-radius: 18px; padding: 28px; width: 360px; box-shadow: 0 24px 48px rgba(0,0,0,0.4); }
 .settings-modal h3 { color: #eef2ff; font-size: 16px; font-weight: 700; margin-bottom: 20px; }
