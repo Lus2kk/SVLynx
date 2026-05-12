@@ -17,23 +17,8 @@
           <div class="channel-handle">@{{ channel.handle }} · {{ channel.member_count }} subscribers</div>
         </div>
       </div>
-      <div class="channel-actions">
-        <!-- Кнопка подписки — показывается только не-членам -->
-        <button
-          v-if="!isSubscribed && !isEditor"
-          class="subscribe-btn"
-          :class="{ loading: subscribing }"
-          type="button"
-          @click="subscribeToChannel"
-          :disabled="subscribing"
-        >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </svg>
-          Subscribe
-        </button>
 
+      <div class="channel-actions">
         <button v-if="isAdmin" class="icon-btn" title="Invite link" @click="openInvite">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
@@ -76,7 +61,9 @@
       <template v-else>
         <div v-if="pinnedPosts.length" class="pinned-section">
           <div class="section-label">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+              <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
+            </svg>
             Pinned
           </div>
           <ChannelPost
@@ -118,13 +105,11 @@
           placeholder="Write a post..."
           ref="postInput"
         />
-
         <button v-show="!voiceMode" type="button" class="send-btn" @click="onSendClick">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
             <path d="M21.8 2.2a1 1 0 0 0-1.04-.23L2.76 8.97a1 1 0 0 0 .08 1.89l7.14 2.38 2.38 7.14a1 1 0 0 0 .91.68h.05a1 1 0 0 0 .9-.59l7-18a1 1 0 0 0-.22-1.03z"/>
           </svg>
         </button>
-
         <button
           v-show="voiceMode"
           ref="voiceBtn"
@@ -145,6 +130,27 @@
           <span v-if="isRecordingVoice" class="rec-timer">{{ voiceTimerText }}</span>
         </button>
       </form>
+    </div>
+
+    <!-- Subscribe bar (guests & non-subscribed) — bottom center -->
+    <div v-if="!isSubscribed && !isEditor" class="subscribe-bar">
+      <div class="subscribe-bar-inner">
+        <div class="subscribe-bar-info">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span>Subscribe to get notified of new posts</span>
+        </div>
+        <button
+          class="subscribe-btn-bar"
+          :disabled="subscribing"
+          @click="subscribeToChannel"
+        >
+          <span v-if="subscribing" class="btn-spinner"></span>
+          <span v-else>Subscribe</span>
+        </button>
+      </div>
     </div>
 
     <!-- Settings modal -->
@@ -213,12 +219,12 @@ export default {
   props: {
     channel:       { type: Object,  required: true },
     currentUserId: { type: String,  default: null },
-    userRole:      { type: String,  default: 'member' },
+    userRole:      { type: String,  default: '' },   // пустая строка = гость/не подписан
     isLight:       { type: Boolean, default: false },
     showBackButton:{ type: Boolean, default: false }
   },
 
-  emits: ['back', 'channel-updated', 'post-created', 'post-deleted', 'post-pinned', 'post-edited', 'subscribe', 'unsubscribe'],
+  emits: ['back', 'channel-updated', 'post-created', 'post-deleted', 'post-pinned', 'post-edited', 'subscribe'],
 
   data() {
     return {
@@ -229,7 +235,6 @@ export default {
       settingsOpen: false, editName: '', editHandle: '', editDescription: '', editType: 'public',
       inviteOpen: false, inviteLink: '', inviteLoading: false, inviteCopied: false,
       subscribing: false,
-      // voice
       voiceMode: false,
       isRecordingVoice: false,
       voiceMediaRecorder: null,
@@ -244,10 +249,12 @@ export default {
   },
 
   computed: {
-    isAdmin()      { return ['owner', 'admin'].includes(this.userRole) },
-    isEditor()     { return ['owner', 'admin', 'editor'].includes(this.userRole) },
-    // Считается подписанным если userRole не пустой (member / editor / admin / owner)
-    isSubscribed() { return !!this.userRole && this.userRole !== '' },
+    isAdmin()  { return ['owner', 'admin'].includes(this.userRole) },
+    isEditor() { return ['owner', 'admin', 'editor'].includes(this.userRole) },
+    // Подписан = роль не пустая И не просто "guest"
+    isSubscribed() {
+      return !!this.userRole && this.userRole !== '' && this.userRole !== 'guest'
+    },
     displayPosts() {
       if (this.searchQuery.trim() && this.searchResults.length) return this.searchResults
       return this.posts
@@ -268,9 +275,7 @@ export default {
     } catch {}
   },
 
-  beforeUnmount() {
-    this._removeBtnListeners()
-  },
+  beforeUnmount() { this._removeBtnListeners() },
 
   watch: {
     channel(val) {
@@ -306,7 +311,6 @@ export default {
           body: JSON.stringify({ user_id: this.currentUserId })
         })
         if (!res.ok) return
-        // Запросить разрешение на push-уведомления
         if ('Notification' in window && Notification.permission === 'default') {
           await Notification.requestPermission()
         }
@@ -324,7 +328,7 @@ export default {
       this.loading = true
       try {
         const url = new URL(`${BASE}/channels/${this.channel.id}/posts`)
-        url.searchParams.set('user_id', this.currentUserId)
+        url.searchParams.set('user_id', this.currentUserId || '')
         url.searchParams.set('limit', '50')
         const res = await apiFetch(url.toString())
         if (!res.ok) return
@@ -339,7 +343,7 @@ export default {
       if (!this.channel?.id) return
       try {
         const url = new URL(`${BASE}/channels/${this.channel.id}/posts/pinned`)
-        url.searchParams.set('user_id', this.currentUserId)
+        url.searchParams.set('user_id', this.currentUserId || '')
         const res = await apiFetch(url.toString())
         if (!res.ok) return
         const data = await res.json()
@@ -353,7 +357,7 @@ export default {
       try {
         const oldest = this.posts[0]?.created_at
         const url = new URL(`${BASE}/channels/${this.channel.id}/posts`)
-        url.searchParams.set('user_id', this.currentUserId)
+        url.searchParams.set('user_id', this.currentUserId || '')
         url.searchParams.set('before', oldest)
         url.searchParams.set('limit', '50')
         const res = await apiFetch(url.toString())
@@ -401,7 +405,6 @@ export default {
           const el = this.$refs.postsArea
           if (el) el.scrollTop = el.scrollHeight
         })
-        // Уведомляем ChatLayout — он рассылает по WS
         this.$emit('post-created', data.post)
       } catch (e) { console.error('createPost error', e) }
     },
@@ -466,7 +469,7 @@ export default {
     async doSearch() {
       try {
         const url = new URL(`${BASE}/channels/${this.channel.id}/posts/search`)
-        url.searchParams.set('user_id', this.currentUserId)
+        url.searchParams.set('user_id', this.currentUserId || '')
         url.searchParams.set('q', this.searchQuery.trim())
         const res = await apiFetch(url.toString())
         if (!res.ok) return
@@ -518,7 +521,7 @@ export default {
       } catch {}
     },
 
-    // ─── WS handlers (called from ChatLayout via ref) ────────────────
+    // ─── WS handlers ────────────────────────────────────────────────
     handleNewPost(post) {
       if (this.posts.find(p => p.id === post.id)) return
       this.posts.push(post)
@@ -535,11 +538,8 @@ export default {
     handlePinPost(post) {
       const idx = this.posts.findIndex(p => String(p.id) === String(post.id))
       if (idx !== -1) this.posts[idx] = { ...this.posts[idx], pinned: post.pinned }
-      // Обновляем pinnedPosts
       if (post.pinned) {
-        if (!this.pinnedPosts.find(p => String(p.id) === String(post.id))) {
-          this.pinnedPosts.push(post)
-        }
+        if (!this.pinnedPosts.find(p => String(p.id) === String(post.id))) this.pinnedPosts.push(post)
       } else {
         this.pinnedPosts = this.pinnedPosts.filter(p => String(p.id) !== String(post.id))
       }
@@ -549,26 +549,10 @@ export default {
     _addBtnListeners() {
       const btn = this.$refs.voiceBtn
       if (!btn) return
-      this._onPressDown = () => {
-        this._isLongPress = false; clearTimeout(this._pressTimer)
-        this._pressTimer = setTimeout(() => { this._isLongPress = true; this.startVoice() }, 300)
-      }
-      this._onPressUp = () => {
-        clearTimeout(this._pressTimer)
-        if (this.isRecordingVoice) { this.stopVoice() }
-        else if (!this._isLongPress) { this.voiceMode = false }
-        this._isLongPress = false
-      }
-      this._onTouchStart = (e) => {
-        e.preventDefault(); this._isLongPress = false; clearTimeout(this._pressTimer)
-        this._pressTimer = setTimeout(() => { this._isLongPress = true; this.startVoice() }, 300)
-      }
-      this._onTouchEnd = (e) => {
-        e.preventDefault(); clearTimeout(this._pressTimer)
-        if (this.isRecordingVoice) { this.stopVoice() }
-        else if (!this._isLongPress) { this.voiceMode = false }
-        this._isLongPress = false
-      }
+      this._onPressDown = () => { this._isLongPress = false; clearTimeout(this._pressTimer); this._pressTimer = setTimeout(() => { this._isLongPress = true; this.startVoice() }, 300) }
+      this._onPressUp = () => { clearTimeout(this._pressTimer); if (this.isRecordingVoice) { this.stopVoice() } else if (!this._isLongPress) { this.voiceMode = false }; this._isLongPress = false }
+      this._onTouchStart = (e) => { e.preventDefault(); this._isLongPress = false; clearTimeout(this._pressTimer); this._pressTimer = setTimeout(() => { this._isLongPress = true; this.startVoice() }, 300) }
+      this._onTouchEnd = (e) => { e.preventDefault(); clearTimeout(this._pressTimer); if (this.isRecordingVoice) { this.stopVoice() } else if (!this._isLongPress) { this.voiceMode = false }; this._isLongPress = false }
       this._onMouseLeave = () => { clearTimeout(this._pressTimer); if (this.isRecordingVoice) this.stopVoice(); this._isLongPress = false }
       btn.addEventListener('mousedown', this._onPressDown)
       btn.addEventListener('mouseup', this._onPressUp)
@@ -577,7 +561,6 @@ export default {
       btn.addEventListener('touchend', this._onTouchEnd, { passive: false })
       btn.addEventListener('touchcancel', this._onTouchEnd, { passive: false })
     },
-
     _removeBtnListeners() {
       const btn = this.$refs.voiceBtn
       if (!btn) return
@@ -587,7 +570,6 @@ export default {
       if (this._onTouchStart) btn.removeEventListener('touchstart', this._onTouchStart)
       if (this._onTouchEnd)   { btn.removeEventListener('touchend', this._onTouchEnd); btn.removeEventListener('touchcancel', this._onTouchEnd) }
     },
-
     async startVoice() {
       if (this.isRecordingVoice) return
       try {
@@ -597,8 +579,7 @@ export default {
         this.analyser = this.audioContext.createAnalyser()
         this.analyser.fftSize = 256
         this.audioContext.createMediaStreamSource(stream).connect(this.analyser)
-        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
-          : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm'
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm'
         this.voiceMediaRecorder = new MediaRecorder(stream, { mimeType })
         this.voiceMediaRecorder.ondataavailable = e => { if (e.data.size > 0) this.voiceChunks.push(e.data) }
         this.voiceMediaRecorder.onstop = this.handleVoiceStop
@@ -613,7 +594,6 @@ export default {
         }, 100)
       } catch (e) { console.error('Microphone error', e) }
     },
-
     stopVoice() {
       if (!this.voiceMediaRecorder || !this.isRecordingVoice) return
       this.isRecordingVoice = false
@@ -623,11 +603,9 @@ export default {
       this.voiceMediaRecorder.stream.getTracks().forEach(t => t.stop())
       this.voiceMediaRecorder.stop()
     },
-
     async handleVoiceStop() {
       if (!this.voiceChunks.length) return
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm'
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm'
       const blob = new Blob(this.voiceChunks, { type: mimeType })
       const ext  = mimeType.includes('mp4') ? '.mp4' : '.webm'
       const form = new FormData()
@@ -645,9 +623,7 @@ export default {
         })
         if (!res.ok) return
         const data = await res.json()
-        if (data.message?.content) {
-          await this.createPost(data.message.content)
-        }
+        if (data.message?.content) await this.createPost(data.message.content)
       } catch (e) { console.error('Voice upload error', e) }
       finally { this.voiceMode = false }
     }
@@ -663,6 +639,7 @@ export default {
 }
 .channel-view.theme-light { background: #f5f6fc; }
 
+/* Header */
 .channel-header {
   flex-shrink: 0; height: 78px; min-height: 78px; padding: 14px 20px;
   display: flex; align-items: center; justify-content: space-between;
@@ -672,12 +649,15 @@ export default {
 .theme-light .channel-header { background: #fff; border-bottom-color: #e4e6f0; }
 
 .channel-info { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+/* Круглый аватар как в чатах */
 .channel-avatar {
-  width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+  width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
   display: grid; place-items: center; overflow: hidden;
-  color: #fff; font-weight: 700; font-size: 14px;
+  color: #fff; font-weight: 700; font-size: 15px;
 }
 .channel-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
 .channel-meta { min-width: 0; }
 .channel-name { color: #f2f4ff; font-size: 14px; font-weight: 700; }
 .theme-light .channel-name { color: #1a1d2e; }
@@ -687,26 +667,14 @@ export default {
 .icon-btn {
   width: 32px; height: 32px; border-radius: 10px;
   display: grid; place-items: center;
-  color: #95a0c8; background: transparent; border: 1px solid transparent; cursor: pointer; transition: all 0.15s;
+  color: #95a0c8; background: transparent; border: 1px solid transparent;
+  cursor: pointer; transition: all 0.15s;
 }
 .icon-btn:hover, .icon-btn.active { background: rgba(110,121,255,0.15); border-color: rgba(110,121,255,0.3); color: #6e79ff; }
 .back-btn {
   width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; flex-shrink: 0;
   color: #a6afd4; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); cursor: pointer;
 }
-
-/* Subscribe button */
-.subscribe-btn {
-  display: flex; align-items: center; gap: 6px;
-  padding: 7px 14px; border-radius: 10px; border: none; cursor: pointer;
-  font-size: 12px; font-weight: 700; font-family: inherit;
-  color: #fff; background: linear-gradient(135deg, #6e79ff, #8669ff);
-  box-shadow: 0 6px 16px rgba(94,102,255,0.3);
-  transition: all 0.2s; white-space: nowrap;
-}
-.subscribe-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(94,102,255,0.4); }
-.subscribe-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-.subscribe-btn.loading { opacity: 0.7; }
 
 /* Search bar */
 .search-bar {
@@ -727,26 +695,28 @@ export default {
 /* Posts area */
 .posts-area {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
-  padding: 16px 28px; display: flex; flex-direction: column; gap: 4px;
+  padding: 20px 24px 16px;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
-  background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-  background-size: 48px 48px;
 }
 .posts-area::-webkit-scrollbar { width: 6px; }
 .posts-area::-webkit-scrollbar-thumb { background: rgba(148,159,212,0.16); border-radius: 999px; }
 
-.pinned-section { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-.section-label { display: flex; align-items: center; gap: 5px; color: #7d87ab; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
-.feed-state { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; padding: 40px 0; color: #7d87ab; font-size: 13px; }
+.pinned-section { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.theme-light .pinned-section { border-bottom-color: #e4e6f0; }
+.section-label { display: flex; align-items: center; gap: 5px; color: #7d87ab; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+
+.feed-state { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; padding: 60px 0; color: #7d87ab; font-size: 13px; }
+.feed-state.empty { color: #5d6888; }
 .spinner { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(110,121,255,0.2); border-top-color: #6e79ff; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Composer */
 .composer-wrap {
-  flex-shrink: 0; padding: 12px 28px 16px;
-  background: linear-gradient(180deg, rgba(8,12,24,0.18), rgba(8,12,24,0.32));
+  flex-shrink: 0; padding: 12px 24px 16px;
+  background: rgba(8,12,24,0.3);
+  border-top: 1px solid rgba(255,255,255,0.04);
 }
-.theme-light .composer-wrap { background: #f5f6fc; }
+.theme-light .composer-wrap { background: #f5f6fc; border-top-color: #e4e6f0; }
 .edit-banner {
   display: flex; align-items: center; justify-content: space-between;
   padding: 6px 12px; margin-bottom: 6px; border-radius: 8px;
@@ -755,29 +725,66 @@ export default {
 }
 .edit-banner button { background: none; border: none; color: #a6afd4; cursor: pointer; font-size: 14px; }
 .composer {
-  height: 56px; display: flex; align-items: center; gap: 12px;
-  padding: 0 12px 0 16px; border-radius: 18px;
-  border: 1px solid rgba(110,123,255,0.18);
-  background: linear-gradient(180deg, rgba(25,30,58,0.68), rgba(18,23,46,0.78));
-  box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+  height: 52px; display: flex; align-items: center; gap: 12px;
+  padding: 0 12px 0 16px; border-radius: 16px;
+  border: 1px solid rgba(110,123,255,0.16);
+  background: rgba(22,27,52,0.7);
 }
 .theme-light .composer { background: #fff; border-color: rgba(91,106,255,0.2); }
-.post-input {
-  flex: 1; background: transparent; border: none; outline: none;
-  color: #eef2ff; font-size: 16px; font-weight: 500;
-}
+.post-input { flex: 1; background: transparent; border: none; outline: none; color: #eef2ff; font-size: 15px; font-weight: 500; }
 .theme-light .post-input { color: #1a1d2e; }
 .post-input::placeholder { color: #747ea2; }
 .send-btn {
   width: 34px; height: 34px; border-radius: 11px; flex-shrink: 0;
   display: grid; place-items: center; cursor: pointer; border: none; position: relative;
   color: #fff; background: linear-gradient(135deg, #6e79ff, #8669ff);
-  box-shadow: 0 8px 18px rgba(94,102,255,0.28);
+  box-shadow: 0 6px 16px rgba(94,102,255,0.25);
   user-select: none; -webkit-user-select: none; touch-action: none;
 }
-.send-btn.recording { background: linear-gradient(135deg, #ff4d6d, #d93856); box-shadow: 0 0 0 4px rgba(255,77,109,0.2); animation: pulse 1s infinite; }
+.send-btn.recording { background: linear-gradient(135deg, #ff4d6d, #d93856); animation: pulse 1s infinite; }
 @keyframes pulse { 0%,100% { box-shadow: 0 0 0 4px rgba(255,77,109,0.2); } 50% { box-shadow: 0 0 0 8px rgba(255,77,109,0.1); } }
 .rec-timer { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 700; color: #ff4d6d; white-space: nowrap; background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 6px; }
+
+/* Subscribe bar — bottom banner for guests */
+.subscribe-bar {
+  flex-shrink: 0;
+  padding: 12px 24px 16px;
+  background: rgba(8,12,24,0.3);
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.theme-light .subscribe-bar { background: #f5f6fc; border-top-color: #e4e6f0; }
+
+.subscribe-bar-inner {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 12px 16px; border-radius: 14px;
+  background: rgba(110,121,255,0.08);
+  border: 1px solid rgba(110,121,255,0.16);
+}
+.theme-light .subscribe-bar-inner { background: rgba(91,106,255,0.06); border-color: rgba(91,106,255,0.14); }
+
+.subscribe-bar-info {
+  display: flex; align-items: center; gap: 8px;
+  color: #a6b0d4; font-size: 13px; font-weight: 500;
+}
+.theme-light .subscribe-bar-info { color: #7880a0; }
+.subscribe-bar-info svg { flex-shrink: 0; color: #6e79ff; }
+
+.subscribe-btn-bar {
+  flex-shrink: 0;
+  padding: 8px 20px; border-radius: 10px; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 700; font-family: inherit;
+  color: #fff; background: linear-gradient(135deg, #6e79ff, #8669ff);
+  box-shadow: 0 6px 16px rgba(94,102,255,0.28);
+  transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+}
+.subscribe-btn-bar:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(94,102,255,0.4); }
+.subscribe-btn-bar:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.btn-spinner {
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+  animation: spin 0.7s linear infinite;
+}
 
 /* Modals */
 .modal-overlay { position: fixed; inset: 0; background: rgba(5,8,18,0.6); backdrop-filter: blur(4px); display: grid; place-items: center; z-index: 100; }
@@ -811,7 +818,8 @@ export default {
   .channel-header { height: 64px; min-height: 64px; padding: 10px 14px; }
   .posts-area { padding: 12px 14px; }
   .composer-wrap { padding: 8px 14px calc(8px + env(safe-area-inset-bottom)); }
-  .composer { height: 50px; border-radius: 16px; }
+  .subscribe-bar { padding: 8px 14px calc(8px + env(safe-area-inset-bottom)); }
+  .composer { height: 50px; border-radius: 14px; }
   .settings-modal, .invite-modal { width: calc(100vw - 32px); }
 }
 </style>
