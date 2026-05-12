@@ -154,16 +154,19 @@
 
         <!-- Кнопка отправки текста / переключения в voiceMode -->
         <button
-          v-show="!voiceMode"
-          type="button"
-          class="send-btn"
-          title="Send"
-          @click="onSendClick"
-        >
-          <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
-            <path d="M21.8 2.2a1 1 0 0 0-1.04-.23L2.76 8.97a1 1 0 0 0 .08 1.89l7.14 2.38 2.38 7.14a1 1 0 0 0 .91.68h.05a1 1 0 0 0 .9-.59l7-18a1 1 0 0 0-.22-1.03z"></path>
-          </svg>
-        </button>
+  v-show="!voiceMode"
+  type="button"
+  class="send-btn"
+  title="Send"
+  aria-label="Отправить"
+  @click="onSendClick"
+>
+  <!-- Diagonal arrow-up. Original geometry, no paper-plane. -->
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 17 L17 7"></path>
+    <path d="M9 7 H17 V15"></path>
+  </svg>
+</button>
 
         <!-- Кнопка записи: короткий клик = выйти, долгое нажатие = запись -->
         <!-- Обработчики вешаются через ref в watch, а не через Vue директивы -->
