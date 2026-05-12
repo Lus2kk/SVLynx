@@ -8,9 +8,11 @@
           </svg>
         </button>
         <div class="chat-avatar" :style="!avatarUrl ? { background: avatarColor } : {}">
-          <img v-if="avatarUrl" :src="avatarUrl" alt="" class="chat-avatar-image" />
-          <span v-else>{{ avatarLetter }}</span>
-        </div>
+  <img v-if="avatarUrl" :src="avatarUrl" alt="" class="chat-avatar-image"
+    @error="e => { e.target.style.display='none'; e.target.parentElement.style.background = avatarColor }"
+  />
+  <span v-else>{{ avatarLetter }}</span>
+</div>
         <div class="chat-user-meta">
           <div class="chat-username">{{ chatTitle }}</div>
           <div class="chat-status" :class="{ online: !isTyping && presence.online, offline: !isTyping && !presence.online, typing: isTyping }">
