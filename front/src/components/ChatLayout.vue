@@ -7,6 +7,7 @@
         :currentUserId="currentUserId"
         :isLight="isLight"
         :class="{ 'mobile-hidden': mobileView === 'chat' }"
+        :userStatuses="userStatuses"
         @select="selectChat"
         @start-chat="startChat"
         @toggle-theme="toggleTheme"
@@ -611,7 +612,15 @@ if (type === 'typing') {
 .direct-shell.theme-light .empty-title { color: #1a1d2e; }
 .direct-shell.theme-light .empty-text { color: #7880a0; }
 
-
+.chat-avatar-wrap {
+  position: relative; flex-shrink: 0;
+}
+.online-dot {
+  position: absolute; bottom: 1px; right: 1px;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid rgba(8, 12, 26, 0.98);
+}
 @media (max-width: 980px) {
   .direct-shell { grid-template-columns: 300px 1fr; }
 }
@@ -657,5 +666,6 @@ if (type === 'typing') {
   .mobile-hidden {
     display: none !important;
   }
+
 }
 </style>
