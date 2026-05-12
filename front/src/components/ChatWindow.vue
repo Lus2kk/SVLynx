@@ -708,15 +708,15 @@ this._onTouchEndNative = (e) => {
     },
 
     formatLastSeen(raw) {
-      if (!raw) return 'Offline'
+      if (!raw) return 'не в сети'
       const normalized = raw.endsWith('Z') || raw.includes('+') ? raw : raw + 'Z'
       const date = new Date(normalized)
-      if (isNaN(date.getTime())) return 'Offline'
+      if (isNaN(date.getTime())) return 'в сети'
       const diff = Math.floor((Date.now() - date.getTime()) / 1000)
-      if (diff < 60) return 'был только что'
-if (diff < 3600) return `был ${Math.floor(diff / 60)} мин назад`
-if (diff < 86400) return `был сегодня в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
-if (diff < 172800) return `был вчера в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+      if (diff < 60) return 'был(a) только что'
+if (diff < 3600) return `был(a) ${Math.floor(diff / 60)} мин назад`
+if (diff < 86400) return `был(a) сегодня в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+if (diff < 172800) return `был(a) вчера в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
 return `был ${date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}`
     },
 
