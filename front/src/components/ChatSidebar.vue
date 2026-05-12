@@ -158,12 +158,10 @@
 
     <div v-if="chatToDelete" class="modal-overlay" @click.self="chatToDelete = null">
       <div class="confirm-modal">
-        <h3>Delete chat?</h3>
-        <p>This will permanently delete the chat and all messages for both users.</p>
-        <div class="modal-actions">
-          <button class="btn-cancel" type="button" @click="chatToDelete = null">Cancel</button>
-          <button class="btn-delete" type="button" @click="confirmDeleteChat">Delete</button>
-        </div>
+        <h3>Удалить чат?</h3>
+<p>Чат и все сообщения будут удалены для обоих пользователей.</p>
+<button class="btn-cancel" type="button" @click="chatToDelete = null">Отмена</button>
+<button class="btn-delete" type="button" @click="confirmDeleteChat">Удалить</button>
       </div>
     </div>
   </aside>
