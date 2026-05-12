@@ -315,9 +315,9 @@ export default {
     },
     presenceText() {
       void this.nowTick
-      if (this.presence?.online) return 'Online'
+      if (this.presence?.online) return 'В сети'
       if (this.presence?.lastSeen) return this.formatLastSeen(this.presence.lastSeen)
-      return 'Offline'
+      return 'Не в сети'
     }
   },
 

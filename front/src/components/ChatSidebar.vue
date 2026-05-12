@@ -31,7 +31,12 @@
             <circle cx="11" cy="11" r="7"></circle>
             <path d="M20 20l-3.5-3.5"></path>
           </svg>
-          <input v-model="search" type="text" class="search-input" placeholder="Поиск..." />
+          <input
+            v-model="search"
+            type="text"
+            class="search-input"
+            placeholder="Поиск..."
+          />
         </div>
       </div>
 
