@@ -17,7 +17,7 @@
           <div class="chat-username">{{ chatTitle }}</div>
           <div class="chat-status" :class="{ online: !isTyping && presence.online, offline: !isTyping && !presence.online, typing: isTyping }">
   <span class="status-dot"></span>
-  <span>{{ isTyping ? 'typing...' : presenceText }}</span>
+  <span>{{ isTyping ? 'печатает...' : presenceText }}</span>
 </div>
         </div>
       </div>
@@ -96,12 +96,10 @@
 </div>
       <div v-if="deleteModalOpen" class="delete-modal-overlay">
         <div class="delete-modal">
-          <h3>Delete message?</h3>
-          <p>This will permanently delete the message for both users.</p>
-          <div class="modal-actions">
-            <button type="button" class="btn-cancel" @click="closeDeleteModal">Cancel</button>
-            <button type="button" class="btn-delete" @click="executeDelete">Delete</button>
-          </div>
+          <h3>Удалить сообщение?</h3>
+<p>Сообщение будет удалено для обоих пользователей.</p>
+<button type="button" class="btn-cancel" @click="closeDeleteModal">Отмена</button>
+<button type="button" class="btn-delete" @click="executeDelete">Удалить</button>
         </div>
       </div>
     </div>
@@ -138,7 +136,7 @@
           v-model="newMessage"
           type="text"
           class="message-input"
-          placeholder="Type a message..."
+          placeholder="Сообщение..."
           ref="messageInput"
           @input="onTyping"
         />

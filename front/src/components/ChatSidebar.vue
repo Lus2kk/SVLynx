@@ -31,15 +31,15 @@
             <circle cx="11" cy="11" r="7"></circle>
             <path d="M20 20l-3.5-3.5"></path>
           </svg>
-          <input v-model="search" type="text" class="search-input" placeholder="Search..." />
+          <input v-model="search" type="text" class="search-input" placeholder="Поиск..." />
         </div>
       </div>
 
       <div class="sidebar-tabs">
-        <button class="tab-btn" :class="{ active: activeTab === 'all' }" type="button" @click="activeTab = 'all'">All</button>
-        <button class="tab-btn" :class="{ active: activeTab === 'chats' }" type="button" @click="activeTab = 'chats'">Chats</button>
-        <button class="tab-btn" :class="{ active: activeTab === 'groups' }" type="button" @click="activeTab = 'groups'">Groups</button>
-        <button class="tab-btn" :class="{ active: activeTab === 'channels' }" type="button" @click="activeTab = 'channels'">Channels</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'all' }" type="button" @click="activeTab = 'all'">Все</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'chats' }" type="button" @click="activeTab = 'chats'">Чаты</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'groups' }" type="button" @click="activeTab = 'groups'">Группы</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'channels' }" type="button" @click="activeTab = 'channels'">Каналы</button>
       </div>
 
       <div class="sidebar-list">
@@ -74,7 +74,7 @@
             </div>
           </div>
 
-          <div v-if="!isSearching && searchResults.length === 0" class="list-state">No users found</div>
+          <div v-if="!isSearching && searchResults.length === 0" class="list-state">Пользователи не найдены</div>
         </template>
 
         <template v-else>
@@ -122,8 +122,8 @@
           </div>
 
           <div v-if="filteredDirects.length === 0" class="list-state">
-            <span v-if="activeTab === 'chats' || activeTab === 'all'">No chats yet. Search to start one.</span>
-            <span v-else>No {{ activeTab }} yet.</span>
+            <span v-if="activeTab === 'chats' || activeTab === 'all'">Чатов пока нет. Найдите собеседника через поиск.</span>
+            <span v-else>Пока пусто.</span>
           </div>
         </template>
       </div>

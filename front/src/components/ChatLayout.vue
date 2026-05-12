@@ -45,8 +45,8 @@
                 <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7A2.5 2.5 0 0 1 17.5 16H11l-4.5 4V16A2.5 2.5 0 0 1 4 13.5v-7z" />
               </svg>
             </div>
-            <h2 class="empty-title">Your Messages</h2>
-            <p class="empty-text">Select a chat from the sidebar or start a new conversation.</p>
+            <h2 class="empty-title">Ваши сообщения</h2>
+            <p class="empty-text">Выберите чат или найдите собеседника через поиск.</p>
           </div>
         </div>
       </div>
