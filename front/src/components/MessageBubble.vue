@@ -44,7 +44,7 @@
         <!-- Текст -->
         <div v-if="message.type === 'text' || !message.type" class="message-text">
           <template v-if="isUrl(message.content)">
-            <a :href="message.content" target="_blank" class="message-link">{{ message.content }}</a>
+            <a :href="message.content" target="_blank" rel="noopener noreferrer nofollow" class="message-link">{{ message.content }}</a>
           </template>
           <template v-else>{{ message.content }}</template>
         </div>
@@ -180,8 +180,13 @@ export default {
   },
 
   methods: {
-    isUrl(str) { return str && (str.startsWith('http://') || str.startsWith('https://')) },
-
+    isUrl(str) {
+  if (typeof str !== 'string') return false
+  return /^https?:\/\/[^\s]+$/i.test(str.trim())
+},
+    beforeUnmount() {
+  clearTimeout(this.pressTimer)
+},
     formatSize(bytes) {
       if (!bytes) return ''
       if (bytes < 1024)    return bytes + ' B'

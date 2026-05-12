@@ -154,12 +154,12 @@ export default {
       
       
       this.ws.onmessage = (event) => {
-        console.log('WS RAW:', event.data)
+        if (import.meta.env.DEV) console.debug('WS RAW:', event.data)
       try {
         const data = JSON.parse(event.data)
         let payload = data.Payload ?? data.payload ?? null
         let type = data.Type ?? data.type ?? null
-        console.log('TYPE:', type, 'PAYLOAD:', payload)
+        if (import.meta.env.DEV) console.debug('WS TYPE:', type, 'PAYLOAD:', payload)
 
           if (!payload && (data.chat_id || data.chatId || data.content)) {
             payload = data
@@ -401,9 +401,7 @@ if (type === 'typing') {
     setUserPresence(userId, patch = {}) {
       const key = String(userId)
       const prev = this.userStatuses[key] || { online: false, lastSeen: null }
-      this.$set 
-        ? this.$set(this.userStatuses, key, { ...prev, ...patch })
-        : (this.userStatuses = { ...this.userStatuses, [key]: { ...prev, ...patch } })
+      this.userStatuses = { ...this.userStatuses, [key]: { ...prev, ...patch } }
     },
 
     async fetchUserStatus(userId) {
