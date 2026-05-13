@@ -41,7 +41,7 @@
         <button class="tab-btn" :class="{ active: activeTab === 'channels' }" type="button" @click="activeTab = 'channels'">Каналы</button>
       </div>
 
-      <div class="sidebar-list">
+      <div class="sidebar-list" @touchstart="tabSwipeStart" @touchend="tabSwipeEnd">
         <template v-if="search.trim().length > 0">
           <div v-if="isSearching" class="list-state">Поиск...</div>
 
@@ -204,7 +204,9 @@ export default {
       deleteMode: false,
       chatToDelete: null,
       scrolling: false,
-      touchStartY: 0
+      touchStartY: 0,
+      tabSwipeX: 0,
+      tabSwipeY: 0,
     }
   },
 
@@ -234,6 +236,20 @@ export default {
   methods: {
     toggleTheme() {
   this.$emit('toggle-theme')
+},
+tabSwipeStart(e) {
+  this.tabSwipeX = e.touches[0].clientX
+  this.tabSwipeY = e.touches[0].clientY
+},
+tabSwipeEnd(e) {
+  const diffX = e.changedTouches[0].clientX - this.tabSwipeX
+  const diffY = Math.abs(e.changedTouches[0].clientY - this.tabSwipeY)
+  // если вертикальный скролл — игнорируем
+  if (diffY > 30) return
+  const tabs = ['all', 'chats', 'groups', 'channels']
+  const idx = tabs.indexOf(this.activeTab)
+  if (diffX < -60 && idx < tabs.length - 1) this.activeTab = tabs[idx + 1]
+  if (diffX > 60 && idx > 0) this.activeTab = tabs[idx - 1]
 },
 onTouchStart(e) {
   this.touchStartY = e.touches[0].clientY
