@@ -966,7 +966,7 @@ this.scrollToBottom()
 .messages-area {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
   padding: 22px 28px 18px;
-  display: flex; flex-direction: column; gap: 6px;
+  display: flex; flex-direction: column; gap: 2px;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   background: transparent;
 }

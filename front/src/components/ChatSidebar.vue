@@ -104,10 +104,9 @@
                   </span>
                   <span class="chat-time-wrap">
                     <span v-if="isLastMessageMine(direct)" class="chat-tick" :class="{ read: isLastMessageRead(direct) }">
-                      <svg viewBox="0 0 20 10" width="17" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M2 5 L5 8 L10 2"/>
-                        <path d="M7 5 L10 8 L15 2"/>
-                        <circle v-if="isLastMessageRead(direct)" cx="17.5" cy="7.5" r="1.1" fill="currentColor" stroke="none"/>
+                      <svg viewBox="0 0 16 12" width="16" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                       <path d="M2 6 L5 9 L12 2"/>
+                       <circle v-if="isLastMessageRead(direct)" cx="14" cy="9" r="1.8" fill="currentColor" stroke="none"/>
                       </svg>
                     </span>
                     <span class="chat-time">{{ getChatTime(direct) }}</span>
@@ -606,10 +605,8 @@ isLastMessageRead(direct) {
 .chat-time-wrap {
   display: flex; align-items: center; gap: 3px; flex-shrink: 0;
 }
-.chat-tick {
-  color: #7580a6; display: flex; align-items: center; transition: color 0.2s;
-}
-.chat-tick.read { color: #6a76ff; }
+.chat-tick { color: #7580a6; display: flex; align-items: center; }
+.chat-tick.read { color: #7580a6; }
 .chat-avatar-wrap {
   position: relative; flex-shrink: 0;
 }
@@ -624,5 +621,5 @@ isLastMessageRead(direct) {
   display: flex; align-items: center; gap: 4px;
   min-width: 0; overflow: hidden;
 }
-.dev-star { color: #AFA9EC; font-size: 12px; flex-shrink: 0; }
+.dev-star { color: #6a76ff; font-size: 12px; flex-shrink: 0; }
 </style>
