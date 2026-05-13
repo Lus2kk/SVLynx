@@ -348,6 +348,8 @@ if (type === 'typing') {
 
 
         this.saveChatsToLocal()
+        this.fetchAllStatuses()
+
       } catch (e) {
         console.error('loadDirects crash:', e)
       } finally {
@@ -421,6 +423,15 @@ if (type === 'typing') {
       }
     },
 
+    async fetchAllStatuses() {
+  const ids = this.directs.map(d => {
+    const first = d.first_user_id ?? d.firstuserid
+    const second = d.second_user_id ?? d.seconduserid
+    return String(first) === String(this.currentUserId) ? second : first
+  }).filter(Boolean)
+
+  await Promise.all(ids.map(id => this.fetchUserStatus(id)))
+},
     onChatDeleted(chatId) {
       this.directs = this.directs.filter(d => String(d.id) !== String(chatId))
       if (String(this.activeChatId) === String(chatId)) {
