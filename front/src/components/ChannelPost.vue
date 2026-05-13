@@ -15,39 +15,29 @@
 
     <!-- Content -->
     <div class="post-content">
-      <p v-if="post.content" class="post-text">{{ post.content }}</p>
-      <img
-        v-if="post.media_url && post.media_type === 'image'"
-        :src="post.media_url"
-        class="post-img"
-        loading="lazy"
-      />
-      <video
-        v-else-if="post.media_url && post.media_type === 'video'"
-        :src="post.media_url"
-        class="post-video"
-        controls
-      />
-      <a
-        v-else-if="post.media_url"
-        :href="post.media_url"
-        class="post-file-link"
-        target="_blank"
-        rel="noopener"
-      >
+  
+    <div v-if="isVoice" class="post-voice">
+        <div class="voice-icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4z"/>
+            <path d="M19 10a7 7 0 0 1-14 0H3a9 9 0 0 0 18 0h-2z"/>
+        </svg>
+        </div>
+        <audio :src="post.content" controls class="post-audio" preload="metadata" />
+    </div>
+
+    <p v-else-if="post.content && !post.media_url" class="post-text">{{ post.content }}</p>
+    <img v-if="post.media_url && post.media_type === 'image'" :src="post.media_url" class="post-img" loading="lazy" />
+    <video v-else-if="post.media_url && post.media_type === 'video'" :src="post.media_url" class="post-video" controls />
+    <a v-else-if="post.media_url" :href="post.media_url" class="post-file-link" target="_blank" rel="noopener">
         <div class="post-file-icon">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
-          </svg>
+        </svg>
         </div>
         <span class="post-file-name">{{ post.file_name || 'File' }}</span>
-        <svg class="post-file-download" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
-        </svg>
-      </a>
+    </a>
     </div>
 
     <!-- Footer -->
@@ -115,9 +105,21 @@ export default {
     isLight:       { type: Boolean, default: false },
     currentUserId: { type: String,  default: null }
   },
+
   emits: ['delete', 'pin', 'edit'],
+
   data() { return { showActions: false } },
+
   computed: {
+    isVoice() {
+    const c = this.post.content || ''
+    return c.startsWith('http') && (
+        c.includes('/uploads/voice/') ||
+        c.includes('.webm') ||
+        c.includes('.ogg') ||
+        c.includes('.mp4') && c.includes('voice')
+    )
+    },
     isAuthor() { return String(this.post.author_id) === String(this.currentUserId) },
     canEdit()  { return this.isAuthor || this.isAdmin },
     timeText() {
@@ -263,4 +265,20 @@ export default {
 
 .fade-actions-enter-active, .fade-actions-leave-active { transition: opacity 0.15s; }
 .fade-actions-enter-from, .fade-actions-leave-to { opacity: 0; }
+.post-voice {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: 12px;
+  background: rgba(110, 121, 255, 0.08);
+  border: 1px solid rgba(110, 121, 255, 0.15);
+  margin-top: 4px;
+}
+.voice-icon {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center;
+  color: #fff; background: linear-gradient(135deg, #6e79ff, #8669ff);
+}
+.post-audio {
+  flex: 1; height: 32px; min-width: 0;
+  accent-color: #6e79ff;
+}
 </style>

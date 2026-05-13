@@ -116,7 +116,8 @@ export default {
       channels: [],
       activeChannelId: null,
       activeChannel: null,
-      activeChannelRole: 'member',
+      // ФИX: '' = гость/не подписан, 'member' = подписчик, 'owner'/'admin' = создатель
+      activeChannelRole: '',
     }
   },
 
@@ -276,7 +277,7 @@ export default {
             const channelId = payload?.channel_id ?? payload?.id
             this.channels = this.channels.filter(c => String(c.id) !== String(channelId))
             if (String(this.activeChannelId) === String(channelId)) {
-              this.activeChannelId = null; this.activeChannel = null
+              this.activeChannelId = null; this.activeChannel = null; this.activeChannelRole = ''
             }
             return
           }
@@ -285,7 +286,7 @@ export default {
             const channelId = payload?.channel_id
             this.channels = this.channels.filter(c => String(c.id) !== String(channelId))
             if (String(this.activeChannelId) === String(channelId)) {
-              this.activeChannelId = null; this.activeChannel = null
+              this.activeChannelId = null; this.activeChannel = null; this.activeChannelRole = ''
             }
             return
           }
@@ -293,6 +294,11 @@ export default {
           if (type === 'new_channel_post') {
             const channelId = payload?.channel_id
             this.updateChannelPreview(channelId, payload?.content || '')
+            // Unread для фоновых каналов
+            if (channelId && String(this.activeChannelId) !== String(channelId)) {
+              const ch = this.channels.find(c => String(c.id) === String(channelId))
+              if (ch) ch.unread_count = (Number(ch.unread_count || 0)) + 1
+            }
             if (channelId && String(this.activeChannelId) === String(channelId)) {
               this.$refs.channelView?.handleNewPost?.(payload)
             }
@@ -422,6 +428,7 @@ export default {
     selectChat({ chatId, recipientId }) {
       this.activeChannel = null
       this.activeChannelId = null
+      this.activeChannelRole = ''
       this.activeChatId = chatId
       this.activeRecipientId = recipientId
       this.chatWindowKey++
@@ -437,13 +444,36 @@ export default {
       this.saveChatsToLocal()
     },
 
-    selectChannel(channel) {
+    // ФИX owner bug: async, получаем реальную роль с сервера
+    async selectChannel(channel) {
       this.activeChannelId = channel.id
       this.activeChannel = channel
-      this.activeChannelRole = channel.user_role || 'member'
       this.activeChatId = null
       this.activeRecipientId = null
       if (this.isMobile) this.mobileView = 'chat'
+
+      // Сбрасываем unread при открытии
+      const ch = this.channels.find(c => String(c.id) === String(channel.id))
+      if (ch) ch.unread_count = 0
+
+      // Если роль явно задана в объекте — используем её
+      if (channel.user_role) {
+        this.activeChannelRole = channel.user_role
+        return
+      }
+
+      // Иначе — запрашиваем с сервера (фикс: не ставим 'owner' по умолчанию)
+      this.activeChannelRole = ''
+      if (!this.currentUserId) return
+      try {
+        const res = await apiFetch(`${BASE}/channels/${channel.id}/members/${this.currentUserId}`)
+        if (!res.ok) { this.activeChannelRole = ''; return }
+        const data = await res.json()
+        this.activeChannelRole = data.member?.role ?? data.role ?? ''
+      } catch (e) {
+        console.error('fetchMemberRole error', e)
+        this.activeChannelRole = ''
+      }
     },
 
     onChannelUpdated(channel) {
@@ -482,17 +512,27 @@ export default {
     onPostEditedWS(post) {
       this.sendWS('update_channel_post', { ...post, channel_id: this.activeChannelId })
     },
+
+    // Подписка из ChannelView (бар внизу)
     onSubscribeChannel(channel) {
-      if (!this.channels.find(c => String(c.id) === String(channel.id))) this.channels.push(channel)
+      const idx = this.channels.findIndex(c => String(c.id) === String(channel.id))
+      if (idx === -1) {
+        this.channels.push({ ...channel, user_role: 'member' })
+      } else {
+        this.channels[idx] = { ...this.channels[idx], user_role: 'member' }
+      }
       this.sendWS('channel_joined', { channel, user_id: this.currentUserId })
-      this.selectChannel(channel)
+      // Обновляем роль в открытом канале без перезагрузки
+      this.activeChannelRole = 'member'
     },
+
     onDeleteChannel(channelId) {
       this.sendWS('channel_deleted', { channel_id: channelId })
       this.channels = this.channels.filter(c => String(c.id) !== String(channelId))
       if (String(this.activeChannelId) === String(channelId)) {
         this.activeChannelId = null
         this.activeChannel = null
+        this.activeChannelRole = ''
         if (this.isMobile) this.mobileView = 'sidebar'
       }
     },
@@ -501,21 +541,27 @@ export default {
       this.sendWS('channel_left', { channel_id: channelId, user_id: this.currentUserId })
       this.channels = this.channels.filter(c => String(c.id) !== String(channelId))
       if (String(this.activeChannelId) === String(channelId)) {
-        this.activeChannelId = null; this.activeChannel = null
+        this.activeChannelId = null; this.activeChannel = null; this.activeChannelRole = ''
         if (this.isMobile) this.mobileView = 'sidebar'
       }
     },
+
     onChannelCreated(channel) {
-      if (!this.channels.find(c => String(c.id) === String(channel.id))) {
-        this.channels.push({ ...channel, user_role: 'owner' })
+      const existingIdx = this.channels.findIndex(c => String(c.id) === String(channel.id))
+      if (existingIdx === -1) {
+        this.channels.push(channel)
+      } else {
+        this.channels[existingIdx] = { ...this.channels[existingIdx], ...channel }
       }
       this.sendWS('channel_created', { channel, user_id: this.currentUserId })
-      this.selectChannel({ ...channel, user_role: 'owner' })
+      this.selectChannel(channel)
     },
+
     updateChannelPreview(channelId, content) {
       const ch = this.channels.find(c => String(c.id) === String(channelId))
       if (ch) { ch.last_post_content = content; ch.last_post_at = new Date().toISOString() }
     },
+
     showChannelPush(channelId, payload) {
       if (String(this.activeChannelId) === String(channelId)) return
       const ch = this.channels.find(c => String(c.id) === String(channelId))
@@ -621,7 +667,6 @@ export default {
 
 
 <style scoped>
-/* Стили из главного файла — без изменений */
 @import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap');
 
 .direct-page {

@@ -241,7 +241,7 @@
                       <span class="chat-time">{{ getChannelTime(ch) }}</span>
                     </div>
                     <div class="chat-bottomline">
-                      <span class="chat-preview">{{ ch.last_post_content || '@' + ch.handle }}</span>
+                      <span class="chat-preview">{{ getChannelPreview(ch) || '@' + ch.handle }}</span>
                       <span v-if="getChannelUnread(ch) > 0" class="unread-badge">{{ getChannelUnread(ch) }}</span>
                       <span v-else class="channel-badge owner-badge">owner</span>
                     </div>
@@ -284,7 +284,7 @@
                     <span class="chat-time">{{ getChannelTime(ch) }}</span>
                   </div>
                   <div class="chat-bottomline">
-                    <span class="chat-preview">{{ ch.last_post_content || '@' + ch.handle }}</span>
+                    <span class="chat-preview">{{ getChannelPreview(ch) || '@' + ch.handle }}</span>
                     <span v-if="getChannelUnread(ch) > 0" class="unread-badge">{{ getChannelUnread(ch) }}</span>
                     <span v-else class="channel-badge">{{ ch.member_count }}</span>
                   </div>
@@ -477,7 +477,16 @@ export default {
   },
 
   methods: {
-    toggleTheme() { this.$emit('toggle-theme') },
+    getChannelPreview(ch) {
+    const c = ch.last_post_content || ''
+    if (c.startsWith('http') && (
+      c.includes('/uploads/voice/') ||
+      c.includes('.webm') ||
+      c.includes('.ogg')
+    )) return '🎤 Голосовое сообщение'
+    return c
+  },
+      toggleTheme() { this.$emit('toggle-theme') },
     onTouchStart(e) { this.touchStartY = e.touches[0].clientY; this.scrolling = false },
     onTouchMove(e) { if (Math.abs(e.touches[0].clientY - this.touchStartY) > 5) this.scrolling = true },
 
@@ -605,13 +614,23 @@ export default {
 
     getChatPreview(direct) {
       const c = direct.last_message_content || ''
-      if (c.startsWith('http') && (c.includes('/voice/') || c.includes('.webm') || c.includes('.ogg') || c.includes('.mp3'))) return '🎤 Голосовое'
+      if (c.startsWith('http') && (c.includes('/voice/') || c.includes('.webm') || c.includes('.ogg') || c.includes('.mp3'))) return '🎤 Голосовое сообщение'
       if (c.startsWith('http') && c.includes('/media/images/')) return '📷 Фото'
       if (c.startsWith('http') && c.includes('/media/videos/')) return '🎥 Видео'
       if (c.startsWith('http') && c.includes('/media/audio/'))  return '🎵 Аудио'
       if (c.startsWith('http') && c.includes('/media/files/'))  return '📎 Файл'
       return c
     },
+    
+    getChannelPreview(ch) {
+    const c = ch.last_post_content || ''
+    if (c.startsWith('http') && (c.includes('/uploads/voice/') || c.includes('.webm') || c.includes('.ogg') || c.includes('.mp3'))) return '🎤 Голосовое сообщение'
+    if (c.startsWith('http') && c.includes('/media/images/')) return '📷 Фото'
+    if (c.startsWith('http') && c.includes('/media/videos/')) return '🎥 Видео'
+    if (c.startsWith('http') && c.includes('/media/audio/'))  return '🎵 Аудио'
+    if (c.startsWith('http') && c.includes('/uploads/media/')) return '📎 Файл'
+    return c
+  },
 
     getUnreadCount(direct) { return Number(direct.unread_count || direct.unreadcount || 0) },
 

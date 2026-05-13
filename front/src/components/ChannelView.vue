@@ -98,6 +98,13 @@
         <button @click="cancelEdit">✕</button>
       </div>
       <form class="composer" @submit.prevent="submitPost">
+
+        <ChannelMediaUploader
+        v-if="isEditor"
+        :senderId="currentUserId"
+        @media-uploaded="onMediaUploaded"
+        />
+
         <input
           v-model="newPostContent"
           type="text"
@@ -207,6 +214,7 @@
 
 <script>
 import { apiFetch, getCookie } from '../api.js'
+import ChannelMediaUploader from './ChannelMediaUploader.vue'
 import ChannelPost from './ChannelPost.vue'
 
 const BASE       = import.meta.env.VITE_API_URL       || 'http://localhost:8080'
@@ -214,7 +222,7 @@ const VOICE_BASE = import.meta.env.VITE_VOICE_API_URL || 'http://localhost:9090'
 
 export default {
   name: 'ChannelView',
-  components: { ChannelPost },
+  components: { ChannelPost, ChannelMediaUploader },
 
   props: {
     channel:       { type: Object,  required: true },
@@ -294,6 +302,33 @@ export default {
   },
 
   methods: {
+
+    async onMediaUploaded({ url, type, file_name, file_size }) {
+  
+    try {
+        const res = await apiFetch(`${BASE}/channels/${this.channel.id}/posts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            author_id: this.currentUserId,
+            content: url,
+            media_url: url,
+            media_type: type,
+            file_name: file_name || '',
+            file_size: file_size || 0
+        })
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        this.posts.push(data.post)
+        this.$nextTick(() => {
+        const el = this.$refs.postsArea
+        if (el) el.scrollTop = el.scrollHeight
+        })
+        this.$emit('post-created', data.post)
+    } catch (e) { console.error('onMediaUploaded error', e) }
+    },
+
     initEditFields() {
       this.editName = this.channel.name || ''
       this.editHandle = this.channel.handle || ''
@@ -410,18 +445,20 @@ export default {
     },
 
     async updatePost(content) {
-      try {
+    try {
         const res = await apiFetch(`${BASE}/channels/${this.channel.id}/posts/${this.editingPost.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ editor_id: this.currentUserId, content })
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ editor_id: this.currentUserId, content })
         })
         if (!res.ok) return
         const data = await res.json()
-        const idx = this.posts.findIndex(p => p.id === data.post.id)
-        if (idx !== -1) this.posts[idx] = data.post
-        this.$emit('post-edited', data.post)
-      } catch (e) { console.error('updatePost error', e) }
+        const post = data.post ?? data
+        if (!post?.id) return
+        const idx = this.posts.findIndex(p => p.id === post.id)
+        if (idx !== -1) this.posts[idx] = post
+        this.$emit('post-edited', post)
+    } catch (e) { console.error('updatePost error', e) }
     },
 
     async deletePost(postId) {
@@ -561,6 +598,7 @@ export default {
       btn.addEventListener('touchend', this._onTouchEnd, { passive: false })
       btn.addEventListener('touchcancel', this._onTouchEnd, { passive: false })
     },
+
     _removeBtnListeners() {
       const btn = this.$refs.voiceBtn
       if (!btn) return
@@ -570,6 +608,7 @@ export default {
       if (this._onTouchStart) btn.removeEventListener('touchstart', this._onTouchStart)
       if (this._onTouchEnd)   { btn.removeEventListener('touchend', this._onTouchEnd); btn.removeEventListener('touchcancel', this._onTouchEnd) }
     },
+
     async startVoice() {
       if (this.isRecordingVoice) return
       try {
@@ -594,6 +633,7 @@ export default {
         }, 100)
       } catch (e) { console.error('Microphone error', e) }
     },
+
     stopVoice() {
       if (!this.voiceMediaRecorder || !this.isRecordingVoice) return
       this.isRecordingVoice = false
@@ -603,31 +643,32 @@ export default {
       this.voiceMediaRecorder.stream.getTracks().forEach(t => t.stop())
       this.voiceMediaRecorder.stop()
     },
+
     async handleVoiceStop() {
-      if (!this.voiceChunks.length) return
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm'
-      const blob = new Blob(this.voiceChunks, { type: mimeType })
-      const ext  = mimeType.includes('mp4') ? '.mp4' : '.webm'
-      const form = new FormData()
-      form.append('file', blob, `voice_${Date.now()}${ext}`)
-      form.append('chat_id', String(this.channel.id))
-      form.append('sender_id', String(this.currentUserId))
-      form.append('recipient_id', String(this.currentUserId))
-      form.append('waveform', JSON.stringify(this.waveformData))
-      form.append('duration', String(this.voiceTimerSeconds))
-      try {
-        const res = await fetch(`${VOICE_BASE}/voice/upload`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${getCookie('access_token') || ''}` },
-          body: form
+    if (!this.voiceChunks.length) return
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm'
+    const blob = new Blob(this.voiceChunks, { type: mimeType })
+    const ext  = mimeType.includes('mp4') ? '.mp4' : '.webm'
+
+    const form = new FormData()
+    form.append('file', blob, `voice_${Date.now()}${ext}`)
+    form.append('sender_id', String(this.currentUserId))
+    form.append('duration', String(this.voiceTimerSeconds))
+
+    try {
+        const res = await fetch(`${VOICE_BASE}/voice/upload/channel`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getCookie('access_token') || ''}` },
+        body: form
         })
         if (!res.ok) return
         const data = await res.json()
-        if (data.message?.content) await this.createPost(data.message.content)
-      } catch (e) { console.error('Voice upload error', e) }
-      finally { this.voiceMode = false }
+        if (data.url) await this.createPost(data.url)
+    } catch (e) { console.error('Voice upload error', e) }
+    finally { this.voiceMode = false }
     }
-  }
+    }
 }
 </script>
 
