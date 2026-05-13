@@ -1,5 +1,5 @@
 <template>
-  <section class="chat-window" :class="{ 'theme-light': isLight }">
+  <section class="chat-window" :class="{ 'theme-light': isLight }" @touchstart="onSwipeStart" @touchend="onSwipeEnd">
     <header class="chat-header">
       <div class="chat-user">
         <button v-if="showBackButton" class="back-btn" type="button" title="Back" @click="$emit('back')">
@@ -251,6 +251,7 @@ export default {
       isSelecting: false,
       selectedMessages: [],
       typingTimer: null,
+      swipeStartX: 0,
     }
   },
 
@@ -357,7 +358,15 @@ export default {
   })
   this.typingTimer = setTimeout(() => {}, 2000)
 },
-
+onSwipeStart(e) {
+  this.swipeStartX = e.touches[0].clientX
+},
+onSwipeEnd(e) {
+  const diff = e.changedTouches[0].clientX - this.swipeStartX
+  if (diff > 80 && this.swipeStartX < 40) {
+    this.$emit('back')
+  }
+},
 onTypingAndResize() {
   this.onTyping()
   const el = this.$refs.messageInput

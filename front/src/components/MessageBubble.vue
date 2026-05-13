@@ -122,12 +122,27 @@
       <div v-if="menuOpen" class="ctx-overlay" @click="closeMenu" @contextmenu.prevent="closeMenu" @touchend.stop>
         <!-- Клон сообщения поверх blur -->
         <div v-if="isHighlighted" class="ctx-bubble-clone" :style="cloneStyle">
-          <div class="message-bubble" :class="{ mine: isMine, theirs: !isMine }">
+          <div class="message-bubble clone-bubble" :class="{ mine: isMine, theirs: !isMine }">
+            <!-- Цитата в клоне -->
+            <div v-if="message.reply_to" class="reply-quote">
+              <div class="reply-quote-bar"></div>
+              <div class="reply-quote-content">
+                <span class="reply-quote-name">{{ message.reply_to.is_mine ? 'Вы' : 'Собеседник' }}</span>
+                <span class="reply-quote-text">{{ message.reply_to.type === 'voice' ? '🎤 Голосовое' : message.reply_to.type === 'image' ? '📷 Фото' : message.reply_to.content }}</span>
+              </div>
+            </div>
             <!-- Текст -->
             <div v-if="message.type === 'text' || !message.type" class="message-text">{{ message.content }}</div>
-            <!-- Фото -->
-            <div v-else-if="message.type === 'image'" class="media-image-wrap">
-              <img :src="message.content" class="media-image" />
+            <!-- Фото — показываем само изображение без полосы -->
+            <div v-else-if="message.type === 'image'" class="clone-image-wrap">
+              <img :src="message.content" class="clone-image" />
+            </div>
+            <!-- Видео — превью без полосы -->
+            <div v-else-if="message.type === 'video'" class="clone-media-label">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              🎥 Видео
             </div>
             <!-- Голосовое -->
             <div v-else-if="message.type === 'voice'" class="voice-player">
@@ -261,14 +276,14 @@ export default {
         if (top + menuH > window.innerHeight - 20) {
           top = rect.top - menuH - 8
         }
-
-        if (isMobile) {
-          this.menuStyle = {
-            left:  '12px',
-            width: (window.innerWidth - 24) + 'px',
-            top:   top + 'px',
-          }
-        } else {
+if (isMobile) {
+  const menuWidth = Math.min(260, window.innerWidth - 48)
+  this.menuStyle = {
+    top:   top + 'px',
+    right: '12px',
+    width: menuWidth + 'px',
+  }
+}else {
           const x = e.clientX ?? window.innerWidth / 2
           const menuW = 200
           const left = Math.min(x, window.innerWidth - menuW - 12)
@@ -389,6 +404,9 @@ export default {
 .message-bubble:has(.media-image-wrap) { padding: 0; overflow: hidden; }
 .message-bubble.menu-open { transform: scale(1.02); }
 
+/* Клон — не убираем padding даже для изображений */
+.clone-bubble { padding: 6px 10px !important; overflow: hidden; }
+
 @media (max-width: 760px) {
   .message-bubble-wrapper { max-width: calc(100% - 44px); }
   .message-row.theirs .message-bubble-wrapper { max-width: 85%; }
@@ -430,6 +448,19 @@ export default {
 .image-meta .message-time { color: #fff; font-size: 11px; opacity: 0.9; }
 .image-meta .message-status { color: rgba(255,255,255,0.7); }
 .image-meta .message-status.read { color: #fff; }
+
+/* Клон изображения — без полосы, с скруглением */
+.clone-image-wrap { border-radius: 8px; overflow: hidden; max-width: 100%; margin-bottom: 4px; }
+.clone-image { width: 100%; display: block; border-radius: 8px; max-height: 180px; object-fit: cover; }
+
+/* Клон видео */
+.clone-media-label {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px; border-radius: 8px;
+  background: rgba(0,0,0,0.15);
+  font-size: 14px; font-weight: 500;
+  margin-bottom: 4px;
+}
 
 .lightbox { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.92); display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
 .lightbox-img { max-width: 90vw; max-height: 90vh; border-radius: 8px; object-fit: contain; cursor: default; }
@@ -474,9 +505,14 @@ export default {
 .ctx-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 4px 0; }
 
 @media (max-width: 760px) {
-  .ctx-menu { border-radius: 18px; padding: 8px; animation: ctxSlideUp 0.25s cubic-bezier(0.16,1,0.3,1); }
-  .ctx-item { padding: 14px 16px; font-size: 16px; }
-  .ctx-divider { margin: 6px 0; }
+  .ctx-menu {
+    border-radius: 18px;
+    padding: 4px;
+    min-width: unset;
+    animation: ctxSlideUp 0.25s cubic-bezier(0.16,1,0.3,1);
+  }
+  .ctx-item { padding: 12px 20px; font-size: 15px; }
+  .ctx-divider { margin: 2px 0; }
 }
 
 .message-bubble.highlight { outline: 2px solid rgba(110,121,255,0.5); outline-offset: 2px; }
