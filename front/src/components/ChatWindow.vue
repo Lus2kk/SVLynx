@@ -140,8 +140,8 @@
   ref="messageInput"
   rows="1"
   @input="onTypingAndResize"
-  @keydown.enter.exact.prevent="sendMessage"
-  @keydown.enter.shift.exact="newLine"
+  @keydown.enter.exact.prevent="onEnterKey"
+  @keydown.enter.shift.exact.prevent="onShiftEnterKey" 
         />
 
         <button type="button" class="composer-side-btn" title="Emoji">
@@ -416,10 +416,28 @@ async deleteSelected() {
     date: msg.created_at
   })
 },
+onEnterKey() {
+  const isMobile = 'ontouchstart' in window
+  if (isMobile) {
+    this.newLine()
+  } else {
+    this.sendMessage()
+  }
+},
+
+onShiftEnterKey() {
+  const isMobile = 'ontouchstart' in window
+  if (isMobile) {
+    this.sendMessage()
+  } else {
+    this.newLine()
+  }
+},
   onReply(message) {
   this.replyTo = message
   if (!('ontouchstart' in window)) {
     this.$refs.messageInput?.focus()
+    
     if (this.$refs.messageInput) {
   this.$refs.messageInput.style.height = 'auto'
 }
@@ -824,6 +842,10 @@ return `был ${date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'shor
       if (!text || !this.chatId) return
 
       this.$refs.messageInput?.focus()
+
+      if (this.$refs.messageInput) {
+      this.$refs.messageInput.style.height = 'auto'
+}
 
       const optimistic = {
         id: `local-${Date.now()}`,
