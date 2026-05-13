@@ -1,5 +1,6 @@
 .env
 .DS_Store
 voice_server/build/uploads/
+media_server/build/uploads/
 
 app

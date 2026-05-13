@@ -59,7 +59,7 @@ export default {
 
         if (res.ok) {
           const data = await res.json()
-          this.setCookie('access_token', data.access_token, 60)
+          this.setCookie('access_token', data.access_token, 900)
           this.setCookie('refresh_token', data.refresh_token, 2592000)
           this.showChat = true
         }

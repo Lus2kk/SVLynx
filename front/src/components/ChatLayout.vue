@@ -4,42 +4,67 @@
       <ChatSidebar
         :directs="directs"
         :activeId="activeChatId"
+        :channels="channels"
+        :activeChannelId="activeChannelId"
         :currentUserId="currentUserId"
         :isLight="isLight"
         :class="{ 'mobile-hidden': mobileView === 'chat' }"
         :userStatuses="userStatuses"
         @select="selectChat"
+        @select-channel="selectChannel"
         @start-chat="startChat"
         @toggle-theme="toggleTheme"
         @chat-deleted="onChatDeleted"
         @open-profile="$emit('open-profile')"
+        @channel-created="onChannelCreated"
+        @leave-channel="onLeaveChannel"
+        @delete-channel="onDeleteChannel"
       />
 
-
       <div class="content-area" :class="{ 'mobile-hidden': mobileView === 'sidebar' }">
-       <ChatWindow
-  v-if="activeChat"
-  ref="chatWindow"
-  :key="`${activeChatId}-${activeRecipientId}-${chatWindowKey}`"
-  :chat="activeChat"
-  :chatId="activeChatId"
-  :currentUserId="currentUserId"
-  :currentUserName="currentUserName"
-  :recipientId="activeRecipientId"
-  :presence="activePresence"
-  :isLight="isLight"
-  :showBackButton="isMobile"
-  :isVisible="!isMobile || mobileView === 'chat'"
-  :isTyping="isTyping"
-  @message-sent="updateChatPreview"
-  @message-deleted="onMessageDeleted"
-  @mark-as-read="onMarkAsRead"
-  @typing="onTyping"
-  @back="goBackToSidebar"
-/>
 
+        <!-- Channel view -->
+        <ChannelView
+          v-if="activeChannel && !activeChatId"
+          ref="channelView"
+          :channel="activeChannel"
+          :currentUserId="currentUserId"
+          :userRole="activeChannelRole"
+          :isLight="isLight"
+          :showBackButton="isMobile"
+          @back="goBackToSidebar"
+          @channel-updated="onChannelUpdated"
+          @post-created="onPostCreatedWS"
+          @post-deleted="onPostDeletedWS"
+          @post-pinned="onPostPinnedWS"
+          @post-edited="onPostEditedWS"
+          @subscribe="onSubscribeChannel"
+        />
 
-        <div v-else class="empty-chat">
+        <!-- Chat window -->
+        <ChatWindow
+          v-if="activeChat && !activeChannel"
+          ref="chatWindow"
+          :key="`${activeChatId}-${activeRecipientId}-${chatWindowKey}`"
+          :chat="activeChat"
+          :chatId="activeChatId"
+          :currentUserId="currentUserId"
+          :currentUserName="currentUserName"
+          :recipientId="activeRecipientId"
+          :presence="activePresence"
+          :isLight="isLight"
+          :showBackButton="isMobile"
+          :isVisible="!isMobile || mobileView === 'chat'"
+          :isTyping="isTyping"
+          @message-sent="updateChatPreview"
+          @message-deleted="onMessageDeleted"
+          @mark-as-read="onMarkAsRead"
+          @typing="onTyping"
+          @back="goBackToSidebar"
+        />
+
+        <!-- Empty state -->
+        <div v-if="!activeChat && !activeChannel" class="empty-chat">
           <div class="empty-card">
             <div class="empty-logo">
               <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.9">
@@ -59,16 +84,15 @@
 <script>
 import ChatSidebar from './ChatSidebar.vue'
 import ChatWindow from './ChatWindow.vue'
+import ChannelView from './ChannelView.vue'
 import { apiFetch, getCookie } from '../api.js'
-
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 const WS_BASE = BASE.replace(/^http/, 'ws')
 
-
 export default {
   name: 'ChatLayout',
-  components: { ChatSidebar, ChatWindow },
+  components: { ChatSidebar, ChatWindow, ChannelView },
 
   emits: ['theme-changed', 'open-profile'],
 
@@ -89,7 +113,12 @@ export default {
       currentUserName: null,
       isTyping: false,
       typingTimer: null,
-
+      // Channel state
+      channels: [],
+      activeChannelId: null,
+      activeChannel: null,
+      // ФИX: '' = гость/не подписан, 'member' = подписчик, 'owner'/'admin' = создатель
+      activeChannelRole: '',
     }
   },
 
@@ -102,48 +131,45 @@ export default {
       return this.userStatuses[key] || { online: false, lastSeen: null }
     }
   },
+
   watch: {
-  isLight(val) {
-    this.$nextTick(() => {
-      this.updateThemeColor()
-    })
-  }
-},
+    isLight(val) {
+      this.$nextTick(() => this.updateThemeColor())
+    }
+  },
+
   async mounted() {
-  this.currentUserId = this.parseUserIdFromToken()
-  
-  const token = sessionStorage.getItem('access_token')
-  if (token) {
-    const payload = this.parseJwt(token)
-    this.currentUserName = sessionStorage.getItem('current_user_name') || payload?.name || payload?.nickname || payload?.username || ''
-  }
-  
-  if ('Notification' in window && Notification.permission === 'default') {
-    const { subscribe } = await import('../composables/usePush.js')
-    try { await subscribe() } catch (e) { console.warn('Push subscribe error:', e) }
-  }
-  
-  this.updateThemeColor()
-  await this.loadDirects()
-  this.connectWebSocket()
-  this.checkMobile()
-  window.addEventListener('resize', this.checkMobile)
-},
+    this.currentUserId = this.parseUserIdFromToken()
+
+    const token = getCookie('access_token')
+    if (token) {
+      const payload = this.parseJwt(token)
+      this.currentUserName = sessionStorage.getItem('current_user_name') || payload?.name || payload?.nickname || payload?.username || ''
+    }
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      try {
+        const { subscribe } = await import('../composables/usePush.js')
+        await subscribe()
+      } catch (e) { console.warn('Push subscribe error:', e) }
+    }
+
+    this.updateThemeColor()
+    await this.loadDirects()
+    await this.loadChannels()
+    this.connectWebSocket()
+    this.checkMobile()
+    window.addEventListener('resize', this.checkMobile)
+  },
 
   beforeUnmount() {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer)
-      this.reconnectTimer = null
-    }
-    if (this.ws) {
-      this.ws.close()
-      this.ws = null
-    }
+    if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null }
+    if (this.ws) { this.ws.close(); this.ws = null }
     window.removeEventListener('resize', this.checkMobile)
   },
 
   methods: {
-    
+
     connectWebSocket() {
       if (!this.currentUserId) return
       if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null }
@@ -152,8 +178,6 @@ export default {
       const wsUrl = `${WS_BASE}/ws?user_id=${this.currentUserId}`
       this.ws = new WebSocket(wsUrl)
 
-      
-      
       this.ws.onmessage = (event) => {
         if (import.meta.env.DEV) console.debug('WS RAW:', event.data)
       try {
@@ -171,54 +195,31 @@ export default {
             try { payload = JSON.parse(payload) } catch { payload = null }
           }
 
-                if (type === 'SendMessage' || type === 'send_message' || type === 'new_message') {
-        const chatId =
-          payload?.chat_id ??
-          payload?.chatId ??
-          payload?.chatid ??
-          payload?.ChatID
+          // ─── P2P Messages ───────────────────────────────────────────
+          if (type === 'SendMessage' || type === 'send_message' || type === 'new_message') {
+            const chatId = payload?.chat_id ?? payload?.chatId ?? payload?.chatid ?? payload?.ChatID
+            const content = payload?.content ?? payload?.Content ?? ''
+            const createdAt = payload?.created_at ?? payload?.createdAt ?? payload?.createdat ?? payload?.CreatedAT ?? new Date().toISOString()
+            const senderId = payload?.sender_id ?? payload?.senderId ?? payload?.senderid
 
-        const content =
-          payload?.content ??
-          payload?.Content ??
-          ''
+            if (chatId) {
+              this.updateChatPreview({
+                chatId, content, date: createdAt, senderId,
+                isIncoming: String(senderId) !== String(this.currentUserId)
+              })
+              if (String(this.activeChatId) === String(chatId)) {
+                this.$refs.chatWindow?.handleIncomingMessage?.(payload)
+              }
+            }
+            return
+          }
 
-        const createdAt =
-          payload?.created_at ??
-          payload?.createdAt ??
-          payload?.createdat ??
-          payload?.CreatedAT ??
-          new Date().toISOString()
-          const senderId = payload?.sender_id ?? payload?.senderId ?? payload?.senderid
-
-        if (chatId) {
-          this.updateChatPreview({
-  chatId,
-  content,
-  date: createdAt,
-  senderId,
-  isIncoming: String(senderId) !== String(this.currentUserId)
-})
-
-          if (String(this.activeChatId) === String(chatId)) {
-  const isViewingChat = !this.isMobile || this.mobileView === 'chat'
-  if (isViewingChat) {
-    this.$refs.chatWindow?.handleIncomingMessage?.(payload)
-  } else {
-    this.$refs.chatWindow?.handleIncomingMessage?.(payload)
-  }
-}
-        }
-
-        return
-      }
-
+          // ─── Presence ───────────────────────────────────────────────
           if (type === 'user_online') {
             const userId = payload?.user_id ?? payload?.userId ?? payload?.id
             if (userId) this.setUserPresence(userId, { online: true, lastSeen: null })
             return
           }
-
           if (type === 'user_offline') {
             const userId = payload?.user_id ?? payload?.userId ?? payload?.id
             const lastSeen = payload?.last_seen ?? payload?.lastSeen ?? new Date().toISOString()
@@ -226,17 +227,12 @@ export default {
             return
           }
 
-          if (type === 'new_chat') {
-            
-            this.loadDirects()
-            return
-          }
+          // ─── Chats ──────────────────────────────────────────────────
+          if (type === 'new_chat') { this.loadDirects(); return }
 
           if (type === 'delete_message') {
             const msgId = payload?.id ?? payload?.message_id
-            if (msgId) {
-              this.$refs.chatWindow?.handleDeleteMessage?.(payload)
-            }
+            if (msgId) this.$refs.chatWindow?.handleDeleteMessage?.(payload)
             return
           }
 
@@ -247,34 +243,94 @@ export default {
           }
 
           if (type === 'mark_as_read') {
-  const chatId = payload?.chat_id
-  if (chatId) {
-    const chat = this.directs.find(c => String(c.id) === String(chatId))
-    if (chat) chat.last_message_status = 'read'  
-    if (String(this.activeChatId) === String(chatId)) {
-      this.$refs.chatWindow?.handleMessagesRead?.()
-    }
-  }
-  return
-}
-
-if (type === 'typing') {  
-   console.log('TYPING received', payload)
-   console.log('activeChatId:', this.activeChatId, 'payload chatId:', payload?.chat_id)
-  const chatId = payload?.chat_id
-  if (chatId && String(chatId) === String(this.activeChatId)) {
-    this.isTyping = true
-    clearTimeout(this.typingTimer)
-    this.typingTimer = setTimeout(() => {
-      this.isTyping = false
-    }, 3000)
-  }
-  return
-}
-
-          } catch (e) { 
-            console.error('WS Parse Error:', e)
+            const chatId = payload?.chat_id
+            if (chatId) {
+              const chat = this.directs.find(c => String(c.id) === String(chatId))
+              if (chat) chat.last_message_status = 'read'
+              if (String(this.activeChatId) === String(chatId)) {
+                this.$refs.chatWindow?.handleMessagesRead?.()
+              }
+            }
+            return
           }
+
+          if (type === 'typing') {
+            console.log('TYPING received', payload)
+            const chatId = payload?.chat_id
+            if (chatId && String(chatId) === String(this.activeChatId)) {
+              this.isTyping = true
+              clearTimeout(this.typingTimer)
+              this.typingTimer = setTimeout(() => { this.isTyping = false }, 3000)
+            }
+            return
+          }
+
+          // ─── Channel events ─────────────────────────────────────────
+          if (type === 'channel_created' || type === 'channel_joined') {
+            const ch = payload?.channel ?? payload
+            if (ch?.id && !this.channels.find(c => String(c.id) === String(ch.id))) {
+              this.channels.push(ch)
+            }
+            return
+          }
+
+          if (type === 'channel_left') {
+            const channelId = payload?.channel_id ?? payload?.id
+            this.channels = this.channels.filter(c => String(c.id) !== String(channelId))
+            if (String(this.activeChannelId) === String(channelId)) {
+              this.activeChannelId = null; this.activeChannel = null; this.activeChannelRole = ''
+            }
+            return
+          }
+
+          if (type === 'channel_deleted') {
+            const channelId = payload?.channel_id
+            this.channels = this.channels.filter(c => String(c.id) !== String(channelId))
+            if (String(this.activeChannelId) === String(channelId)) {
+              this.activeChannelId = null; this.activeChannel = null; this.activeChannelRole = ''
+            }
+            return
+          }
+
+          if (type === 'new_channel_post') {
+            const channelId = payload?.channel_id
+            this.updateChannelPreview(channelId, payload?.content || '')
+            // Unread для фоновых каналов
+            if (channelId && String(this.activeChannelId) !== String(channelId)) {
+              const ch = this.channels.find(c => String(c.id) === String(channelId))
+              if (ch) ch.unread_count = (Number(ch.unread_count || 0)) + 1
+            }
+            if (channelId && String(this.activeChannelId) === String(channelId)) {
+              this.$refs.channelView?.handleNewPost?.(payload)
+            }
+            this.showChannelPush(channelId, payload)
+            return
+          }
+
+          if (type === 'delete_channel_post') {
+            if (String(this.activeChannelId) === String(payload?.channel_id)) {
+              this.$refs.channelView?.handleDeletePost?.(payload?.post_id)
+            }
+            return
+          }
+
+          if (type === 'update_channel_post') {
+            if (String(this.activeChannelId) === String(payload?.channel_id)) {
+              this.$refs.channelView?.handleUpdatePost?.(payload)
+            }
+            return
+          }
+
+          if (type === 'pin_channel_post') {
+            if (String(this.activeChannelId) === String(payload?.channel_id)) {
+              this.$refs.channelView?.handlePinPost?.(payload)
+            }
+            return
+          }
+
+        } catch (e) {
+          console.error('WS Parse Error:', e)
+        }
       }
 
       this.ws.onclose = () => {
@@ -283,12 +339,13 @@ if (type === 'typing') {
       }
     },
 
+    // ─── Theme ──────────────────────────────────────────────────────
     toggleTheme() {
-    this.isLight = !this.isLight
-    localStorage.setItem('svlynx-theme', this.isLight ? 'light' : 'dark')
-    this.updateThemeColor()
-    this.$emit('theme-changed')
-  },
+      this.isLight = !this.isLight
+      localStorage.setItem('svlynx-theme', this.isLight ? 'light' : 'dark')
+      this.updateThemeColor()
+      this.$emit('theme-changed')
+    },
 
     updateThemeColor() {
       const color = this.isLight ? '#ffffff' : 'rgb(8, 12, 26)'
@@ -300,6 +357,7 @@ if (type === 'typing') {
       if (meta) meta.setAttribute('content', color)
     },
 
+    // ─── Auth ────────────────────────────────────────────────────────
     parseJwt(token) {
       try {
         if (!token) return null
@@ -321,32 +379,26 @@ if (type === 'typing') {
       } catch { return null }
     },
 
+    // ─── Load data ───────────────────────────────────────────────────
     async loadDirects() {
       this.loading = true
       try {
         const userId = String(this.currentUserId || '').trim()
         if (!userId) return
-
         const url = new URL(`${BASE}/chat/direct/list`)
         url.searchParams.set('user_id', userId)
-
         const res = await apiFetch(url.toString())
-
         if (!res.ok) return
         const data = await res.json()
         const apiChats = data.directs || data.chats || []
-
         const chatMap = new Map()
         this.directs.forEach(c => chatMap.set(c.id, c))
         apiChats.forEach(c => chatMap.set(c.id, c))
-
         this.directs = Array.from(chatMap.values()).sort((a, b) => {
           const dateA = new Date(a.last_message_at || a.updated_at || a.created_at || 0)
           const dateB = new Date(b.last_message_at || b.updated_at || b.created_at || 0)
           return dateB - dateA
         })
-
-
         this.saveChatsToLocal()
         this.fetchAllStatuses()
 
@@ -357,50 +409,178 @@ if (type === 'typing') {
       }
     },
 
+    async loadChannels() {
+      if (!this.currentUserId) return
+      try {
+        const url = new URL(`${BASE}/channels`)
+        url.searchParams.set('user_id', this.currentUserId)
+        const res = await apiFetch(url.toString())
+        if (!res.ok) return
+        const data = await res.json()
+        this.channels = data.channels || []
+      } catch (e) {
+        console.error('loadChannels error', e)
+      }
+    },
+
     saveChatsToLocal() {
       try { localStorage.setItem('svlynx-saved-chats', JSON.stringify(this.directs)) } catch {}
     },
 
+    // ─── Navigation ──────────────────────────────────────────────────
     selectChat({ chatId, recipientId }) {
-  this.activeChatId = chatId
-  this.activeRecipientId = recipientId
-  this.chatWindowKey++
+      this.activeChannel = null
+      this.activeChannelId = null
+      this.activeChannelRole = ''
+      this.activeChatId = chatId
+      this.activeRecipientId = recipientId
+      this.chatWindowKey++
 
-  const idx = this.directs.findIndex(c => String(c.id) === String(chatId))
-  if (idx !== -1) {
-    this.directs[idx] = { ...this.directs[idx], unread_count: 0, unreadcount: 0 }
-    this.directs = [...this.directs]
-  }
+      const idx = this.directs.findIndex(c => String(c.id) === String(chatId))
+      if (idx !== -1) {
+        this.directs[idx] = { ...this.directs[idx], unread_count: 0, unreadcount: 0 }
+        this.directs = [...this.directs]
+      }
 
-  if (recipientId) this.fetchUserStatus(recipientId)
-  if (this.isMobile) this.mobileView = 'chat'
-  this.saveChatsToLocal()
-},
+      if (recipientId) this.fetchUserStatus(recipientId)
+      if (this.isMobile) this.mobileView = 'chat'
+      this.saveChatsToLocal()
+    },
 
-    onMessageDeleted({ id, chat_id, recipient_id }) {
-      console.log('onMessageDeleted called', { id, chat_id, recipient_id }) // ← добавь
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-        console.log('WS not open:', this.ws?.readyState) // ← и это
+    // ФИX owner bug: async, получаем реальную роль с сервера
+    async selectChannel(channel) {
+      this.activeChannelId = channel.id
+      this.activeChannel = channel
+      this.activeChatId = null
+      this.activeRecipientId = null
+      if (this.isMobile) this.mobileView = 'chat'
+
+      // Сбрасываем unread при открытии
+      const ch = this.channels.find(c => String(c.id) === String(channel.id))
+      if (ch) ch.unread_count = 0
+
+      // Если роль явно задана в объекте — используем её
+      if (channel.user_role) {
+        this.activeChannelRole = channel.user_role
         return
       }
-      const msg = JSON.stringify({
-        type: 'delete_message',
-        payload: { id, chat_id, recipient_id }
-      })
-      this.ws.send(msg)
+
+      // Иначе — запрашиваем с сервера (фикс: не ставим 'owner' по умолчанию)
+      this.activeChannelRole = ''
+      if (!this.currentUserId) return
+      try {
+        const res = await apiFetch(`${BASE}/channels/${channel.id}/members/${this.currentUserId}`)
+        if (!res.ok) { this.activeChannelRole = ''; return }
+        const data = await res.json()
+        this.activeChannelRole = data.member?.role ?? data.role ?? ''
+      } catch (e) {
+        console.error('fetchMemberRole error', e)
+        this.activeChannelRole = ''
+      }
+    },
+
+    onChannelUpdated(channel) {
+      const idx = this.channels.findIndex(c => c.id === channel.id)
+      if (idx !== -1) this.channels[idx] = { ...this.channels[idx], ...channel }
+      this.activeChannel = { ...this.activeChannel, ...channel }
     },
 
     goBackToSidebar() {
-  this.mobileView = 'sidebar'
-  this.activeChatId = null
-  this.activeRecipientId = null
-},
+      this.mobileView = 'sidebar'
+      this.activeChatId = null
+      this.activeRecipientId = null
+    },
 
     checkMobile() {
       this.isMobile = window.innerWidth <= 760
       if (!this.isMobile) this.mobileView = 'sidebar'
     },
 
+    // ─── Channel WS senders ──────────────────────────────────────────
+    sendWS(type, payload) {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
+      this.ws.send(JSON.stringify({ type, payload }))
+    },
+
+    onPostCreatedWS(post) {
+      this.sendWS('new_channel_post', { ...post, channel_id: this.activeChannelId })
+      this.updateChannelPreview(this.activeChannelId, post.content || '')
+    },
+    onPostDeletedWS(postId) {
+      this.sendWS('delete_channel_post', { post_id: postId, channel_id: this.activeChannelId })
+    },
+    onPostPinnedWS(post) {
+      this.sendWS('pin_channel_post', { ...post, channel_id: this.activeChannelId })
+    },
+    onPostEditedWS(post) {
+      this.sendWS('update_channel_post', { ...post, channel_id: this.activeChannelId })
+    },
+
+    // Подписка из ChannelView (бар внизу)
+    onSubscribeChannel(channel) {
+      const idx = this.channels.findIndex(c => String(c.id) === String(channel.id))
+      if (idx === -1) {
+        this.channels.push({ ...channel, user_role: 'member' })
+      } else {
+        this.channels[idx] = { ...this.channels[idx], user_role: 'member' }
+      }
+      this.sendWS('channel_joined', { channel, user_id: this.currentUserId })
+      // Обновляем роль в открытом канале без перезагрузки
+      this.activeChannelRole = 'member'
+    },
+
+    onDeleteChannel(channelId) {
+      this.sendWS('channel_deleted', { channel_id: channelId })
+      this.channels = this.channels.filter(c => String(c.id) !== String(channelId))
+      if (String(this.activeChannelId) === String(channelId)) {
+        this.activeChannelId = null
+        this.activeChannel = null
+        this.activeChannelRole = ''
+        if (this.isMobile) this.mobileView = 'sidebar'
+      }
+    },
+
+    onLeaveChannel(channelId) {
+      this.sendWS('channel_left', { channel_id: channelId, user_id: this.currentUserId })
+      this.channels = this.channels.filter(c => String(c.id) !== String(channelId))
+      if (String(this.activeChannelId) === String(channelId)) {
+        this.activeChannelId = null; this.activeChannel = null; this.activeChannelRole = ''
+        if (this.isMobile) this.mobileView = 'sidebar'
+      }
+    },
+
+    onChannelCreated(channel) {
+      const existingIdx = this.channels.findIndex(c => String(c.id) === String(channel.id))
+      if (existingIdx === -1) {
+        this.channels.push(channel)
+      } else {
+        this.channels[existingIdx] = { ...this.channels[existingIdx], ...channel }
+      }
+      this.sendWS('channel_created', { channel, user_id: this.currentUserId })
+      this.selectChannel(channel)
+    },
+
+    updateChannelPreview(channelId, content) {
+      const ch = this.channels.find(c => String(c.id) === String(channelId))
+      if (ch) { ch.last_post_content = content; ch.last_post_at = new Date().toISOString() }
+    },
+
+    showChannelPush(channelId, payload) {
+      if (String(this.activeChannelId) === String(channelId)) return
+      const ch = this.channels.find(c => String(c.id) === String(channelId))
+      if (!ch) return
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification(ch.name || 'Channel', {
+            body: payload?.content || 'New post',
+            icon: ch.avatar_url || undefined,
+            tag: `channel-${channelId}`
+          })
+        } catch (e) { console.warn('Push notification error', e) }
+      }
+    },
+
+    // ─── Presence ────────────────────────────────────────────────────
     setUserPresence(userId, patch = {}) {
       const key = String(userId)
       const prev = this.userStatuses[key] || { online: false, lastSeen: null }
@@ -416,9 +596,7 @@ if (type === 'typing') {
           online: data?.online === true,
           lastSeen: data?.last_seen ?? data?.lastseen ?? null
         })
-      } catch (e) {
-        console.error('fetchUserStatus error', e)
-      }
+      } catch (e) { console.error('fetchUserStatus error', e) }
     },
 
     async fetchAllStatuses() {
@@ -433,51 +611,46 @@ if (type === 'typing') {
     onChatDeleted(chatId) {
       this.directs = this.directs.filter(d => String(d.id) !== String(chatId))
       if (String(this.activeChatId) === String(chatId)) {
-        this.activeChatId = null
-        this.activeRecipientId = null
+        this.activeChatId = null; this.activeRecipientId = null
       }
       this.saveChatsToLocal()
     },
 
     onMarkAsRead({ chat_id, user_id, recipient_id }) {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
-      this.ws.send(JSON.stringify({
-        type: 'mark_as_read',
-        payload: { chat_id, user_id, recipient_id }
-      }))
+      this.ws.send(JSON.stringify({ type: 'mark_as_read', payload: { chat_id, user_id, recipient_id } }))
     },
 
-    onTyping({ chat_id, sender_id, recipient_id }) {  // ← сюда
-  if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
-  this.ws.send(JSON.stringify({
-    type: 'typing',
-    payload: { chat_id, sender_id, recipient_id }
-  }))
-},
+    onMessageDeleted({ id, chat_id, recipient_id }) {
+      console.log('onMessageDeleted called', { id, chat_id, recipient_id })
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
+      this.ws.send(JSON.stringify({ type: 'delete_message', payload: { id, chat_id, recipient_id } }))
+    },
+
+    onTyping({ chat_id, sender_id, recipient_id }) {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
+      this.ws.send(JSON.stringify({ type: 'typing', payload: { chat_id, sender_id, recipient_id } }))
+    },
 
     updateChatPreview({ chatId, content, date, isIncoming, senderId }) {
-  const idx = this.directs.findIndex(c => String(c.id) === String(chatId))
-  if (idx === -1) return
-
-  const chat = { ...this.directs[idx] }
-  
-  chat.last_message_content = content
-  chat.last_message_at = date
-  chat.last_message_sender_id = isIncoming ? senderId : this.currentUserId
-  chat.last_message_status = isIncoming ? 'delivered' : 'sent'
-
-  if (isIncoming && String(this.activeChatId) !== String(chatId)) {
-    chat.unread_count = (Number(chat.unread_count || chat.unreadcount) || 0) + 1
-  }
-
-  this.directs[idx] = chat
-  this.directs = [...this.directs].sort((a, b) => {
-    const dateA = new Date(a.last_message_at || a.updated_at || a.created_at || 0)
-    const dateB = new Date(b.last_message_at || b.updated_at || b.created_at || 0)
-    return dateB - dateA
-  })
-  this.saveChatsToLocal()
-},
+      const idx = this.directs.findIndex(c => String(c.id) === String(chatId))
+      if (idx === -1) return
+      const chat = { ...this.directs[idx] }
+      chat.last_message_content = content
+      chat.last_message_at = date
+      chat.last_message_sender_id = isIncoming ? senderId : this.currentUserId
+      chat.last_message_status = isIncoming ? 'delivered' : 'sent'
+      if (isIncoming && String(this.activeChatId) !== String(chatId)) {
+        chat.unread_count = (Number(chat.unread_count || chat.unreadcount) || 0) + 1
+      }
+      this.directs[idx] = chat
+      this.directs = [...this.directs].sort((a, b) => {
+        const dateA = new Date(a.last_message_at || a.updated_at || a.created_at || 0)
+        const dateB = new Date(b.last_message_at || b.updated_at || b.created_at || 0)
+        return dateB - dateA
+      })
+      this.saveChatsToLocal()
+    },
 
     async startChat(userId, nickname) {
       try {
@@ -486,25 +659,18 @@ if (type === 'typing') {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ first_user_id: this.currentUserId, second_user_id: userId })
         })
-
         const text = await res.text()
         let data
         try { data = JSON.parse(text) } catch { return }
         if (!res.ok) return
-
         const direct = data.direct || data.chat || data
-
         await this.loadDirects()
-
         this.activeChatId = direct.id
         this.activeRecipientId = userId
         this.chatWindowKey++
         this.fetchUserStatus(userId)
-
         if (this.isMobile) this.mobileView = 'chat'
-      } catch (e) {
-        console.error('startChat crash:', e)
-      }
+      } catch (e) { console.error('startChat crash:', e) }
     }
   }
 }
@@ -513,7 +679,6 @@ if (type === 'typing') {
 
 <style scoped>
 @import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap');
-
 
 .direct-page {
   height: 100svh;
@@ -531,8 +696,6 @@ if (type === 'typing') {
   transition: background 0.3s;
 } 
 
-
-/* Light page background */
 .direct-page.theme-light {
   background:
     radial-gradient(circle at 12% 20%, rgba(91, 106, 255, 0.06), transparent 22%),
@@ -540,17 +703,12 @@ if (type === 'typing') {
     linear-gradient(180deg, #eef0fb 0%, #e8ebf8 100%);
 }
 
-
 .direct-page::before {
-  content: '';
-  position: absolute; inset: 0;
+  content: ''; position: absolute; inset: 0;
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-  background-size: 46px 46px;
-  opacity: 0.45;
-  pointer-events: none;
-  transition: opacity 0.3s;
+  background-size: 46px 46px; opacity: 0.45; pointer-events: none; transition: opacity 0.3s;
 }
 .direct-page.theme-light::before {
   background-image:
@@ -558,7 +716,6 @@ if (type === 'typing') {
     linear-gradient(90deg, rgba(91, 106, 255, 0.06) 1px, transparent 1px);
   opacity: 1;
 }
-
 
 .direct-shell {
   position: relative; z-index: 1;
@@ -572,13 +729,11 @@ if (type === 'typing') {
   transition: background 0.3s, border-color 0.3s;
 }
 
-
 .direct-shell.theme-light {
   background: #ffffff;
   border-color: rgba(91, 106, 255, 0.15);
   box-shadow: 0 20px 60px rgba(91, 106, 200, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
-
 
 .content-area {
   min-width: 0; height: 100%; min-height: 0;
@@ -587,30 +742,19 @@ if (type === 'typing') {
   background: linear-gradient(180deg, rgba(10, 14, 30, 0.78), rgba(7, 10, 22, 0.84));
   transition: background 0.3s, border-color 0.3s;
 }
-.direct-shell.theme-light .content-area {
-  background: #f5f6fc;
-  border-left-color: #e4e6f0;
-}
-
+.direct-shell.theme-light .content-area { background: #f5f6fc; border-left-color: #e4e6f0; }
 
 .empty-chat {
   flex: 1; min-height: 0;
   display: flex; align-items: center; justify-content: center; padding: 24px;
 }
-
-
 .empty-card {
   width: 100%; max-width: 480px; padding: 34px 26px;
   border-radius: 22px; text-align: center;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
-.direct-shell.theme-light .empty-card {
-  background: #ffffff;
-  border-color: #e4e6f0;
-  box-shadow: 0 8px 30px rgba(91, 106, 200, 0.08);
-}
-
+.direct-shell.theme-light .empty-card { background: #ffffff; border-color: #e4e6f0; box-shadow: 0 8px 30px rgba(91, 106, 200, 0.08); }
 
 .empty-logo {
   width: 68px; height: 68px; margin: 0 auto 18px;

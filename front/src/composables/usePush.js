@@ -1,6 +1,8 @@
 const VAPID_PUBLIC_KEY = 'BDxJcOA4xjBkROFCF1-DO9YpUzWVaYR2Ex9i8yPZm8gwo5YVUhsSHp6iuS70EiMRCL4r3WDFrMbAJh_GMw5tA-4'
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
+import { getCookie } from '../api.js'
+
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
@@ -32,7 +34,7 @@ export function usePush() {
     const key = sub.getKey('p256dh')
     const auth = sub.getKey('auth')
 
-    const token = sessionStorage.getItem('access_token')
+    const token = getCookie('access_token')
 
     await fetch(`${API_URL}/push/subscribe`, {
       method: 'POST',
@@ -57,7 +59,7 @@ export function usePush() {
     const sub = await reg.pushManager.getSubscription()
     if (!sub) return
 
-    const token = sessionStorage.getItem('access_token')
+    const token = getCookie('access_token')
 
     await fetch(`${API_URL}/push/unsubscribe`, {
       method: 'POST',

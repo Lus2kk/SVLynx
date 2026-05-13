@@ -4,7 +4,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	channelhandler "github.com/svlynx/messenger/internal/chat/channel/channel_handler"
+
+	channel_handler "github.com/svlynx/messenger/internal/chat/channel/handler"
 	chat_handler "github.com/svlynx/messenger/internal/chat/direct/handler"
 )
 
@@ -45,7 +46,7 @@ func WsRouter(engine *gin.Engine, handler *chat_handler.WsHandler) {
 }
 
 
-func RegisterChannelRoutes(engine *gin.Engine, h *channelhandler.ChannelHandler) {
+func RegisterChannelRoutes(engine *gin.Engine, h *channel_handler.ChannelHandler) {
 	
 
 	channels := engine.Group("/channels")

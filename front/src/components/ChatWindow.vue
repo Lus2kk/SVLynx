@@ -119,7 +119,7 @@
       <div v-if="replyTo" class="reply-preview">
   <div class="reply-preview-content">
     <span class="reply-preview-name">{{ String(replyTo.sender_id) === String(currentUserId) ? 'Вы' : 'Собеседник' }}</span>
-    <span class="reply-preview-text">{{ replyTo.type === 'voice' ? '🎤 Голосовое' : replyTo.type === 'image' ? '📷 Фото' : replyTo.content }}</span>
+    <span class="reply-preview-text">{{ replyTo.type === 'voice' ? '🎤 Голосовое сообщение' : replyTo.type === 'image' ? '📷 Фото' : replyTo.content }}</span>
   </div>
   <button class="reply-preview-close" @click="replyTo = null">✕</button>
 </div>
@@ -706,7 +706,7 @@ this._onTouchEndNative = (e) => {
       this.scrollToBottom()
       this.$emit('message-sent', {
         chatId: this.chatId,
-        content: 'Голосовое сообщение',
+        content: '🎤 Голосовое сообщение',
         date: msg.created_at
       })
     },
