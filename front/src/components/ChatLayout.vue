@@ -613,13 +613,23 @@ if (type === 'typing') {
 .direct-shell.theme-light .empty-text { color: #7880a0; }
 
 .chat-avatar-wrap {
-  position: relative; flex-shrink: 0;
+  position: relative;
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  overflow: visible;
 }
+
 .online-dot {
-  position: absolute; bottom: 1px; right: 1px;
-  width: 11px; height: 11px; border-radius: 50%;
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
   background: #22c55e;
   border: 2px solid rgba(8, 12, 26, 0.98);
+  z-index: 2;
 }
 @media (max-width: 980px) {
   .direct-shell { grid-template-columns: 300px 1fr; }

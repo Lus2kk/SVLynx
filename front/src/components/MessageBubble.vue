@@ -55,10 +55,9 @@
           <div class="image-meta">
             <span class="message-time">{{ formatTime(message.created_at || message.createdat) }}</span>
             <span v-if="isMine" class="message-status" :class="{ read: message.status === 'read' }">
-              <svg viewBox="0 0 20 10" width="18" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M2 5 L5 8 L10 2"/>
-  <path d="M7 5 L10 8 L15 2"/>
-  <circle v-if="message.status === 'read'" cx="17.5" cy="7.5" r="1.1" fill="currentColor" stroke="none"/>
+              <svg viewBox="0 0 16 12" width="16" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M2 6 L5 9 L12 2"></path>
+  <circle v-if="message.status === 'read'" cx="14" cy="9" r="1.8" fill="currentColor" stroke="none"></circle>
 </svg>
             </span>
           </div>
@@ -111,10 +110,9 @@
         <div class="message-meta" v-if="message.type !== 'image'">
           <span class="message-time">{{ formatTime(message.created_at || message.createdat) }}</span>
           <span v-if="isMine" class="message-status" :class="{ read: message.status === 'read' }">
-            <svg viewBox="0 0 20 10" width="18" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M2 5 L5 8 L10 2"></path>
-  <path d="M7 5 L10 8 L15 2"></path>
-  <circle v-if="message.status === 'read'" cx="17.5" cy="7.5" r="1.1" fill="currentColor" stroke="none"></circle>
+            <svg viewBox="0 0 16 12" width="16" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M2 6 L5 9 L12 2"/>
+  <circle v-if="message.status === 'read'" cx="14" cy="9" r="1.8" fill="currentColor" stroke="none"/>
 </svg>
           </span>
         </div>
@@ -273,8 +271,8 @@ export default {
 
 <style scoped>
 .message-row {
-  display: flex; margin-bottom: 2px; align-items: center; gap: 10px;
-  padding: 2px 0; transition: background 0.15s;
+  display: flex; margin-bottom: 0px; align-items: center; gap: 8px;
+  padding: 1px 0; transition: background 0.15s;
   border-radius: 10px;
 }
 .message-row.mine   { justify-content: flex-end; }
@@ -331,10 +329,10 @@ export default {
 .message-text { font-size: 14px; line-height: 1.5; font-weight: 500; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
 .message-meta { display: flex; justify-content: flex-end; align-items: center; gap: 3px; margin-top: 2px; }
 .message-time { font-size: 11px; opacity: 0.85; color: rgba(255,255,255,0.85); white-space: nowrap; }
-.message-status { display: inline-flex; align-items: center; color: rgba(255,255,255,0.5); transition: all 0.3s; }
-.message-status.read { color: #fff; filter: drop-shadow(0 0 3px rgba(255,255,255,0.8)); }
+.message-status { display: inline-flex; align-items: center; color: rgba(255,255,255,0.7); transition: none; }
+.message-status.read { color: rgba(255,255,255,0.7); filter: none; }
 .theme-light .message-status { color: rgba(255,255,255,0.7); }
-.theme-light .message-status.read { color: #93c5fd; }
+.theme-light .message-status.read { color: rgba(255,255,255,0.7); }
 
 .media-image-wrap { border-radius: 10px; overflow: hidden; max-width: 260px; position: relative; }
 .media-image { width: 100%; display: block; cursor: pointer; border-radius: 10px; }
