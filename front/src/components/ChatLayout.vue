@@ -528,7 +528,7 @@ if (type === 'typing') {
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  background: rgba(5, 7, 16, 1);
+  background: rgba(5, 7, 16, 0.99);
   font-family: 'Satoshi', sans-serif;
   transition: background 0.3s;
 } 
@@ -653,6 +653,7 @@ if (type === 'typing') {
     align-items: stretch;
     position: fixed;
     inset: 0;
+    height: 100%;
     background: rgb(8, 12, 26);
   }
   .direct-page.theme-light {
@@ -665,7 +666,7 @@ if (type === 'typing') {
     min-height: 0;
     border-radius: 0;
     border: none;
-    padding-top: env(safe-area-inset-top);
+    padding-top: 0;
     grid-template-columns: 1fr;
     grid-template-rows: 1fr;
     align-items: stretch;
