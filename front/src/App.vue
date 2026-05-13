@@ -82,7 +82,8 @@ export default {
     },
 
     setCookie(name, value, maxAgeSeconds) {
-      document.cookie = `${name}=${value}; path=/; max-age=${maxAgeSeconds}; SameSite=Strict`
+      const secure = location.protocol === 'https:' ? '; Secure' : ''
+      document.cookie = `${name}=${value}; path=/; max-age=${maxAgeSeconds}; SameSite=Strict${secure}`
     },
 
     applyTheme() {
@@ -127,16 +128,15 @@ button:focus,
 button:focus-visible {
   outline: none;
 }
-.app-view {
-  width: 100%;
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #080c14;
-}
+
 .fade-enter-active, .fade-leave-active { transition: all 0.35s ease; }
 .fade-enter-from { opacity: 0; transform: translateY(16px) scale(0.98); }
 .fade-leave-to { opacity: 0; transform: translateY(-16px) scale(0.98); }
-
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 </style>

@@ -9,6 +9,7 @@
         :currentUserId="currentUserId"
         :isLight="isLight"
         :class="{ 'mobile-hidden': mobileView === 'chat' }"
+        :userStatuses="userStatuses"
         @select="selectChat"
         @select-channel="selectChannel"
         @start-chat="startChat"
@@ -70,8 +71,8 @@
                 <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7A2.5 2.5 0 0 1 17.5 16H11l-4.5 4V16A2.5 2.5 0 0 1 4 13.5v-7z" />
               </svg>
             </div>
-            <h2 class="empty-title">Your Messages</h2>
-            <p class="empty-text">Select a chat from the sidebar or start a new conversation.</p>
+            <h2 class="empty-title">Ваши сообщения</h2>
+            <p class="empty-text">Выберите чат или найдите собеседника через поиск.</p>
           </div>
         </div>
       </div>
@@ -178,12 +179,12 @@ export default {
       this.ws = new WebSocket(wsUrl)
 
       this.ws.onmessage = (event) => {
-        console.log('WS RAW:', event.data)
-        try {
-          const data = JSON.parse(event.data)
-          let payload = data.Payload ?? data.payload ?? null
-          let type = data.Type ?? data.type ?? null
-          console.log('TYPE:', type, 'PAYLOAD:', payload)
+        if (import.meta.env.DEV) console.debug('WS RAW:', event.data)
+      try {
+        const data = JSON.parse(event.data)
+        let payload = data.Payload ?? data.payload ?? null
+        let type = data.Type ?? data.type ?? null
+        if (import.meta.env.DEV) console.debug('WS TYPE:', type, 'PAYLOAD:', payload)
 
           if (!payload && (data.chat_id || data.chatId || data.content)) {
             payload = data
@@ -399,6 +400,8 @@ export default {
           return dateB - dateA
         })
         this.saveChatsToLocal()
+        this.fetchAllStatuses()
+
       } catch (e) {
         console.error('loadDirects crash:', e)
       } finally {
@@ -596,7 +599,15 @@ export default {
       } catch (e) { console.error('fetchUserStatus error', e) }
     },
 
-    // ─── Chat actions ─────────────────────────────────────────────────
+    async fetchAllStatuses() {
+  const ids = this.directs.map(d => {
+    const first = d.first_user_id ?? d.firstuserid
+    const second = d.second_user_id ?? d.seconduserid
+    return String(first) === String(this.currentUserId) ? second : first
+  }).filter(Boolean)
+
+  await Promise.all(ids.map(id => this.fetchUserStatus(id)))
+},
     onChatDeleted(chatId) {
       this.directs = this.directs.filter(d => String(d.id) !== String(chatId))
       if (String(this.activeChatId) === String(chatId)) {
@@ -670,13 +681,20 @@ export default {
 @import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap');
 
 .direct-page {
-  height: 100svh; width: 100vw; min-height: 0;
-  display: flex; align-items: center; justify-content: center;
-  padding: 24px; box-sizing: border-box;
-  position: relative; overflow: hidden;
-  background: rgba(8, 12, 26, 0.98);
-  font-family: 'Satoshi', sans-serif; transition: background 0.3s;
-}
+  height: 100svh;
+  width: 100vw;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+  background: rgba(5, 7, 16, 0.99);
+  font-family: 'Satoshi', sans-serif;
+  transition: background 0.3s;
+} 
 
 .direct-page.theme-light {
   background:
@@ -749,19 +767,71 @@ export default {
 .direct-shell.theme-light .empty-title { color: #1a1d2e; }
 .direct-shell.theme-light .empty-text { color: #7880a0; }
 
-@media (max-width: 980px) { .direct-shell { grid-template-columns: 300px 1fr; } }
+.chat-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  overflow: visible;
+}
+
+.online-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid rgba(8, 12, 26, 0.98);
+  z-index: 2;
+}
+@media (max-width: 980px) {
+  .direct-shell { grid-template-columns: 300px 1fr; }
+}
 @media (max-width: 760px) {
-  .direct-page { padding: 0; align-items: stretch; position: fixed; inset: 0; background: rgb(8, 12, 26); }
-  .direct-page.theme-light { background: #ffffff; }
-  .direct-shell {
-    flex: 1; height: 100%; min-height: 0;
-    border-radius: 0; border: none;
-    padding-top: env(safe-area-inset-top);
-    grid-template-columns: 1fr; grid-template-rows: 1fr; align-items: stretch;
+  .direct-page {
+    padding: 0;
+    align-items: stretch;
+    position: fixed;
+    inset: 0;
+    height: 100%;
+    background: rgb(8, 12, 26);
   }
-  .direct-shell.theme-light { background: #ffffff; }
-  .content-area { grid-column: 1; grid-row: 1; height: 100%; overflow: hidden; }
-  .direct-shell.theme-light .content-area { background: #ffffff; }
-  .mobile-hidden { display: none !important; }
+  .direct-page.theme-light {
+    background: #ffffff;
+  }
+
+  .direct-shell {
+    flex: 1;
+    height: 100%;
+    min-height: 0;
+    border-radius: 0;
+    border: none;
+    padding-top: 0;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    align-items: stretch;
+  }
+
+  .direct-shell.theme-light {
+    background: #ffffff;
+  }
+
+  .content-area {
+    grid-column: 1;
+    grid-row: 1;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .direct-shell.theme-light .content-area {
+    background: #ffffff;
+  }
+
+  .mobile-hidden {
+    display: none !important;
+  }
+
 }
 </style>

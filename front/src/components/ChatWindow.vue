@@ -1,5 +1,5 @@
 <template>
-  <section class="chat-window" :class="{ 'theme-light': isLight }">
+  <section class="chat-window" :class="{ 'theme-light': isLight }" @touchstart="onSwipeStart" @touchend="onSwipeEnd">
     <header class="chat-header">
       <div class="chat-user">
         <button v-if="showBackButton" class="back-btn" type="button" title="Back" @click="$emit('back')">
@@ -17,7 +17,7 @@
           <div class="chat-username">{{ chatTitle }}</div>
           <div class="chat-status" :class="{ online: !isTyping && presence.online, offline: !isTyping && !presence.online, typing: isTyping }">
   <span class="status-dot"></span>
-  <span>{{ isTyping ? 'typing...' : presenceText }}</span>
+  <span>{{ isTyping ? 'печатает...' : presenceText }}</span>
 </div>
         </div>
       </div>
@@ -38,19 +38,19 @@
       </div>
       <transition name="search-slide">
         <div v-if="searchOpen" class="search-bar">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" class="search-icon">
-            <circle cx="11" cy="11" r="7"></circle>
-            <path d="M20 20l-3.5-3.5"></path>
-          </svg>
-          <input
-            ref="searchInput"
-            v-model="searchQuery"
-            type="text"
-            class="search-input"
-            placeholder="Search messages..."
-            @input="onSearchInput"
-            @keydown.escape="closeSearch"
-          />
+  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" class="search-icon">
+    <circle cx="11" cy="11" r="7"></circle>
+    <path d="M20 20l-3.5-3.5"></path>
+  </svg>
+  <input
+    ref="searchInput"
+    v-model="searchQuery"
+    type="text"
+    class="search-input"
+    placeholder="Поиск сообщений..."
+    @input="onSearchInput"
+    @keydown.escape="closeSearch"
+  />
           <span v-if="searchResults.length" class="search-count">
             {{ searchIndex + 1 }} / {{ searchResults.length }}
           </span>
@@ -96,12 +96,10 @@
 </div>
       <div v-if="deleteModalOpen" class="delete-modal-overlay">
         <div class="delete-modal">
-          <h3>Delete message?</h3>
-          <p>This will permanently delete the message for both users.</p>
-          <div class="modal-actions">
-            <button type="button" class="btn-cancel" @click="closeDeleteModal">Cancel</button>
-            <button type="button" class="btn-delete" @click="executeDelete">Delete</button>
-          </div>
+          <h3>Удалить сообщение?</h3>
+<p>Сообщение будет удалено для обоих пользователей.</p>
+<button type="button" class="btn-cancel" @click="closeDeleteModal">Отмена</button>
+<button type="button" class="btn-delete" @click="executeDelete">Удалить</button>
         </div>
       </div>
     </div>
@@ -131,16 +129,19 @@
   :chatId="String(chatId)"
   :senderId="String(currentUserId)"
   :recipientId="String(recipientId)"
+  :senderName="chatTitle"
   @media-sent="onMediaSent"
 />
 
-        <input
-          v-model="newMessage"
-          type="text"
-          class="message-input"
-          placeholder="Type a message..."
-          ref="messageInput"
-          @input="onTyping"
+        <textarea
+  v-model="newMessage"
+  class="message-input"
+  placeholder="Сообщение..."
+  ref="messageInput"
+  rows="1"
+  @input="onTypingAndResize"
+  @keydown.enter.exact.prevent="onEnterKey"
+  @keydown.enter.shift.exact.prevent="onShiftEnterKey" 
         />
 
         <button type="button" class="composer-side-btn" title="Emoji">
@@ -154,16 +155,19 @@
 
         <!-- Кнопка отправки текста / переключения в voiceMode -->
         <button
-          v-show="!voiceMode"
-          type="button"
-          class="send-btn"
-          title="Send"
-          @click="onSendClick"
-        >
-          <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
-            <path d="M21.8 2.2a1 1 0 0 0-1.04-.23L2.76 8.97a1 1 0 0 0 .08 1.89l7.14 2.38 2.38 7.14a1 1 0 0 0 .91.68h.05a1 1 0 0 0 .9-.59l7-18a1 1 0 0 0-.22-1.03z"></path>
-          </svg>
-        </button>
+  v-show="!voiceMode"
+  type="button"
+  class="send-btn"
+  title="Send"
+  aria-label="Отправить"
+  @click="onSendClick"
+>
+  <!-- Diagonal arrow-up. Original geometry, no paper-plane. -->
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 17 L17 7"></path>
+    <path d="M9 7 H17 V15"></path>
+  </svg>
+</button>
 
         <!-- Кнопка записи: короткий клик = выйти, долгое нажатие = запись -->
         <!-- Обработчики вешаются через ref в watch, а не через Vue директивы -->
@@ -247,6 +251,7 @@ export default {
       isSelecting: false,
       selectedMessages: [],
       typingTimer: null,
+      swipeStartX: 0,
     }
   },
 
@@ -314,9 +319,9 @@ export default {
     },
     presenceText() {
       void this.nowTick
-      if (this.presence?.online) return 'Online'
+      if (this.presence?.online) return 'В сети'
       if (this.presence?.lastSeen) return this.formatLastSeen(this.presence.lastSeen)
-      return 'Offline'
+      return 'Не в сети'
     }
   },
 
@@ -352,6 +357,27 @@ export default {
     recipient_id: this.recipientId
   })
   this.typingTimer = setTimeout(() => {}, 2000)
+},
+onSwipeStart(e) {
+  this.swipeStartX = e.touches[0].clientX
+},
+onSwipeEnd(e) {
+  const diff = e.changedTouches[0].clientX - this.swipeStartX
+  if (diff > 80 && this.swipeStartX < 40) {
+    this.$emit('back')
+  }
+},
+onTypingAndResize() {
+  this.onTyping()
+  const el = this.$refs.messageInput
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+},
+
+newLine() {
+  this.newMessage += '\n'
+  this.$nextTick(() => this.onTypingAndResize())
 },
     onSelectMessage(message) {
   if (!this.isSelecting) this.isSelecting = true
@@ -399,10 +425,31 @@ async deleteSelected() {
     date: msg.created_at
   })
 },
+onEnterKey() {
+  const isMobile = 'ontouchstart' in window
+  if (isMobile) {
+    this.newLine()
+  } else {
+    this.sendMessage()
+  }
+},
+
+onShiftEnterKey() {
+  const isMobile = 'ontouchstart' in window
+  if (isMobile) {
+    this.sendMessage()
+  } else {
+    this.newLine()
+  }
+},
   onReply(message) {
   this.replyTo = message
   if (!('ontouchstart' in window)) {
     this.$refs.messageInput?.focus()
+    
+    if (this.$refs.messageInput) {
+  this.$refs.messageInput.style.height = 'auto'
+}
   }
 },
 
@@ -707,16 +754,16 @@ this._onTouchEndNative = (e) => {
     },
 
     formatLastSeen(raw) {
-      if (!raw) return 'Offline'
+      if (!raw) return 'не в сети'
       const normalized = raw.endsWith('Z') || raw.includes('+') ? raw : raw + 'Z'
       const date = new Date(normalized)
-      if (isNaN(date.getTime())) return 'Offline'
+      if (isNaN(date.getTime())) return 'в сети'
       const diff = Math.floor((Date.now() - date.getTime()) / 1000)
-      if (diff < 60) return 'last seen just now'
-      if (diff < 3600) return `last seen ${Math.floor(diff / 60)}m ago`
-      if (diff < 86400) return `last seen today at ${date.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}`
-      if (diff < 172800) return `last seen yesterday at ${date.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}`
-      return `last seen ${date.toLocaleDateString('en', { day: 'numeric', month: 'short' })}`
+      if (diff < 60) return 'был(a) только что'
+if (diff < 3600) return `был(a) ${Math.floor(diff / 60)} мин назад`
+if (diff < 86400) return `был(a) сегодня в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+if (diff < 172800) return `был(a) вчера в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+return `был ${date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}`
     },
 
     normalizeMessage(message) {
@@ -805,6 +852,10 @@ this._onTouchEndNative = (e) => {
 
       this.$refs.messageInput?.focus()
 
+      if (this.$refs.messageInput) {
+      this.$refs.messageInput.style.height = 'auto'
+}
+
       const optimistic = {
         id: `local-${Date.now()}`,
         sender_id: this.currentUserId,
@@ -840,7 +891,8 @@ this.scrollToBottom()
     sender_id: this.currentUserId,
     recipient_id: this.recipientId,
     content: text,
-    reply_to: pendingReplyTo
+    reply_to: pendingReplyTo,
+    sender_name: this.chatTitle
 })
         })
 
@@ -898,7 +950,7 @@ this.scrollToBottom()
 .chat-window {
   height: 100%;
   display: flex; flex-direction: column; min-width: 0; overflow: hidden;
-  background: linear-gradient(180deg, rgba(10, 13, 28, 0.72), rgba(7, 10, 22, 0.82));
+  background: rgba(10, 14, 32, 1);
   transition: background 0.3s;
 }
 .chat-window.theme-light { background: #f5f6fc; }
@@ -908,8 +960,8 @@ this.scrollToBottom()
   position: sticky;
   padding: 14px 20px;
   display: flex; align-items: center; justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(255, 255, 255, 0.015);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+background: rgb(9, 11, 25);
   transition: all 0.3s;
 }
 .theme-light .chat-header { background: #ffffff; border-bottom-color: #e4e6f0; box-shadow: 0 1px 0 #e4e6f0; }
@@ -952,9 +1004,9 @@ this.scrollToBottom()
   position: relative; display: flex; flex-direction: column;
   background-color: transparent;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 48px 48px;
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
+background-size: 48px 48px;
 }
 .theme-light .messages-area-wrapper {
   background-image:
@@ -965,7 +1017,7 @@ this.scrollToBottom()
 .messages-area {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
   padding: 22px 28px 18px;
-  display: flex; flex-direction: column; gap: 6px;
+  display: flex; flex-direction: column; gap: 2px;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   background: transparent;
 }
@@ -992,13 +1044,14 @@ this.scrollToBottom()
   bottom: 0;
   z-index: 10;
   padding: 14px 28px 18px;
-  background: linear-gradient(180deg, rgba(8, 12, 24, 0.18), rgba(8, 12, 24, 0.32));
+  background: rgba(10, 14, 32, 1);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 .theme-light .composer-wrap { background: #f5f6fc; }
 
 .composer {
-  height: 56px; display: flex; align-items: center; gap: 12px;
-  padding: 0 12px 0 14px; border-radius: 18px;
+  min-height: 56px; height: auto; display: flex; align-items: flex-end; gap: 12px;
+  padding: 10px 12px 10px 14px; border-radius: 18px;
   border: 1px solid rgba(110, 123, 255, 0.18);
   background: linear-gradient(180deg, rgba(25, 30, 58, 0.68), rgba(18, 23, 46, 0.78));
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -1015,6 +1068,12 @@ this.scrollToBottom()
 .message-input {
   flex: 1; min-width: 0; background: transparent; border: none; outline: none;
   color: #eef2ff; font-size: 16px; font-weight: 500;
+  resize: none; overflow-y: hidden; line-height: 1.4;
+  max-height: 120px; overflow-y: auto;
+  padding: 4px 0; align-self: center;
+  font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
 }
 .theme-light .message-input { color: #1a1d2e; }
 .message-input::placeholder { color: #747ea2; }
@@ -1065,13 +1124,25 @@ this.scrollToBottom()
 .theme-light .back-btn:hover { background: #e8eaf5; }
 
 @media (max-width: 760px) {
-  .chat-header { padding: 10px 14px; height: 64px; min-height: 64px; flex-shrink: 0; }
+  .chat-header { 
+  padding-left: 14px;
+    padding-right: 14px;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: 0;
+    height: calc(58px + env(safe-area-inset-top));
+    min-height: calc(58px + env(safe-area-inset-top));
+    display: flex;
+    align-items: flex-end;
+    padding-bottom: 10px;
+    flex-shrink: 0;
+}
   .messages-area { padding: 14px 12px 10px; }
   .composer-wrap {
-    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+     padding: 8px 12px;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
     flex-shrink: 0;
   }
-  .composer { height: 50px; border-radius: 16px; padding: 0 10px 0 12px; gap: 8px; }
+  .composer { min-height: 50px; height: auto; border-radius: 16px; padding: 8px 10px 8px 12px; gap: 8px; align-items: flex-end; }
   .delete-modal { width: calc(100vw - 48px); max-width: 300px; }
   .messages-area { padding: 14px 12px 10px; }
 }

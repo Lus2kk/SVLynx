@@ -37,7 +37,8 @@ export default {
   props: {
     chatId:      { type: String, required: true },
     senderId:    { type: String, required: true },
-    recipientId: { type: String, required: true }
+    recipientId: { type: String, required: true },
+    senderName:  { type: String, default: '' }
   },
   emits: ['media-sent'],
   data() {
@@ -53,7 +54,7 @@ export default {
       form.append('chat_id', this.chatId)
       form.append('sender_id', this.senderId)
       form.append('recipient_id', this.recipientId)
-      form.append('sender_name', '')
+      form.append('sender_name', this.senderName)
       try {
         const res = await fetch(`${MEDIA_BASE}/media/upload`, {
           method: 'POST',

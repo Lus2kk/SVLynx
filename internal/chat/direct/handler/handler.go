@@ -526,9 +526,14 @@ func (h *MessageHandler) SendMediaMessageHandler(ctx *gin.Context) {
 	}
 	if !h.hub.IsOnline(input.RecipientID) && h.pushSender != nil {
 		go h.pushSender.SendToUser(context.Background(), input.RecipientID.String(), push.PushPayload{
-			Title: "Новое сообщение",
-			Body:  "📎 Медиафайл",
-			Icon:  "/favicon.png",
+			Title: func() string {
+				if input.SenderName != "" {
+					return input.SenderName
+				}
+				return "Новое сообщение"
+			}(),
+			Body: "📎 Медиафайл",
+			Icon: "/favicon.png",
 		})
 	}
 	ctx.JSON(http.StatusCreated, gin.H{"message": message})
