@@ -38,19 +38,19 @@
       </div>
       <transition name="search-slide">
         <div v-if="searchOpen" class="search-bar">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" class="search-icon">
-            <circle cx="11" cy="11" r="7"></circle>
-            <path d="M20 20l-3.5-3.5"></path>
-          </svg>
-          <input
-            ref="searchInput"
-            v-model="searchQuery"
-            type="text"
-            class="search-input"
-            placeholder="Поиск сообщений..."
-            @input="onSearchInput"
-            @keydown.escape="closeSearch"
-          />
+  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" class="search-icon">
+    <circle cx="11" cy="11" r="7"></circle>
+    <path d="M20 20l-3.5-3.5"></path>
+  </svg>
+  <input
+    ref="searchInput"
+    v-model="searchQuery"
+    type="text"
+    class="search-input"
+    placeholder="Поиск сообщений..."
+    @input="onSearchInput"
+    @keydown.escape="closeSearch"
+  />
           <span v-if="searchResults.length" class="search-count">
             {{ searchIndex + 1 }} / {{ searchResults.length }}
           </span>
@@ -133,13 +133,15 @@
   @media-sent="onMediaSent"
 />
 
-        <input
-          v-model="newMessage"
-          type="text"
-          class="message-input"
-          placeholder="Сообщение..."
-          ref="messageInput"
-          @input="onTyping"
+        <textarea
+  v-model="newMessage"
+  class="message-input"
+  placeholder="Сообщение..."
+  ref="messageInput"
+  rows="1"
+  @input="onTypingAndResize"
+  @keydown.enter.exact.prevent="sendMessage"
+  @keydown.enter.shift.exact="newLine"
         />
 
         <button type="button" class="composer-side-btn" title="Emoji">
@@ -355,6 +357,19 @@ export default {
   })
   this.typingTimer = setTimeout(() => {}, 2000)
 },
+
+onTypingAndResize() {
+  this.onTyping()
+  const el = this.$refs.messageInput
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+},
+
+newLine() {
+  this.newMessage += '\n'
+  this.$nextTick(() => this.onTypingAndResize())
+},
     onSelectMessage(message) {
   if (!this.isSelecting) this.isSelecting = true
   const idx = this.selectedMessages.findIndex(m => String(m.id) === String(message.id))
@@ -405,6 +420,9 @@ async deleteSelected() {
   this.replyTo = message
   if (!('ontouchstart' in window)) {
     this.$refs.messageInput?.focus()
+    if (this.$refs.messageInput) {
+  this.$refs.messageInput.style.height = 'auto'
+}
   }
 },
 
@@ -1000,8 +1018,8 @@ this.scrollToBottom()
 .theme-light .composer-wrap { background: #f5f6fc; }
 
 .composer {
-  height: 56px; display: flex; align-items: center; gap: 12px;
-  padding: 0 12px 0 14px; border-radius: 18px;
+  min-height: 56px; height: auto; display: flex; align-items: flex-end; gap: 12px;
+  padding: 10px 12px 10px 14px; border-radius: 18px;
   border: 1px solid rgba(110, 123, 255, 0.18);
   background: linear-gradient(180deg, rgba(25, 30, 58, 0.68), rgba(18, 23, 46, 0.78));
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -1018,6 +1036,12 @@ this.scrollToBottom()
 .message-input {
   flex: 1; min-width: 0; background: transparent; border: none; outline: none;
   color: #eef2ff; font-size: 16px; font-weight: 500;
+  resize: none; overflow-y: hidden; line-height: 1.4;
+  max-height: 120px; overflow-y: auto;
+  padding: 4px 0; align-self: center;
+  font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
 }
 .theme-light .message-input { color: #1a1d2e; }
 .message-input::placeholder { color: #747ea2; }
@@ -1074,7 +1098,7 @@ this.scrollToBottom()
     padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
     flex-shrink: 0;
   }
-  .composer { height: 50px; border-radius: 16px; padding: 0 10px 0 12px; gap: 8px; }
+  .composer { min-height: 50px; height: auto; border-radius: 16px; padding: 8px 10px 8px 12px; gap: 8px; align-items: flex-end; }
   .delete-modal { width: calc(100vw - 48px); max-width: 300px; }
   .messages-area { padding: 14px 12px 10px; }
 }
