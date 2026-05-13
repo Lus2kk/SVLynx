@@ -407,8 +407,7 @@ if (isMobile) {
   .message-row.theirs .message-bubble-wrapper { max-width: 85%; }
 }
 
-.message-bubble.theirs { background: rgba(30,35,60,0.95); border: 1px solid rgba(255,255,255,0.08); color: #eef1fb; border-radius: 16px 16px 16px 4px; }
-.message-bubble.mine   { background: linear-gradient(180deg,rgba(108,118,255,0.95),rgba(93,104,240,0.97)); color: #fff; border-radius: 16px 16px 4px 16px; box-shadow: 0 10px 22px rgba(70,80,210,0.16); }
+.message-bubble.theirs { background: rgba(22,26,46,0.98); border: 1px solid rgba(255,255,255,0.07); color: #e8ecff; border-radius: 16px 16px 16px 4px; }.message-bubble.mine   { background: linear-gradient(180deg,rgba(108,118,255,0.95),rgba(93,104,240,0.97)); color: #fff; border-radius: 16px 16px 4px 16px; box-shadow: 0 10px 22px rgba(70,80,210,0.16); }
 .theme-light .message-bubble.theirs { background: #fff; border-color: #e4e6f0; color: #1a1d2e; }
 .theme-light .message-bubble.mine   { background: linear-gradient(180deg,#5b6aff,#6e79ff); color: #fff; }
 
