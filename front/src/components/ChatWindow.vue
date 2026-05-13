@@ -129,6 +129,7 @@
   :chatId="String(chatId)"
   :senderId="String(currentUserId)"
   :recipientId="String(recipientId)"
+  :senderName="chatTitle"
   @media-sent="onMediaSent"
 />
 
@@ -841,7 +842,8 @@ this.scrollToBottom()
     sender_id: this.currentUserId,
     recipient_id: this.recipientId,
     content: text,
-    reply_to: pendingReplyTo
+    reply_to: pendingReplyTo,
+    sender_name: this.chatTitle
 })
         })
 
