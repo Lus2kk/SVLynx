@@ -577,7 +577,6 @@ isLastMessageRead(direct) {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding-bottom: env(safe-area-inset-bottom);
     background: rgba(5, 7, 16, 1);
   }
 
@@ -585,12 +584,30 @@ isLastMessageRead(direct) {
     background: #ffffff;
   }
 
-  .sidebar-header { height: 64px; padding: 12px 14px 10px; }
+  .sidebar-header {
+    padding-left: 14px;
+    padding-right: 14px;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: 10px;
+    height: calc(58px + env(safe-area-inset-top));
+    min-height: calc(58px + env(safe-area-inset-top));
+    display: flex;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+
   .search-wrap { padding: 0 12px 10px; }
   .sidebar-tabs { padding: 0 12px 12px; }
   .sidebar-list { padding: 2px 0 12px; }
   .confirm-modal { width: calc(100vw - 48px); max-width: 280px; }
-  .sidebar-footer { padding-bottom: env(safe-area-inset-bottom, 14px); }
+
+  .sidebar-footer {
+    padding-top: 10px;
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+    flex-shrink: 0;
+  }
 
   .chat-item.active {
     background: transparent;

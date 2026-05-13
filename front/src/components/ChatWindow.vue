@@ -1125,18 +1125,22 @@ background-size: 48px 48px;
 
 @media (max-width: 760px) {
   .chat-header { 
-  padding: 10px 14px;
-  padding-top: calc(10px + env(safe-area-inset-top));
-  height: calc(64px + env(safe-area-inset-top)); 
-  min-height: calc(64px + env(safe-area-inset-top)); 
-  flex-shrink: 0; 
+  padding-left: 14px;
+    padding-right: 14px;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: 0;
+    height: calc(58px + env(safe-area-inset-top));
+    min-height: calc(58px + env(safe-area-inset-top));
+    display: flex;
+    align-items: flex-end;
+    padding-bottom: 10px;
+    flex-shrink: 0;
 }
   .messages-area { padding: 14px 12px 10px; }
   .composer-wrap {
-    padding: 8px 12px calc(16px + env(safe-area-inset-bottom));
+     padding: 8px 12px;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
     flex-shrink: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    background: rgba(10, 14, 32, 1);
   }
   .composer { min-height: 50px; height: auto; border-radius: 16px; padding: 8px 10px 8px 12px; gap: 8px; align-items: flex-end; }
   .delete-modal { width: calc(100vw - 48px); max-width: 300px; }
