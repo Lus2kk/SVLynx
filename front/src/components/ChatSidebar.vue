@@ -386,7 +386,7 @@ isLastMessageRead(direct) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: linear-gradient(180deg, rgba(8, 12, 26, 0.98), rgba(7, 10, 22, 0.98));
+  background: rgba(5, 7, 16, 1);
 }
 
 .theme-light .sidebar-shell { background: #ffffff; }
@@ -516,10 +516,10 @@ isLastMessageRead(direct) {
 
 .sidebar-footer { 
   padding: 12px 16px 14px; 
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
   position: sticky;
   bottom: 0;
-  background: rgba(7, 10, 22, 0.98);
+  background: rgba(5, 7, 16, 1);
 }
 .footer-actions { display: flex; gap: 10px; }
 .footer-btn {
@@ -578,7 +578,7 @@ isLastMessageRead(direct) {
     flex-direction: column;
     overflow: hidden;
     padding-bottom: env(safe-area-inset-bottom);
-    background: linear-gradient(180deg, rgba(8, 12, 26, 0.98), rgba(7, 10, 22, 0.98));
+    background: rgba(5, 7, 16, 1);
   }
 
   .theme-light .sidebar-shell {

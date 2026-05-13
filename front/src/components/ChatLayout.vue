@@ -526,7 +526,7 @@ if (type === 'typing') {
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  background: rgba(8, 12, 26, 0.98);
+  background: rgba(5, 7, 16, 1);
   font-family: 'Satoshi', sans-serif;
   transition: background 0.3s;
 } 
