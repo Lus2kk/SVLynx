@@ -605,8 +605,8 @@ isLastMessageRead(direct) {
 .chat-time-wrap {
   display: flex; align-items: center; gap: 3px; flex-shrink: 0;
 }
-.chat-tick { color: #7580a6; display: flex; align-items: center; }
-.chat-tick.read { color: #7580a6; }
+.chat-tick { color: #6a76ff; display: flex; align-items: center; }
+.chat-tick.read { color: #6a76ff; }
 .chat-avatar-wrap {
   position: relative; flex-shrink: 0;
 }
