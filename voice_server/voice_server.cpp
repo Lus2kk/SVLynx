@@ -157,6 +157,58 @@ int main() {
         res.set_content(goRes->body, "application/json");
         std::cout << "Voice saved: " << filePath << std::endl;
     });
+        
+    svr.Post("/voice/upload/channel", [&](const httplib::Request& req, httplib::Response& res) {
+        if (!req.is_multipart_form_data()) {
+            res.status = 400;
+            res.set_content(R"({"error":"expected multipart/form-data"})", "application/json");
+            return;
+        }
+
+        std::string senderId;
+        auto senderIt = req.form.fields.find("sender_id");
+        if (senderIt != req.form.fields.end()) senderId = senderIt->second.content;
+
+        std::string durationStr = "0";
+        auto durIt = req.form.fields.find("duration");
+        if (durIt != req.form.fields.end()) durationStr = durIt->second.content;
+
+        std::string fileContent;
+        std::string fileExt = ".webm";
+        auto fileIt = req.form.files.find("file");
+        if (fileIt != req.form.files.end()) {
+            fileContent = fileIt->second.content;
+            if (fileIt->second.content_type.find("ogg") != std::string::npos)
+                fileExt = ".ogg";
+            else if (fileIt->second.content_type.find("mp4") != std::string::npos)
+                fileExt = ".mp4";
+        }
+
+        if (fileContent.empty() || senderId.empty()) {
+            res.status = 400;
+            res.set_content(R"({"error":"missing required fields"})", "application/json");
+            return;
+        }
+
+        std::string datePath = getDatePath();
+        std::string dirPath = UPLOAD_DIR + "/" + datePath;
+        fs::create_directories(dirPath);
+
+        std::string uuid = generateUUID();
+        std::string filename = uuid + fileExt;
+        std::string filePath = dirPath + "/" + filename;
+
+        std::ofstream outFile(filePath, std::ios::binary);
+        outFile.write(fileContent.data(), fileContent.size());
+        outFile.close();
+
+        std::string audioUrl = BASE_URL + "/uploads/voice/" + datePath + "/" + filename;
+
+        std::string responseBody = R"({"url":")" + audioUrl + R"(","duration":)" + durationStr + R"(})";
+        res.set_content(responseBody, "application/json");
+
+        std::cout << "Channel voice saved: " << filePath << std::endl;
+    });
 
     std::cout << "Voice server running on port 9090" << std::endl;
     svr.listen("0.0.0.0", 9090);

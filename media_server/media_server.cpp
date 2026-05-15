@@ -240,6 +240,67 @@ int main() {
                   << " size=" << fileSize << std::endl;
     });
 
+    svr.Post("/media/upload/channel", [&](const httplib::Request& req, httplib::Response& res) {
+        if (!req.is_multipart_form_data()) {
+            res.status = 400;
+            res.set_content(R"({"error":"expected multipart/form-data"})", "application/json");
+            return;
+        }
+ 
+        std::string senderId;
+        auto senderIt = req.form.fields.find("sender_id");
+        if (senderIt != req.form.fields.end()) senderId = senderIt->second.content;
+ 
+        std::string fileContent, originalName, contentType;
+        auto fileIt = req.form.files.find("file");
+        if (fileIt != req.form.files.end()) {
+            fileContent  = fileIt->second.content;
+            originalName = fileIt->second.filename;
+            contentType  = fileIt->second.content_type;
+        }
+ 
+        if (fileContent.empty() || senderId.empty()) {
+            res.status = 400;
+            res.set_content(R"({"error":"missing required fields: file, sender_id"})", "application/json");
+            return;
+        }
+ 
+        if (fileContent.size() > MAX_SIZE) {
+            res.status = 400;
+            res.set_content(R"({"error":"file too large, max 50MB"})", "application/json");
+            return;
+        }
+ 
+        MediaInfo info       = detectMediaInfo(contentType);
+        std::string datePath = getDatePath();
+        std::string dirPath  = UPLOAD_DIR + "/" + info.subDir + "/" + datePath;
+        fs::create_directories(dirPath);
+ 
+        std::string uuid     = generateUUID();
+        std::string filename = uuid + info.ext;
+        std::string filePath = dirPath + "/" + filename;
+ 
+        std::ofstream outFile(filePath, std::ios::binary);
+        outFile.write(fileContent.data(), fileContent.size());
+        outFile.close();
+ 
+        std::string mediaUrl = BASE_URL + "/uploads/media/" + info.subDir + "/" + datePath + "/" + filename;
+        long long   fileSize = static_cast<long long>(fileContent.size());
+ 
+        // Возвращаем URL и метаданные — фронтенд создаст пост сам
+        std::string responseBody =
+            R"({"url":")"        + mediaUrl +
+            R"(","type":")"      + info.msgType +
+            R"(","file_name":")" + jsonEscape(originalName) +
+            R"(","file_size":)"  + std::to_string(fileSize) +
+            R"(})";
+ 
+        res.set_content(responseBody, "application/json");
+        std::cout << "[media/channel] saved: " << filePath
+                  << " type=" << info.msgType
+                  << " size=" << fileSize << std::endl;
+    });
+
     std::cout << "Media server running on port 9091" << std::endl;
     svr.listen("0.0.0.0", 9091);
     return 0;

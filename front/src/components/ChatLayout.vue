@@ -6,11 +6,12 @@
         :activeId="activeChatId"
         :channels="channels"
         :activeChannelId="activeChannelId"
-        @select-channel="selectChannel"
         :currentUserId="currentUserId"
         :isLight="isLight"
+        :userStatuses="userStatuses"
         :class="{ 'mobile-hidden': mobileView === 'chat' }"
         @select="selectChat"
+        @select-channel="selectChannel"
         @start-chat="startChat"
         @toggle-theme="toggleTheme"
         @chat-deleted="onChatDeleted"
@@ -51,9 +52,12 @@
           :presence="activePresence"
           :isLight="isLight"
           :showBackButton="isMobile"
+          :isVisible="!isMobile || mobileView === 'chat'"
+          :isTyping="isTyping"
           @message-sent="updateChatPreview"
           @message-deleted="onMessageDeleted"
           @mark-as-read="onMarkAsRead"
+          @typing="onTyping"
           @back="goBackToSidebar"
         />
 
@@ -64,15 +68,14 @@
                 <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7A2.5 2.5 0 0 1 17.5 16H11l-4.5 4V16A2.5 2.5 0 0 1 4 13.5v-7z" />
               </svg>
             </div>
-            <h2 class="empty-title">Your Messages</h2>
-            <p class="empty-text">Select a chat from the sidebar or start a new conversation.</p>
+            <h2 class="empty-title">Ваши сообщения</h2>
+            <p class="empty-text">Выберите чат или найдите собеседника через поиск.</p>
           </div>
         </div>
       </div>
     </div>
   </div>
 </template>
-
 
 <script>
 import ChatSidebar from './ChatSidebar.vue'
@@ -104,6 +107,9 @@ export default {
       mobileView: 'sidebar',
       isMobile: false,
       currentUserName: null,
+      isTyping: false,
+      typingTimer: null,
+      // Channels
       channels: [],
       activeChannelId: null,
       activeChannel: null,
@@ -122,9 +128,14 @@ export default {
   },
 
   watch: {
-    isLight() {
+    isLight(val) {
       this.$nextTick(() => this.updateThemeColor())
     }
+  },
+
+  created() {
+    // Применяем тему сразу — до mount, чтобы не было вспышки синего
+    this.updateThemeColor()
   },
 
   async mounted() {
@@ -137,10 +148,8 @@ export default {
     }
 
     if ('Notification' in window && Notification.permission === 'default') {
-      try {
-        const { subscribe } = await import('../composables/usePush.js')
-        await subscribe()
-      } catch (e) { console.warn('Push subscribe error:', e) }
+      const { subscribe } = await import('../composables/usePush.js')
+      try { await subscribe() } catch (e) { console.warn('Push subscribe error:', e) }
     }
 
     this.updateThemeColor()
@@ -167,6 +176,7 @@ export default {
       this.ws = new WebSocket(wsUrl)
 
       this.ws.onmessage = (event) => {
+        if (import.meta.env.DEV) console.debug('WS RAW:', event.data)
         try {
           const data = JSON.parse(event.data)
           let payload = data.Payload ?? data.payload ?? null
@@ -181,21 +191,30 @@ export default {
             try { payload = JSON.parse(payload) } catch { payload = null }
           }
 
-          // ─── P2P Messages ───────────────────────────────────────────
+          // ─── P2P Messages ────────────────────────────────────────────
           if (type === 'SendMessage' || type === 'send_message' || type === 'new_message') {
             const chatId = payload?.chat_id ?? payload?.chatId ?? payload?.chatid ?? payload?.ChatID
             const content = payload?.content ?? payload?.Content ?? ''
             const createdAt = payload?.created_at ?? payload?.createdAt ?? payload?.createdat ?? new Date().toISOString()
+            const senderId = payload?.sender_id ?? payload?.senderId ?? payload?.senderid
             if (chatId) {
-              this.updateChatPreview({ chatId, content, date: createdAt })
+              this.updateChatPreview({
+                chatId, content, date: createdAt, senderId,
+                isIncoming: String(senderId) !== String(this.currentUserId)
+              })
               if (String(this.activeChatId) === String(chatId)) {
-                this.$refs.chatWindow?.handleIncomingMessage?.(payload)
+                const isViewingChat = !this.isMobile || this.mobileView === 'chat'
+                if (isViewingChat) {
+                  this.$refs.chatWindow?.handleIncomingMessage?.(payload)
+                } else {
+                  this.$refs.chatWindow?.handleIncomingMessage?.(payload)
+                }
               }
             }
             return
           }
 
-          // ─── Presence ───────────────────────────────────────────────
+          // ─── Presence ────────────────────────────────────────────────
           if (type === 'user_online') {
             const userId = payload?.user_id ?? payload?.userId ?? payload?.id
             if (userId) this.setUserPresence(userId, { online: true, lastSeen: null })
@@ -208,7 +227,7 @@ export default {
             return
           }
 
-          // ─── Chats ──────────────────────────────────────────────────
+          // ─── Chats ───────────────────────────────────────────────────
           if (type === 'new_chat') { this.loadDirects(); return }
 
           if (type === 'delete_message') {
@@ -225,13 +244,27 @@ export default {
 
           if (type === 'mark_as_read') {
             const chatId = payload?.chat_id
-            if (chatId && String(this.activeChatId) === String(chatId)) {
-              this.$refs.chatWindow?.handleMessagesRead?.()
+            if (chatId) {
+              const chat = this.directs.find(c => String(c.id) === String(chatId))
+              if (chat) chat.last_message_status = 'read'
+              if (String(this.activeChatId) === String(chatId)) {
+                this.$refs.chatWindow?.handleMessagesRead?.()
+              }
             }
             return
           }
 
-          // ─── Channel: новый канал создан / пользователь подписался ──
+          if (type === 'typing') {
+            const chatId = payload?.chat_id
+            if (chatId && String(chatId) === String(this.activeChatId)) {
+              this.isTyping = true
+              clearTimeout(this.typingTimer)
+              this.typingTimer = setTimeout(() => { this.isTyping = false }, 3000)
+            }
+            return
+          }
+
+          // ─── Channel events ──────────────────────────────────────────
           if (type === 'channel_created' || type === 'channel_joined') {
             const ch = payload?.channel ?? payload
             if (ch?.id && !this.channels.find(c => String(c.id) === String(ch.id))) {
@@ -240,38 +273,30 @@ export default {
             return
           }
 
-          // ─── Channel: пользователь покинул канал ────────────────────
           if (type === 'channel_left') {
             const channelId = payload?.channel_id ?? payload?.id
             this.channels = this.channels.filter(c => String(c.id) !== String(channelId))
             if (String(this.activeChannelId) === String(channelId)) {
-              this.activeChannelId = null
-              this.activeChannel = null
+              this.activeChannelId = null; this.activeChannel = null
             }
             return
           }
 
-          // ─── Channel: удалён ────────────────────────────────────────
           if (type === 'channel_deleted') {
             const channelId = payload?.channel_id
             this.channels = this.channels.filter(c => String(c.id) !== String(channelId))
             if (String(this.activeChannelId) === String(channelId)) {
-              this.activeChannelId = null
-              this.activeChannel = null
+              this.activeChannelId = null; this.activeChannel = null
             }
             return
           }
 
-          // ─── Channel posts ──────────────────────────────────────────
           if (type === 'new_channel_post') {
             const channelId = payload?.channel_id
-            // Обновляем превью в сайдбаре
             this.updateChannelPreview(channelId, payload?.content || '')
-            // Обновляем открытый канал
             if (channelId && String(this.activeChannelId) === String(channelId)) {
               this.$refs.channelView?.handleNewPost?.(payload)
             }
-            // Push-уведомление подписчику
             this.showChannelPush(channelId, payload)
             return
           }
@@ -297,9 +322,7 @@ export default {
             return
           }
 
-        } catch (e) {
-          console.error('WS Parse Error:', e)
-        }
+        } catch (e) { console.error('WS Parse Error:', e) }
       }
 
       this.ws.onclose = () => {
@@ -308,51 +331,41 @@ export default {
       }
     },
 
-    // ─── WebSocket senders for channels ─────────────────────────────
+    // ─── WS senders ──────────────────────────────────────────────────
     sendWS(type, payload) {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
       this.ws.send(JSON.stringify({ type, payload }))
     },
 
-    // Вызывается из ChannelView при создании поста
     onPostCreatedWS(post) {
       this.sendWS('new_channel_post', { ...post, channel_id: this.activeChannelId })
       this.updateChannelPreview(this.activeChannelId, post.content || '')
     },
+    onPostDeletedWS(postId) { this.sendWS('delete_channel_post', { post_id: postId, channel_id: this.activeChannelId }) },
+    onPostPinnedWS(post)   { this.sendWS('pin_channel_post', { ...post, channel_id: this.activeChannelId }) },
+    onPostEditedWS(post)   { this.sendWS('update_channel_post', { ...post, channel_id: this.activeChannelId }) },
 
-    onPostDeletedWS(postId) {
-      this.sendWS('delete_channel_post', { post_id: postId, channel_id: this.activeChannelId })
-    },
-
-    onPostPinnedWS(post) {
-      this.sendWS('pin_channel_post', { ...post, channel_id: this.activeChannelId })
-    },
-
-    onPostEditedWS(post) {
-      this.sendWS('update_channel_post', { ...post, channel_id: this.activeChannelId })
-    },
-
-    // Подписка через sidebar-поиск
     onSubscribeChannel(channel) {
       if (!this.channels.find(c => String(c.id) === String(channel.id))) {
-        this.channels.push(channel)
+        this.channels.push({ ...channel, user_role: 'member' })
       }
       this.sendWS('channel_joined', { channel, user_id: this.currentUserId })
-      this.selectChannel(channel)
+      this.selectChannel({ ...channel, user_role: 'member' })
     },
 
-    // Отписка / покинуть канал
+    onUnsubscribeChannel(channelId) {
+      this.onLeaveChannel(channelId)
+    },
+
     onLeaveChannel(channelId) {
       this.sendWS('channel_left', { channel_id: channelId, user_id: this.currentUserId })
       this.channels = this.channels.filter(c => String(c.id) !== String(channelId))
       if (String(this.activeChannelId) === String(channelId)) {
-        this.activeChannelId = null
-        this.activeChannel = null
+        this.activeChannelId = null; this.activeChannel = null
         if (this.isMobile) this.mobileView = 'sidebar'
       }
     },
 
-    // При создании нового канала через CreateChannelModal
     onChannelCreated(channel) {
       if (!this.channels.find(c => String(c.id) === String(channel.id))) {
         this.channels.push({ ...channel, user_role: 'owner' })
@@ -361,22 +374,15 @@ export default {
       this.selectChannel({ ...channel, user_role: 'owner' })
     },
 
-    // Превью в сайдбаре
     updateChannelPreview(channelId, content) {
       const ch = this.channels.find(c => String(c.id) === String(channelId))
-      if (ch) {
-        ch.last_post_content = content
-        ch.last_post_at = new Date().toISOString()
-      }
+      if (ch) { ch.last_post_content = content; ch.last_post_at = new Date().toISOString() }
     },
 
-    // Push уведомление подписчику
     showChannelPush(channelId, payload) {
-      // Не показываем если канал сейчас открыт
       if (String(this.activeChannelId) === String(channelId)) return
       const ch = this.channels.find(c => String(c.id) === String(channelId))
       if (!ch) return
-      // Проверяем что пользователь подписан (канал есть в его списке)
       if ('Notification' in window && Notification.permission === 'granted') {
         try {
           new Notification(ch.name || 'Channel', {
@@ -388,7 +394,13 @@ export default {
       }
     },
 
-    // ─── Theme ──────────────────────────────────────────────────────
+    // ─── P2P typing ──────────────────────────────────────────────────
+    onTyping({ chat_id, sender_id, recipient_id }) {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
+      this.ws.send(JSON.stringify({ type: 'typing', payload: { chat_id, sender_id, recipient_id } }))
+    },
+
+    // ─── Theme ───────────────────────────────────────────────────────
     toggleTheme() {
       this.isLight = !this.isLight
       localStorage.setItem('svlynx-theme', this.isLight ? 'light' : 'dark')
@@ -406,7 +418,7 @@ export default {
       if (meta) meta.setAttribute('content', color)
     },
 
-    // ─── Auth helpers ────────────────────────────────────────────────
+    // ─── Auth helpers ─────────────────────────────────────────────────
     parseJwt(token) {
       try {
         if (!token) return null
@@ -428,7 +440,7 @@ export default {
       } catch { return null }
     },
 
-    // ─── Load data ───────────────────────────────────────────────────
+    // ─── Load data ────────────────────────────────────────────────────
     async loadChannels() {
       if (!this.currentUserId) return
       try {
@@ -438,9 +450,7 @@ export default {
         if (!res.ok) return
         const data = await res.json()
         this.channels = data.channels || []
-      } catch (e) {
-        console.error('loadChannels error', e)
-      }
+      } catch (e) { console.error('loadChannels error', e) }
     },
 
     async loadDirects() {
@@ -463,18 +473,20 @@ export default {
           return dateB - dateA
         })
         this.saveChatsToLocal()
-      } catch (e) {
-        console.error('loadDirects crash:', e)
-      } finally {
-        this.loading = false
-      }
+        this.fetchAllStatuses()
+      } catch (e) { console.error('loadDirects crash:', e) }
+      finally { this.loading = false }
+    },
+
+    saveChatsToLocal() {
+      try { localStorage.setItem('svlynx-saved-chats', JSON.stringify(this.directs)) } catch {}
     },
 
     // ─── Navigation ──────────────────────────────────────────────────
     selectChannel(channel) {
       this.activeChannelId = channel.id
       this.activeChannel = channel
-      this.activeChannelRole = channel.user_role || 'member'
+      this.activeChannelRole = channel.user_role ?? ''
       this.activeChatId = null
       this.activeRecipientId = null
       if (this.isMobile) this.mobileView = 'chat'
@@ -492,27 +504,25 @@ export default {
       this.activeChatId = chatId
       this.activeRecipientId = recipientId
       this.chatWindowKey++
-      const chat = this.directs.find(c => String(c.id) === String(chatId))
-      if (chat) {
-        chat.unread_count = 0
-        chat.unreadcount = 0
-        this.saveChatsToLocal()
+      const idx = this.directs.findIndex(c => String(c.id) === String(chatId))
+      if (idx !== -1) {
+        this.directs[idx] = { ...this.directs[idx], unread_count: 0, unreadcount: 0 }
+        this.directs = [...this.directs]
       }
       if (recipientId) this.fetchUserStatus(recipientId)
       if (this.isMobile) this.mobileView = 'chat'
+      this.saveChatsToLocal()
     },
 
     goBackToSidebar() {
       this.mobileView = 'sidebar'
+      this.activeChatId = null
+      this.activeRecipientId = null
     },
 
     checkMobile() {
       this.isMobile = window.innerWidth <= 760
       if (!this.isMobile) this.mobileView = 'sidebar'
-    },
-
-    saveChatsToLocal() {
-      try { localStorage.setItem('svlynx-saved-chats', JSON.stringify(this.directs)) } catch {}
     },
 
     // ─── Presence ────────────────────────────────────────────────────
@@ -531,17 +541,23 @@ export default {
           online: data?.online === true,
           lastSeen: data?.last_seen ?? data?.lastseen ?? null
         })
-      } catch (e) {
-        console.error('fetchUserStatus error', e)
-      }
+      } catch (e) { console.error('fetchUserStatus error', e) }
+    },
+
+    async fetchAllStatuses() {
+      const ids = this.directs.map(d => {
+        const first  = d.first_user_id  ?? d.firstuserid
+        const second = d.second_user_id ?? d.seconduserid
+        return String(first) === String(this.currentUserId) ? second : first
+      }).filter(Boolean)
+      await Promise.all(ids.map(id => this.fetchUserStatus(id)))
     },
 
     // ─── Chat actions ─────────────────────────────────────────────────
     onChatDeleted(chatId) {
       this.directs = this.directs.filter(d => String(d.id) !== String(chatId))
       if (String(this.activeChatId) === String(chatId)) {
-        this.activeChatId = null
-        this.activeRecipientId = null
+        this.activeChatId = null; this.activeRecipientId = null
       }
       this.saveChatsToLocal()
     },
@@ -556,15 +572,19 @@ export default {
       this.ws.send(JSON.stringify({ type: 'delete_message', payload: { id, chat_id, recipient_id } }))
     },
 
-    updateChatPreview({ chatId, content, date, isIncoming }) {
-      const chat = this.directs.find(c => String(c.id) === String(chatId))
-      if (!chat) return
+    updateChatPreview({ chatId, content, date, isIncoming, senderId }) {
+      const idx = this.directs.findIndex(c => String(c.id) === String(chatId))
+      if (idx === -1) return
+      const chat = { ...this.directs[idx] }
       chat.last_message_content = content
       chat.last_message_at = date
+      chat.last_message_sender_id = isIncoming ? senderId : this.currentUserId
+      chat.last_message_status = isIncoming ? 'delivered' : 'sent'
       if (isIncoming && String(this.activeChatId) !== String(chatId)) {
         chat.unread_count = (Number(chat.unread_count || chat.unreadcount) || 0) + 1
       }
-      this.directs.sort((a, b) => {
+      this.directs[idx] = chat
+      this.directs = [...this.directs].sort((a, b) => {
         const dateA = new Date(a.last_message_at || a.updated_at || a.created_at || 0)
         const dateB = new Date(b.last_message_at || b.updated_at || b.created_at || 0)
         return dateB - dateA
@@ -585,29 +605,31 @@ export default {
         if (!res.ok) return
         const direct = data.direct || data.chat || data
         await this.loadDirects()
+        this.activeChannel = null
+        this.activeChannelId = null
         this.activeChatId = direct.id
         this.activeRecipientId = userId
         this.chatWindowKey++
         this.fetchUserStatus(userId)
         if (this.isMobile) this.mobileView = 'chat'
-      } catch (e) {
-        console.error('startChat crash:', e)
-      }
+      } catch (e) { console.error('startChat crash:', e) }
     }
   }
 }
 </script>
 
+<style>
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap');
+</style>
 
 <style scoped>
-@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap');
 
 .direct-page {
   height: 100svh; width: 100vw; min-height: 0;
   display: flex; align-items: center; justify-content: center;
   padding: 24px; box-sizing: border-box;
   position: relative; overflow: hidden;
-  background: rgba(8, 12, 26, 0.98);
+  background: rgba(5, 7, 16, 0.99);
   font-family: 'Satoshi', sans-serif; transition: background 0.3s;
 }
 
@@ -684,13 +706,13 @@ export default {
 @media (max-width: 760px) {
   .direct-page {
     padding: 0; align-items: stretch;
-    position: fixed; inset: 0; background: rgb(8, 12, 26);
+    position: fixed; inset: 0; height: 100%;
+    background: rgb(8, 12, 26);
   }
   .direct-page.theme-light { background: #ffffff; }
   .direct-shell {
     flex: 1; height: 100%; min-height: 0;
-    border-radius: 0; border: none;
-    padding-top: env(safe-area-inset-top);
+    border-radius: 0; border: none; padding-top: 0;
     grid-template-columns: 1fr; grid-template-rows: 1fr; align-items: stretch;
   }
   .direct-shell.theme-light { background: #ffffff; }
