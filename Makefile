@@ -33,14 +33,14 @@ full-deploy:
 	scp -r front/dist/* root@95.182.97.36:/var/www/svlynx/
 
 voice-build:
-	cd voice_server && g++ -std=c++17 -O2 -o voice_server voice_server.cpp -lpthread
-
+	cd voice_server && docker run --rm --platform linux/amd64 -v "$$(pwd)":/src -w /src gcc:latest g++ -std=c++17 -O2 -o voice_server_linux voice_server.cpp -lpthread
 voice-deploy:
-	scp voice_server/voice_server root@95.182.97.36:/root/voice_server
-	ssh root@95.182.97.36 "systemctl restart voice"
-
+	ssh root@95.182.97.36 "systemctl stop voice"
+	scp voice_server/voice_server_linux root@95.182.97.36:/root/voice_server
+	ssh root@95.182.97.36 "chmod +x /root/voice_server && systemctl start voice"
+	
 media-build:
-	cd media_server && docker run --rm --platform linux/amd64 -v $(pwd):/src -w /src gcc:latest g++ -std=c++17 -O2 -o media_server_linux media_server.cpp -lpthread
+	cd media_server && docker run --rm --platform linux/amd64 -v "$$(pwd)":/src -w /src gcc:latest g++ -std=c++17 -O2 -o media_server_linux media_server.cpp -lpthread
 
 media-deploy:
 	ssh root@95.182.97.36 "systemctl stop media_server || true"

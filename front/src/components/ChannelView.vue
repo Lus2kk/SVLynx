@@ -303,31 +303,30 @@ export default {
 
   methods: {
 
-    async onMediaUploaded({ url, type, file_name, file_size }) {
-  
-    try {
-        const res = await apiFetch(`${BASE}/channels/${this.channel.id}/posts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            author_id: this.currentUserId,
-            content: url,
-            media_url: url,
-            media_type: type,
-            file_name: file_name || '',
-            file_size: file_size || 0
-        })
-        })
-        if (!res.ok) return
-        const data = await res.json()
-        this.posts.push(data.post)
-        this.$nextTick(() => {
-        const el = this.$refs.postsArea
-        if (el) el.scrollTop = el.scrollHeight
-        })
-        this.$emit('post-created', data.post)
-    } catch (e) { console.error('onMediaUploaded error', e) }
-    },
+   async onMediaUploaded({ url, type, file_name, file_size }) {
+  try {
+    const res = await apiFetch(`${BASE}/channels/${this.channel.id}/posts`, { // было /join — это баг
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        author_id: this.currentUserId,
+        content: url,
+        media_url: url,
+        media_type: type,
+        file_name: file_name || '',
+        file_size: file_size || 0
+      })
+    })
+    if (!res.ok) return
+    const data = await res.json()
+    this.posts.push(data.post)
+    this.$nextTick(() => {
+      const el = this.$refs.postsArea
+      if (el) el.scrollTop = el.scrollHeight
+    })
+    this.$emit('post-created', data.post)
+  } catch (e) { console.error('onMediaUploaded error', e) }
+},
 
     initEditFields() {
       this.editName = this.channel.name || ''
@@ -338,24 +337,25 @@ export default {
 
     // ─── Subscribe ───────────────────────────────────────────────────
     async subscribeToChannel() {
-      this.subscribing = true
-      try {
-        const res = await apiFetch(`${BASE}/channels/${this.channel.id}/subscribe`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: this.currentUserId })
-        })
-        if (!res.ok) return
-        if ('Notification' in window && Notification.permission === 'default') {
-          await Notification.requestPermission()
-        }
-        this.$emit('subscribe', this.channel)
-      } catch (e) {
-        console.error('subscribe error', e)
-      } finally {
-        this.subscribing = false
-      }
-    },
+  this.subscribing = true
+  try {
+    const res = await apiFetch(`${BASE}/channels/${this.channel.id}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: this.currentUserId })
+    })
+    if (!res.ok) return
+    if ('Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission()
+    }
+    this.$emit('subscribe', this.channel)
+  } catch (e) {
+    console.error('subscribe error', e)
+  } finally {
+    this.subscribing = false
+  }
+
+},
 
     // ─── Load posts ───────────────────────────────────────────────────
     async loadPosts() {
@@ -515,6 +515,7 @@ export default {
       } catch (e) { console.error('search error', e) }
     },
 
+
     // ─── Settings ─────────────────────────────────────────────────────
     async saveSettings() {
       try {
@@ -657,11 +658,11 @@ export default {
     form.append('duration', String(this.voiceTimerSeconds))
 
     try {
-        const res = await fetch(`${VOICE_BASE}/voice/upload/channel`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${getCookie('access_token') || ''}` },
-        body: form
-        })
+        const res = await fetch(`${VOICE_BASE}/voice/upload/channel`, { 
+  method: 'POST',
+  headers: { Authorization: `Bearer ${getCookie('access_token') || ''}` },
+  body: form
+})
         if (!res.ok) return
         const data = await res.json()
         if (data.url) await this.createPost(data.url)

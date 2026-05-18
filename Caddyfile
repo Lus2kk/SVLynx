@@ -3,22 +3,48 @@ www.svlynx.site {
 }
 
 svlynx.site {
-    reverse_proxy /auth/* localhost:8080
-    reverse_proxy /chat/* localhost:8080
-    reverse_proxy /users/* localhost:8080
-    reverse_proxy /push/* localhost:8080
-    reverse_proxy /ws localhost:8080 {
-        header_up Upgrade {http.request.header.Upgrade}
-        header_up Connection {http.request.header.Connection}
+    handle /auth/* {
+        reverse_proxy localhost:8080
     }
-
-    reverse_proxy /voice/* localhost:9090
-    reverse_proxy /uploads/voice/* localhost:9090
-
-    reverse_proxy /media/* localhost:9091
-    reverse_proxy /uploads/media/* localhost:9091
-
-    header /index.html Cache-Control "no-cache, no-store, must-revalidate"
-    root * /var/www/svlynx
-    file_server
+    handle /chat/* {
+        reverse_proxy localhost:8080
+    }
+    handle /users/* {
+        reverse_proxy localhost:8080
+    }
+    handle /push/* {
+        reverse_proxy localhost:8080
+    }
+    handle /channels/* {
+        reverse_proxy localhost:8080
+    }
+    handle /channels {
+        reverse_proxy localhost:8080
+    }
+    handle /invites/* {
+        reverse_proxy localhost:8080
+    }
+    handle /ws {
+        reverse_proxy localhost:8080 {
+            header_up Upgrade {http.request.header.Upgrade}
+            header_up Connection {http.request.header.Connection}
+        }
+    }
+    handle /voice/* {
+        reverse_proxy localhost:9090
+    }
+    handle /uploads/voice/* {
+        reverse_proxy localhost:9090
+    }
+    handle /media/* {
+        reverse_proxy localhost:9091
+    }
+    handle /uploads/media/* {
+        reverse_proxy localhost:9091
+    }
+    handle {
+        header /index.html Cache-Control "no-cache, no-store, must-revalidate"
+        root * /var/www/svlynx
+        file_server
+    }
 }

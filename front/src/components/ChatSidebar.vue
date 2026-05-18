@@ -968,21 +968,21 @@ onTouchMove(e) {
     },
 
     async joinByInvite(token) {
-      this.isSearching = true
-      try {
-        const res = await apiFetch(`${BASE}/invites/${token}/join`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: this.currentUserId })
-        })
-        const data = await res.json()
-        if (!res.ok) { this.searchUsers = []; this.searchChannels = []; return }
-        this.$emit('channel-created', data.channel)
-        this.$emit('select-channel', data.channel)
-        this.search = ''
-      } catch (e) { console.error('joinByInvite error', e) }
-      finally { this.isSearching = false }
-    },
+  this.isSearching = true
+  try {
+    const res = await apiFetch(`${BASE}/invites/${token}/join`, {  
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: this.currentUserId })
+    })
+    const data = await res.json()
+    if (!res.ok) { this.searchUsers = []; this.searchChannels = []; return }
+    this.$emit('channel-created', data.channel)
+    this.$emit('select-channel', data.channel)
+    this.search = ''
+  } catch (e) { console.error('joinByInvite error', e) }
+  finally { this.isSearching = false }
+},
 
     // Клик по каналу в поиске — только если уже подписан переходим, иначе просто показываем (без подписки)
     handleChannelClick(ch) {
@@ -992,24 +992,24 @@ onTouchMove(e) {
     },
 
     async subscribeToChannel(ch) {
-      this.subscribingId = ch.id
-      try {
-        const res = await apiFetch(`${BASE}/channels/${ch.id}/subscribe`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: this.currentUserId })
-        })
-        if (!res.ok) return
-        if ('Notification' in window && Notification.permission === 'default') {
-          await Notification.requestPermission()
-        }
-        const joined = { ...ch, user_role: 'member' }
-        this.$emit('channel-created', joined)
-        this.$emit('select-channel', joined)
-        this.search = ''
-      } catch (e) { console.error('subscribe channel error', e) }
-      finally { this.subscribingId = null }
-    },
+  this.subscribingId = ch.id
+  try {
+    const res = await apiFetch(`${BASE}/channels/${ch.id}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: this.currentUserId })
+    })
+    if (!res.ok) return
+    if ('Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission()
+    }
+    const joined = { ...ch, user_role: 'member' }
+    this.$emit('channel-created', joined)
+    this.$emit('select-channel', joined)
+    this.search = ''
+  } catch (e) { console.error('subscribe channel error', e) }
+  finally { this.subscribingId = null }
+},
 
     isMyChannel(ch) { return this.channels.some(c => String(c.id) === String(ch.id)) },
 

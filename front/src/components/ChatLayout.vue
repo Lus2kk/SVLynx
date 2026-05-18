@@ -449,35 +449,17 @@ export default {
 
     // ФИX owner bug: async, получаем реальную роль с сервера
     async selectChannel(channel) {
-      this.activeChannelId = channel.id
-      this.activeChannel = channel
-      this.activeChatId = null
-      this.activeRecipientId = null
-      if (this.isMobile) this.mobileView = 'chat'
+  this.activeChannelId = channel.id
+  this.activeChannel = channel
+  this.activeChatId = null
+  this.activeRecipientId = null
+  if (this.isMobile) this.mobileView = 'chat'
 
-      // Сбрасываем unread при открытии
-      const ch = this.channels.find(c => String(c.id) === String(channel.id))
-      if (ch) ch.unread_count = 0
+  const ch = this.channels.find(c => String(c.id) === String(channel.id))
+  if (ch) ch.unread_count = 0
 
-      // Если роль явно задана в объекте — используем её
-      if (channel.user_role) {
-        this.activeChannelRole = channel.user_role
-        return
-      }
-
-      // Иначе — запрашиваем с сервера (фикс: не ставим 'owner' по умолчанию)
-      this.activeChannelRole = ''
-      if (!this.currentUserId) return
-      try {
-        const res = await apiFetch(`${BASE}/channels/${channel.id}/members/${this.currentUserId}`)
-        if (!res.ok) { this.activeChannelRole = ''; return }
-        const data = await res.json()
-        this.activeChannelRole = data.member?.role ?? data.role ?? ''
-      } catch (e) {
-        console.error('fetchMemberRole error', e)
-        this.activeChannelRole = ''
-      }
-    },
+  this.activeChannelRole = channel.user_role || ch?.user_role || ''
+},
 
     onChannelUpdated(channel) {
       const idx = this.channels.findIndex(c => c.id === channel.id)
