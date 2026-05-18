@@ -287,15 +287,16 @@
                 </button>
 
                 <button
-                  v-if="!isMyChannel(ch)"
-                  class="subscribe-pill"
-                  type="button"
-                  :disabled="subscribingId === ch.id"
-                  @click="subscribeToChannel(ch)"
-                >
-                  {{ subscribingId === ch.id ? '...' : 'Subscribe' }}
-                </button>
-                <span v-else class="subscribed-pill">Joined</span>
+  v-if="!isMyChannel(ch) && ch.type !== 'private'"
+  class="subscribe-pill"
+  type="button"
+  :disabled="subscribingId === ch.id"
+  @click="subscribeToChannel(ch)"
+>
+  {{ subscribingId === ch.id ? '...' : 'Subscribe' }}
+</button>
+<span v-else-if="isMyChannel(ch)" class="subscribed-pill">Joined</span>
+<span v-else class="subscribed-pill" style="color:#7d87ab; background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.08)">🔒 Private</span>
               </div>
             </template>
 
@@ -369,24 +370,15 @@
                   </span>
                   <span class="chat-time-wrap">
                     <span
-                      v-if="isLastMessageMine(direct)"
-                      class="chat-tick"
-                      :class="{ read: isLastMessageRead(direct) }"
-                    >
-                      <svg
-                        viewBox="0 0 22 12"
-                        width="18"
-                        height="10"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2.2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="M1 6l3 3 5-6" />
-                        <path d="M9 6l3 3 5-6" />
-                      </svg>
-                    </span>
+  v-if="isLastMessageMine(direct)"
+  class="chat-tick"
+  :class="{ read: isLastMessageRead(direct) }"
+>
+  <svg viewBox="0 0 16 12" width="16" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2 6 L5 9 L12 2"/>
+    <circle v-if="isLastMessageRead(direct)" cx="14" cy="9" r="1.8" fill="currentColor" stroke="none"/>
+  </svg>
+</span>
 
                     <span class="chat-time">
                       {{ getChatTime(direct) }}

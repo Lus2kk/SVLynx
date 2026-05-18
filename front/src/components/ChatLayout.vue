@@ -139,34 +139,43 @@ export default {
   },
 
   async mounted() {
-    this.currentUserId = this.parseUserIdFromToken()
+  this.currentUserId = this.parseUserIdFromToken()
+  const token = getCookie('access_token')
+  if (token) {
+    const payload = this.parseJwt(token)
+    this.currentUserName = sessionStorage.getItem('current_user_name') || payload?.name || payload?.nickname || payload?.username || ''
+  }
+  if ('Notification' in window && Notification.permission === 'default') {
+    try {
+      const { subscribe } = await import('../composables/usePush.js')
+      await subscribe()
+    } catch (e) { console.warn('Push subscribe error:', e) }
+  }
+  this.updateThemeColor()
+  await this.loadDirects()
+  await this.loadChannels()
+  this.connectWebSocket()
+  this.checkMobile()
+  window.addEventListener('resize', this.checkMobile)
 
-    const token = getCookie('access_token')
-    if (token) {
-      const payload = this.parseJwt(token)
-      this.currentUserName = sessionStorage.getItem('current_user_name') || payload?.name || payload?.nickname || payload?.username || ''
-    }
-
-    if ('Notification' in window && Notification.permission === 'default') {
-      try {
-        const { subscribe } = await import('../composables/usePush.js')
-        await subscribe()
-      } catch (e) { console.warn('Push subscribe error:', e) }
-    }
-
-    this.updateThemeColor()
-    await this.loadDirects()
-    await this.loadChannels()
-    this.connectWebSocket()
-    this.checkMobile()
-    window.addEventListener('resize', this.checkMobile)
-  },
-
-  beforeUnmount() {
-    if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null }
-    if (this.ws) { this.ws.close(); this.ws = null }
-    window.removeEventListener('resize', this.checkMobile)
-  },
+  // Обработка инвайт-ссылки из URL
+  const inviteMatch = window.location.pathname.match(/\/invite\/([a-f0-9]{32})/)
+  if (inviteMatch) {
+    const inviteToken = inviteMatch[1]
+    try {
+      const res = await apiFetch(`${BASE}/invites/${inviteToken}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: this.currentUserId })
+      })
+      const data = await res.json()
+      if (res.ok && data.channel) {
+        this.onChannelCreated(data.channel)
+        window.history.replaceState({}, '', '/')
+      }
+    } catch (e) { console.error('invite join error', e) }
+  }
+},
 
   methods: {
 
