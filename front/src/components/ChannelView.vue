@@ -677,7 +677,7 @@ export default {
 .channel-view {
   height: 100%; display: flex; flex-direction: column;
   min-width: 0; overflow: hidden;
-  background: linear-gradient(180deg, rgba(10,13,28,0.72), rgba(7,10,22,0.82));
+  background: rgba(10, 14, 32, 1);
 }
 .channel-view.theme-light { background: #f5f6fc; }
 
@@ -686,7 +686,7 @@ export default {
   flex-shrink: 0; height: 78px; min-height: 78px; padding: 14px 20px;
   display: flex; align-items: center; justify-content: space-between;
   border-bottom: 1px solid rgba(255,255,255,0.05);
-  background: rgba(255,255,255,0.015); position: relative;
+  background: rgba(5, 7, 16, 1); position: relative;
 }
 .theme-light .channel-header { background: #fff; border-bottom-color: #e4e6f0; }
 
@@ -755,7 +755,7 @@ export default {
 /* Composer */
 .composer-wrap {
   flex-shrink: 0; padding: 12px 24px 16px;
-  background: rgba(8,12,24,0.3);
+  background: rgba(5, 7, 16, 1);
   border-top: 1px solid rgba(255,255,255,0.04);
 }
 .theme-light .composer-wrap { background: #f5f6fc; border-top-color: #e4e6f0; }
@@ -857,10 +857,15 @@ export default {
 .invite-copy-btn.copied { color: #22c55e; background: rgba(34,197,94,0.12); }
 
 @media (max-width: 760px) {
-  .channel-header { height: 64px; min-height: 64px; padding: 10px 14px; }
+  .channel-header { 
+    height: calc(56px + env(safe-area-inset-top)); 
+    min-height: calc(56px + env(safe-area-inset-top)); 
+    padding: 10px 14px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+  }
   .posts-area { padding: 12px 14px; }
-  .composer-wrap { padding: 8px 14px calc(8px + env(safe-area-inset-bottom)); }
-  .subscribe-bar { padding: 8px 14px calc(8px + env(safe-area-inset-bottom)); }
+  .composer-wrap { padding: 8px 14px calc(12px + env(safe-area-inset-bottom)); }
+  .subscribe-bar { padding: 8px 14px calc(12px + env(safe-area-inset-bottom)); }
   .composer { height: 50px; border-radius: 14px; }
   .settings-modal, .invite-modal { width: calc(100vw - 32px); }
 }
