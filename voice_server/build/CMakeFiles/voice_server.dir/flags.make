@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/Users/konstantin/Documents/messenger/SVLynx/voice_server/.
+CXX_INCLUDES = -I/Users/konstantin/Documents/messenger/SVLynx/voice_server/. -I/Users/konstantin/Documents/messenger/SVLynx/voice_server/./whisper.cpp -I/Users/konstantin/Documents/messenger/SVLynx/voice_server/./whisper.cpp/include -I/Users/konstantin/Documents/messenger/SVLynx/voice_server/./whisper.cpp/ggml/include
 
 CXX_FLAGSarm64 = -std=gnu++17 -arch arm64
 

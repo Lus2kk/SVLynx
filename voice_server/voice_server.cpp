@@ -1,4 +1,5 @@
 #include "httplib.h"
+#include "whisper.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -6,8 +7,11 @@
 #include <chrono>
 #include <random>
 #include <sstream>
+#include <vector>
 
 namespace fs = std::filesystem;
+
+whisper_context* g_whisper_ctx = nullptr;
 
 std::string generateUUID() {
     std::random_device rd;
@@ -39,7 +43,74 @@ std::string getDatePath() {
     return std::string(buf);
 }
 
+std::string escapeJson(const std::string& s) {
+    std::string out;
+    for (char c : s) {
+        if (c == '"') out += "\\\"";
+        else if (c == '\\') out += "\\\\";
+        else if (c == '\n') out += "\\n";
+        else if (c == '\r') out += "\\r";
+        else if (c == '\t') out += "\\t";
+        else out += c;
+    }
+    return out;
+}
+
+std::string transcribeAudio(const std::string& filePath) {
+    if (!g_whisper_ctx) return "";
+
+    std::string wavPath = filePath + ".wav";
+    std::string cmd = "ffmpeg -y -i \"" + filePath + "\" -ar 16000 -ac 1 -f wav \"" + wavPath + "\" 2>/dev/null";
+    int ret = system(cmd.c_str());
+    if (ret != 0 || !fs::exists(wavPath)) return "";
+
+    std::ifstream f(wavPath, std::ios::binary);
+    if (!f) { fs::remove(wavPath); return ""; }
+
+    f.seekg(44);
+    std::vector<int16_t> pcm16(
+        (std::istreambuf_iterator<char>(f)),
+        std::istreambuf_iterator<char>()
+    );
+    f.close();
+    fs::remove(wavPath);
+
+    if (pcm16.empty()) return "";
+
+    std::vector<float> pcmf32(pcm16.size());
+    for (size_t i = 0; i < pcm16.size(); i++)
+        pcmf32[i] = pcm16[i] / 32768.0f;
+
+    whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+    params.language    = "ru";
+    params.translate   = false;
+    params.print_progress = false;
+    params.print_realtime = false;
+    params.print_timestamps = false;
+
+    if (whisper_full(g_whisper_ctx, params, pcmf32.data(), (int)pcmf32.size()) != 0)
+        return "";
+
+    std::string result;
+    int n = whisper_full_n_segments(g_whisper_ctx);
+    for (int i = 0; i < n; i++)
+        result += whisper_full_get_segment_text(g_whisper_ctx, i);
+
+    if (!result.empty() && result[0] == ' ')
+        result = result.substr(1);
+
+    return result;
+}
+
 int main() {
+    whisper_context_params cparams = whisper_context_default_params();
+    g_whisper_ctx = whisper_init_from_file_with_params("models/ggml-base.bin", cparams);
+    if (!g_whisper_ctx) {
+        std::cerr << "Warning: failed to load Whisper model, transcription disabled" << std::endl;
+    } else {
+        std::cout << "Whisper model loaded" << std::endl;
+    }
+
     httplib::Server svr;
 
     const std::string UPLOAD_DIR = "./uploads/voice";
@@ -133,13 +204,17 @@ int main() {
 
         std::string audioUrl = BASE_URL + "/uploads/voice/" + datePath + "/" + filename;
 
+        std::string transcript = transcribeAudio(filePath);
+        std::cout << "Transcript: " << transcript << std::endl;
+
         httplib::Client goClient(GO_URL);
 
         std::string body = R"({"chat_id":")" + chatId +
                    R"(","sender_id":")" + senderId +
                    R"(","recipient_id":")" + recipientId +
                    R"(","audio_url":")" + audioUrl +
-                   R"(","duration":)" + durationStr + R"(})";
+                   R"(","duration":)" + durationStr +
+                   R"(,"transcript":")" + escapeJson(transcript) + R"("})";
 
         httplib::Headers headers = {
             {"Content-Type", "application/json"},
@@ -204,7 +279,12 @@ int main() {
 
         std::string audioUrl = BASE_URL + "/uploads/voice/" + datePath + "/" + filename;
 
-        std::string responseBody = R"({"url":")" + audioUrl + R"(","duration":)" + durationStr + R"(})";
+        std::string transcript = transcribeAudio(filePath);
+
+        std::string responseBody = R"({"url":")" + audioUrl +
+                                   R"(","duration":)" + durationStr +
+                                   R"(,"transcript":")" + escapeJson(transcript) + R"("})";
+
         res.set_content(responseBody, "application/json");
 
         std::cout << "Channel voice saved: " << filePath << std::endl;

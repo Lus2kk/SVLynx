@@ -48,6 +48,7 @@ type CreatedMessage struct {
 	FileName    string                      `json:"file_name"`
 	FileSize    int64                       `json:"file_size"`
 	ReplyTo     *chat_models.ReplyToMessage `json:"reply_to,omitempty"`
+	Transcript  string                      `json:"transcript"`
 }
 
 func (s *DirectService) CreateNewDirectService(ctx context.Context, input CreatedDirect) (*chat_models.Direct, error) {
@@ -124,17 +125,18 @@ func (s *MessageService) SendMessage(ctx context.Context, input CreatedMessage) 
 	}
 
 	message := &chat_models.Message{
-		ID:        uuid.New(),
-		ChatID:    input.ChatID,
-		SenderID:  input.SenderID,
-		Content:   input.Content,
-		Status:    chat_models.Sent,
-		CreatedAT: time.Now(),
-		Type:      msgType,
-		Duration:  input.Duration,
-		FileName:  input.FileName,
-		FileSize:  input.FileSize,
-		ReplyTo:   input.ReplyTo,
+		ID:         uuid.New(),
+		ChatID:     input.ChatID,
+		SenderID:   input.SenderID,
+		Content:    input.Content,
+		Status:     chat_models.Sent,
+		CreatedAT:  time.Now(),
+		Type:       msgType,
+		Duration:   input.Duration,
+		FileName:   input.FileName,
+		FileSize:   input.FileSize,
+		ReplyTo:    input.ReplyTo,
+		Transcript: input.Transcript,
 	}
 
 	result, err := s.repo.SendMessageRepo(ctx, message)
