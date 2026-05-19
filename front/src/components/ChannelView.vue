@@ -69,16 +69,24 @@
           <ChannelPost
             v-for="post in pinnedPosts" :key="'pinned-' + post.id"
             :post="post" :isAdmin="isAdmin" :isLight="isLight" :currentUserId="currentUserId"
+            :channelLetter="channelLetter" :channelColor="channelColor" :channelAvatarUrl="channel?.avatar_url"
             @delete="deletePost" @pin="togglePin" @edit="startEdit"
           />
         </div>
 
         <template v-if="displayPosts.length">
-          <ChannelPost
-            v-for="post in displayPosts" :key="post.id"
-            :post="post" :isAdmin="isAdmin" :isLight="isLight" :currentUserId="currentUserId"
-            @delete="deletePost" @pin="togglePin" @edit="startEdit"
-          />
+          <template v-for="item in postsWithSeparators" :key="item.id">
+            <div v-if="item._separator" class="cv-day-sep">
+              <span>{{ item.label }}</span>
+            </div>
+            <ChannelPost
+              v-else
+              :post="item"
+              :isAdmin="isAdmin" :isLight="isLight" :currentUserId="currentUserId"
+              :channelLetter="channelLetter" :channelColor="channelColor" :channelAvatarUrl="channel?.avatar_url"
+              @delete="deletePost" @pin="togglePin" @edit="startEdit"
+            />
+          </template>
           <div v-if="loadingMore" class="feed-state"><div class="spinner"></div></div>
         </template>
 
@@ -267,6 +275,27 @@ export default {
       if (this.searchQuery.trim() && this.searchResults.length) return this.searchResults
       return this.posts
     },
+        channelLetter() {
+      return (this.channel?.name || '#')[0]?.toUpperCase() || '#'
+    },
+    channelColor() {
+      return this.channel?.avatar_color || 'linear-gradient(135deg, #6772ee, #4d58e0)'
+    },
+    postsWithSeparators() {
+      if (!this.displayPosts?.length) return []
+      const out = []
+      let lastKey = null
+      for (const post of this.displayPosts) {
+        const d = new Date(post.created_at)
+        const key = d.toDateString()
+        if (key !== lastKey) {
+          lastKey = key
+          out.push({ _separator: true, id: `sep-${key}`, label: this.dayLabel(d) })
+        }
+        out.push(post)
+      }
+      return out
+    },
     voiceTimerText() {
       const m = Math.floor(this.voiceTimerSeconds / 60).toString().padStart(2, '0')
       const s = (this.voiceTimerSeconds % 60).toString().padStart(2, '0')
@@ -302,7 +331,15 @@ export default {
   },
 
   methods: {
-
+   dayLabel(d) {
+      const now = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+      const yesterday = today - 86400000
+      const dKey = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+      if (dKey === today) return 'Сегодня'
+      if (dKey === yesterday) return 'Вчера'
+      return d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long' })
+    },
    async onMediaUploaded({ url, type, file_name, file_size }) {
   try {
     const res = await apiFetch(`${BASE}/channels/${this.channel.id}/posts`, { // было /join — это баг
@@ -686,7 +723,7 @@ export default {
   flex-shrink: 0; height: 78px; min-height: 78px; padding: 14px 20px;
   display: flex; align-items: center; justify-content: space-between;
   border-bottom: 1px solid rgba(255,255,255,0.05);
-  background: rgba(5, 7, 16, 1); position: relative;
+  background: rgba(9, 13, 28, 0.94); position: relative;
 }
 .theme-light .channel-header { background: #fff; border-bottom-color: #e4e6f0; }
 
@@ -739,6 +776,18 @@ export default {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
   padding: 20px 24px 16px;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.theme-light .posts-area {
+  background-image:
+    linear-gradient(rgba(91, 106, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(91, 106, 255, 0.04) 1px, transparent 1px);
 }
 .posts-area::-webkit-scrollbar { width: 6px; }
 .posts-area::-webkit-scrollbar-thumb { background: rgba(148,159,212,0.16); border-radius: 999px; }
@@ -755,7 +804,7 @@ export default {
 /* Composer */
 .composer-wrap {
   flex-shrink: 0; padding: 12px 24px 16px;
-  background: rgba(5, 7, 16, 1);
+  background: rgba(10, 14, 32, 1);
   border-top: 1px solid rgba(255,255,255,0.04);
 }
 .theme-light .composer-wrap { background: #f5f6fc; border-top-color: #e4e6f0; }
@@ -791,7 +840,7 @@ export default {
 .subscribe-bar {
   flex-shrink: 0;
   padding: 12px 24px 16px;
-  background: rgba(8,12,24,0.3);
+  background: rgba(10, 14, 32, 1);
   border-top: 1px solid rgba(255,255,255,0.04);
 }
 .theme-light .subscribe-bar { background: #f5f6fc; border-top-color: #e4e6f0; }
@@ -868,5 +917,28 @@ export default {
   .subscribe-bar { padding: 8px 14px calc(12px + env(safe-area-inset-bottom)); }
   .composer { height: 50px; border-radius: 14px; }
   .settings-modal, .invite-modal { width: calc(100vw - 32px); }
+}
+.cv-day-sep {
+  display: flex;
+  justify-content: center;
+  margin: 14px 0 8px;
+  align-self: center;
+  width: 100%;
+}
+.cv-day-sep span {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(141, 150, 186, 0.7);
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(132, 144, 224, 0.10);
+  border-radius: 999px;
+}
+.theme-light .cv-day-sep span {
+  color: rgba(108, 116, 148, 0.85);
+  background: rgba(91, 106, 255, 0.06);
+  border-color: rgba(91, 106, 255, 0.10);
 }
 </style>

@@ -178,7 +178,7 @@
           <template v-else>
             <!-- USERS -->
             <div
-              v-for="user in searchResults"
+               v-for="user in searchUsers"
               :key="user.id"
               class="chat-item"
               @touchstart="onTouchStart"
@@ -947,13 +947,22 @@ onTouchMove(e) {
       this.searchUsers = []; this.searchChannels = []; this.isSearching = true
       try {
         const tasks = []
-        if (this.activeTab !== 'channels') {
-          tasks.push(apiFetch(`${BASE}/users/search?q=${encodeURIComponent(query)}&user_id=${this.currentUserId || ''}`)
-            .then(r => r.json()).then(d => { this.searchUsers = d.users || [] }).catch(() => {}))
+        const tab = this.activeTab
+        if (tab === 'all' || tab === 'chats' || tab === 'groups') {
+          tasks.push(
+            apiFetch(`${BASE}/users/search?q=${encodeURIComponent(query)}&user_id=${this.currentUserId || ''}`)
+              .then(r => r.json())
+              .then(d => { this.searchUsers = d.users || [] })
+              .catch(() => {})
+          )
         }
-        if (this.activeTab !== 'chats' && this.activeTab !== 'groups') {
-          tasks.push(apiFetch(`${BASE}/channels/search?q=${encodeURIComponent(query)}`)
-            .then(r => r.json()).then(d => { this.searchChannels = d.channels || [] }).catch(() => {}))
+        if (tab === 'all' || tab === 'channels') {
+          tasks.push(
+            apiFetch(`${BASE}/channels/search?q=${encodeURIComponent(query)}`)
+              .then(r => r.json())
+              .then(d => { this.searchChannels = d.channels || [] })
+              .catch(() => {})
+          )
         }
         await Promise.all(tasks)
       } finally { this.isSearching = false }

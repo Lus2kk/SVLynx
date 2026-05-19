@@ -135,18 +135,23 @@ export default {
 </script>
 
 <style scoped>
+
 .channel-post {
-  padding: 14px 18px 12px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.055);
+  padding: 6px 10px;
+  border-radius: 16px 16px 16px 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   position: relative;
   transition: border-color 0.18s, background 0.18s;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
+  display: inline-block;
+  min-width: 120px;
+  max-width: 640px;
+  width: auto;
 }
 .channel-post:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(110, 121, 255, 0.15);
+  background: rgba(255, 255, 255, 0.11);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 .channel-post.pinned {
   background: rgba(110, 121, 255, 0.06);
@@ -154,12 +159,12 @@ export default {
 }
 .theme-light .channel-post {
   background: #ffffff;
-  border-color: #eaecf4;
-  box-shadow: 0 2px 8px rgba(91, 106, 200, 0.06);
+  border-color: #e4e6f0;
+  box-shadow: none;
 }
 .theme-light .channel-post:hover {
-  border-color: rgba(91, 106, 255, 0.2);
-  box-shadow: 0 4px 14px rgba(91, 106, 200, 0.1);
+  background: #f5f6fc;
+  border-color: rgba(91, 106, 255, 0.18);
 }
 .theme-light .channel-post.pinned {
   background: rgba(91, 106, 255, 0.04);
