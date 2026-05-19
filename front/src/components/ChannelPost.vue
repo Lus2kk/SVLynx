@@ -1,11 +1,13 @@
 <template>
   <article
     class="channel-post"
-    :class="{ 'theme-light': isLight, pinned: post.pinned }"
-    @mouseenter="showActions = true"
-    @mouseleave="showActions = false"
+    :class="{ 'theme-light': isLight, pinned: post.pinned, 'menu-open': isHighlighted }"
+    @touchstart="onTouchStart"
+    @touchend="onTouchEnd"
+    @touchmove="onTouchMove"
+    @touchcancel="onTouchCancel"
+    @contextmenu.prevent="openMenu"
   >
-    <!-- Pin label -->
     <div v-if="post.pinned" class="pin-label">
       <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
         <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
@@ -13,37 +15,32 @@
       Pinned
     </div>
 
-    <!-- Content -->
     <div class="post-content">
-  
-    <div v-if="isVoice" class="post-voice">
+      <div v-if="isVoice" class="post-voice">
         <div class="voice-icon">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4z"/>
             <path d="M19 10a7 7 0 0 1-14 0H3a9 9 0 0 0 18 0h-2z"/>
-        </svg>
+          </svg>
         </div>
         <audio :src="post.content" controls class="post-audio" preload="metadata" />
-    </div>
-
-    <p v-else-if="post.content && !post.media_url" class="post-text">{{ post.content }}</p>
-    <img v-if="post.media_url && post.media_type === 'image'" :src="post.media_url" class="post-img" loading="lazy" />
-    <video v-else-if="post.media_url && post.media_type === 'video'" :src="post.media_url" class="post-video" controls />
-    <a v-else-if="post.media_url" :href="post.media_url" class="post-file-link" target="_blank" rel="noopener">
+      </div>
+      <p v-else-if="post.content && !post.media_url" class="post-text">{{ post.content }}</p>
+      <img v-if="post.media_url && post.media_type === 'image'" :src="post.media_url" class="post-img" loading="lazy" />
+      <video v-else-if="post.media_url && post.media_type === 'video'" :src="post.media_url" class="post-video" controls />
+      <a v-else-if="post.media_url" :href="post.media_url" class="post-file-link" target="_blank" rel="noopener">
         <div class="post-file-icon">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
-        </svg>
+          </svg>
         </div>
         <span class="post-file-name">{{ post.file_name || 'File' }}</span>
-    </a>
+      </a>
     </div>
 
-    <!-- Footer -->
     <div class="post-footer">
       <span class="post-time">{{ timeText }}</span>
-
       <div class="post-footer-right">
         <span v-if="post.view_count" class="post-views">
           <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -52,47 +49,82 @@
           </svg>
           {{ post.view_count }}
         </span>
-
-        <!-- Actions — visible on hover for admins/authors -->
-        <transition name="fade-actions">
-          <div v-if="canEdit && showActions" class="post-actions">
-            <button
-              v-if="isAdmin"
-              class="post-btn"
-              :class="{ active: post.pinned }"
-              :title="post.pinned ? 'Unpin' : 'Pin'"
-              @click.stop="$emit('pin', post)"
-            >
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
-                <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
-              </svg>
-            </button>
-            <button
-              v-if="isAuthor || isAdmin"
-              class="post-btn"
-              title="Edit"
-              @click.stop="$emit('edit', post)"
-            >
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
-            </button>
-            <button
-              class="post-btn danger"
-              title="Delete"
-              @click.stop="$emit('delete', post.id)"
-            >
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M3 6h18"/>
-                <path d="M8 6V4.8c0-.99.81-1.8 1.8-1.8h4.4c.99 0 1.8.81 1.8 1.8V6"/>
-                <path d="M18.2 6l-.72 11.02A2 2 0 0 1 15.48 19H8.52a2 2 0 0 1-1.99-1.98L5.8 6"/>
-              </svg>
-            </button>
-          </div>
-        </transition>
       </div>
     </div>
+
+    <teleport to="body">
+      <div v-if="menuOpen" class="ctx-overlay" @click="closeMenu" @contextmenu.prevent="closeMenu">
+        <div class="ctx-clone" :style="cloneStyle">
+          <div
+            class="channel-post clone-post"
+            :class="{ 'theme-light': isLight, pinned: post.pinned }"
+            :style="{ width: cloneStyle.width, maxWidth: cloneStyle.width, minWidth: cloneStyle.width, boxSizing: 'border-box' }"
+          >
+            <div v-if="post.pinned" class="pin-label">
+              <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
+                <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
+              </svg>
+              Pinned
+            </div>
+            <div class="post-content">
+              <div v-if="isVoice" class="post-voice">
+                <div class="voice-icon">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4z"/>
+                    <path d="M19 10a7 7 0 0 1-14 0H3a9 9 0 0 0 18 0h-2z"/>
+                  </svg>
+                </div>
+                <audio :src="post.content" controls class="post-audio" preload="metadata" />
+              </div>
+              <p
+                v-else-if="post.content && !post.media_url"
+                class="post-text"
+                style="white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; overflow: hidden;"
+              >{{ post.content }}</p>
+              <img v-if="post.media_url && post.media_type === 'image'" :src="post.media_url" class="post-img" />
+              <video v-else-if="post.media_url && post.media_type === 'video'" :src="post.media_url" class="post-video" controls />
+              <a v-else-if="post.media_url" :href="post.media_url" class="post-file-link" target="_blank" rel="noopener">
+                <div class="post-file-icon">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                </div>
+                <span class="post-file-name">{{ post.file_name || 'File' }}</span>
+              </a>
+            </div>
+            <div class="post-footer">
+              <span class="post-time">{{ timeText }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="ctx-menu" :style="menuStyle" @click.stop>
+          <button v-if="isAdmin" class="ctx-item" @click="$emit('pin', post); closeMenu()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
+            </svg>
+            {{ post.pinned ? 'Открепить' : 'Закрепить' }}
+          </button>
+          <button v-if="isAuthor || isAdmin" class="ctx-item" @click="$emit('edit', post); closeMenu()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Редактировать
+          </button>
+          <div v-if="isAdmin || isAuthor" class="ctx-divider"></div>
+          <button class="ctx-item ctx-delete" @click="$emit('delete', post.id); closeMenu()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M3 6h18"/>
+              <path d="M8 6V4.8c0-.99.81-1.8 1.8-1.8h4.4c.99 0 1.8.81 1.8 1.8V6"/>
+              <path d="M18.2 6l-.72 11.02A2 2 0 0 1 15.48 19H8.52a2 2 0 0 1-1.99-1.98L5.8 6"/>
+            </svg>
+            Удалить
+          </button>
+        </div>
+      </div>
+    </teleport>
   </article>
 </template>
 
@@ -108,17 +140,29 @@ export default {
 
   emits: ['delete', 'pin', 'edit'],
 
-  data() { return { showActions: false } },
+  data() {
+    return {
+      menuOpen: false,
+      menuStyle: {},
+      cloneStyle: {},
+      isHighlighted: false,
+      pressTimer: null,
+    }
+  },
+
+  beforeUnmount() {
+    clearTimeout(this.pressTimer)
+  },
 
   computed: {
     isVoice() {
-    const c = this.post.content || ''
-    return c.startsWith('http') && (
+      const c = this.post.content || ''
+      return c.startsWith('http') && (
         c.includes('/uploads/voice/') ||
         c.includes('.webm') ||
         c.includes('.ogg') ||
-        c.includes('.mp4') && c.includes('voice')
-    )
+        (c.includes('.mp4') && c.includes('voice'))
+      )
     },
     isAuthor() { return String(this.post.author_id) === String(this.currentUserId) },
     canEdit()  { return this.isAuthor || this.isAdmin },
@@ -130,64 +174,99 @@ export default {
       if (isToday) return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
       return d.toLocaleString('ru-RU', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
     }
+  },
+
+  methods: {
+    openMenu(e) {
+      const rect = this.$el.getBoundingClientRect()
+      const menuH = 160
+      const menuW = 220
+      let top = rect.bottom + 8
+      if (top + menuH > window.innerHeight - 20) top = rect.top - menuH - 8
+      if (top < 8) top = 8
+
+      const isMobile = 'ontouchstart' in window
+      if (isMobile) {
+        this.menuStyle = { top: top + 'px', right: '12px', width: menuW + 'px' }
+      } else {
+        const x = e.clientX ?? rect.left
+        const left = Math.min(x, window.innerWidth - menuW - 12)
+        this.menuStyle = { top: top + 'px', left: left + 'px', width: menuW + 'px' }
+      }
+
+      this.cloneStyle = {
+        position: 'fixed',
+        top:      rect.top  + 'px',
+        left:     rect.left + 'px',
+        width:    rect.width + 'px',
+        zIndex:   '2002',
+        pointerEvents: 'none',
+      }
+
+      this.isHighlighted = true
+      this.menuOpen = true
+    },
+
+    closeMenu() {
+      this.menuOpen = false
+      this.isHighlighted = false
+    },
+
+   onTouchStart(e) {
+      this._touchMoved = false
+      const touch = e.touches[0]
+      this.pressTimer = setTimeout(() => {
+        if (!this._touchMoved) this.openMenu({ clientX: touch.clientX, clientY: touch.clientY })
+      }, 500)
+    },
+    onTouchEnd()    { clearTimeout(this.pressTimer) },
+    onTouchCancel() { clearTimeout(this.pressTimer); this._touchMoved = true },
+    onTouchMove()   { this._touchMoved = true; clearTimeout(this.pressTimer) },
   }
 }
 </script>
 
 <style scoped>
-
 .channel-post {
   padding: 6px 10px;
   border-radius: 16px 16px 16px 4px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(30, 35, 60, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.1);
   position: relative;
   transition: border-color 0.18s, background 0.18s;
   margin-bottom: 4px;
-  display: inline-block;
   min-width: 120px;
   max-width: 640px;
-  width: auto;
+  width: fit-content;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .channel-post:hover {
-  background: rgba(255, 255, 255, 0.11);
+  background: rgba(38, 44, 72, 0.95);
   border-color: rgba(255, 255, 255, 0.14);
 }
 .channel-post.pinned {
-  background: rgba(110, 121, 255, 0.06);
+  background: rgba(110, 121, 255, 0.15);
   border-color: rgba(110, 121, 255, 0.22);
 }
-.theme-light .channel-post {
-  background: #ffffff;
-  border-color: #e4e6f0;
-  box-shadow: none;
-}
-.theme-light .channel-post:hover {
-  background: #f5f6fc;
-  border-color: rgba(91, 106, 255, 0.18);
-}
-.theme-light .channel-post.pinned {
-  background: rgba(91, 106, 255, 0.04);
-  border-color: rgba(91, 106, 255, 0.18);
-}
+.channel-post.menu-open { opacity: 0.15; }
 
-/* Pin label */
+.theme-light .channel-post { background: #ffffff; border-color: #e4e6f0; }
+.theme-light .channel-post:hover { background: #f5f6fc; border-color: rgba(91, 106, 255, 0.18); }
+.theme-light .channel-post.pinned { background: rgba(91, 106, 255, 0.04); border-color: rgba(91, 106, 255, 0.18); }
+
 .pin-label {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
   color: #6e79ff; margin-bottom: 8px;
 }
 
-/* Content */
 .post-content { margin-bottom: 10px; }
 .post-text {
-  color: #dde2f8;
-  font-size: 14.5px;
-  line-height: 1.65;
-  font-weight: 450;
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin: 0;
+  color: #dde2f8; font-size: 14.5px; line-height: 1.65;
+  font-weight: 450; white-space: pre-wrap; word-break: break-word;
+  overflow-wrap: anywhere; margin: 0;
 }
 .theme-light .post-text { color: #1e2240; }
 
@@ -197,10 +276,7 @@ export default {
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 .theme-light .post-img { border-color: #eaecf4; }
-
-.post-video {
-  display: block; max-width: 100%; border-radius: 12px; margin-top: 10px;
-}
+.post-video { display: block; max-width: 100%; border-radius: 12px; margin-top: 10px; }
 
 .post-file-link {
   display: inline-flex; align-items: center; gap: 10px; margin-top: 10px;
@@ -220,17 +296,13 @@ export default {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .theme-light .post-file-name { color: #1e2240; }
-.post-file-download { color: #6e79ff; flex-shrink: 0; }
 
-/* Footer */
 .post-footer {
   display: flex; align-items: center; justify-content: space-between;
   gap: 10px; min-height: 22px;
 }
 .post-footer-right { display: flex; align-items: center; gap: 8px; }
-.post-time {
-  color: #4e577a; font-size: 11px; font-weight: 500;
-}
+.post-time { color: #4e577a; font-size: 11px; font-weight: 500; }
 .theme-light .post-time { color: #9098b8; }
 .post-views {
   display: flex; align-items: center; gap: 3px;
@@ -238,38 +310,6 @@ export default {
 }
 .theme-light .post-views { color: #9098b8; }
 
-/* Action buttons */
-.post-actions { display: flex; align-items: center; gap: 3px; }
-.post-btn {
-  width: 28px; height: 28px; border-radius: 8px;
-  display: grid; place-items: center;
-  color: #7d87ab; background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  cursor: pointer; transition: all 0.15s;
-}
-.post-btn:hover {
-  background: rgba(110, 121, 255, 0.14);
-  color: #6e79ff;
-  border-color: rgba(110, 121, 255, 0.28);
-}
-.post-btn.active {
-  background: rgba(110, 121, 255, 0.18);
-  color: #6e79ff;
-  border-color: rgba(110, 121, 255, 0.35);
-}
-.post-btn.danger:hover {
-  background: rgba(255, 77, 109, 0.12);
-  color: #ff4d6d;
-  border-color: rgba(255, 77, 109, 0.25);
-}
-.theme-light .post-btn {
-  color: #9098b8; background: #f5f6fc; border-color: #e4e6f0;
-}
-.theme-light .post-btn:hover { background: rgba(91, 106, 255, 0.08); color: #5b6aff; }
-.theme-light .post-btn.danger:hover { background: rgba(255, 60, 80, 0.08); color: #ff3c50; }
-
-.fade-actions-enter-active, .fade-actions-leave-active { transition: opacity 0.15s; }
-.fade-actions-enter-from, .fade-actions-leave-to { opacity: 0; }
 .post-voice {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 14px; border-radius: 12px;
@@ -282,8 +322,50 @@ export default {
   display: grid; place-items: center;
   color: #fff; background: linear-gradient(135deg, #6e79ff, #8669ff);
 }
-.post-audio {
-  flex: 1; height: 32px; min-width: 0;
-  accent-color: #6e79ff;
+.post-audio { flex: 1; height: 32px; min-width: 0; accent-color: #6e79ff; }
+
+/* Context menu */
+.ctx-clone { position: fixed; z-index: 2002; pointer-events: none; }
+.clone-post {
+  transition: none;
+  box-shadow: none !important;
+  outline: none !important;
+  opacity: 1 !important;
+  overflow: hidden;
 }
+
+.ctx-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: ctxFadeIn 0.15s ease;
+}
+.ctx-menu {
+  position: fixed; z-index: 2001;
+  background: rgba(22,26,46,0.97);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px; padding: 6px; min-width: 180px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  animation: ctxSlideIn 0.2s cubic-bezier(0.16,1,0.3,1);
+}
+.ctx-item {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+  background: none; border: none; cursor: pointer;
+  color: #eef2ff; font-size: 14px; font-weight: 500;
+  font-family: inherit; text-align: left; transition: background 0.15s;
+}
+.ctx-item:hover { background: rgba(255,255,255,0.06); }
+.ctx-delete { color: #ff4d6d; }
+.ctx-delete:hover { background: rgba(255,77,109,0.1); }
+.ctx-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 4px 0; }
+
+@media (max-width: 760px) {
+  .ctx-menu { border-radius: 18px; padding: 4px; min-width: unset; }
+  .ctx-item { padding: 12px 20px; font-size: 15px; }
+}
+
+@keyframes ctxFadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ctxSlideIn { from { opacity: 0; transform: scale(0.95) translateY(-4px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 </style>

@@ -816,12 +816,13 @@ export default {
 }
 .edit-banner button { background: none; border: none; color: #a6afd4; cursor: pointer; font-size: 14px; }
 .composer {
-  height: 52px; display: flex; align-items: center; gap: 12px;
-  padding: 0 12px 0 16px; border-radius: 16px;
-  border: 1px solid rgba(110,123,255,0.16);
-  background: rgba(22,27,52,0.7);
+  min-height: 56px; height: auto; display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px 10px 16px; border-radius: 18px;
+  border: 1px solid rgba(110,123,255,0.18);
+  background: linear-gradient(180deg, rgba(25,30,58,0.68), rgba(18,23,46,0.78));
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.04);
 }
-.theme-light .composer { background: #fff; border-color: rgba(91,106,255,0.2); }
+.theme-light .composer { background: #ffffff; border-color: rgba(91,106,255,0.2); box-shadow: 0 4px 16px rgba(91,106,200,0.08); }
 .post-input { flex: 1; background: transparent; border: none; outline: none; color: #eef2ff; font-size: 15px; font-weight: 500; }
 .theme-light .post-input { color: #1a1d2e; }
 .post-input::placeholder { color: #747ea2; }

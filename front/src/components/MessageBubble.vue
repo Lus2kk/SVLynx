@@ -4,7 +4,6 @@
     :class="{ mine: isMine, theirs: !isMine, 'theme-light': isLight, 'is-selected': isSelected, 'is-selecting': isSelecting, 'is-highlighted': isHighlighted }"
     @click="isSelecting ? $emit('select', message) : null"
   >
-    <!-- Lightbox -->
     <teleport to="body">
       <div v-if="lightboxUrl" class="lightbox" @click="lightboxUrl = null">
         <img :src="lightboxUrl" class="lightbox-img" @click.stop />
@@ -12,7 +11,6 @@
       </div>
     </teleport>
 
-    <!-- Чекбокс -->
     <transition name="cb-fade">
       <div v-if="isSelecting" class="select-checkbox" :class="{ checked: isSelected }">
         <svg v-if="isSelected" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="3">
@@ -31,7 +29,6 @@
         @touchcancel="onTouchCancel"
         @contextmenu.prevent="openMenu"
       >
-        <!-- Цитата -->
         <div v-if="message.reply_to" class="reply-quote">
           <div class="reply-quote-bar"></div>
           <div class="reply-quote-content">
@@ -40,7 +37,6 @@
           </div>
         </div>
 
-        <!-- Текст -->
         <div v-if="message.type === 'text' || !message.type" class="message-text">
           <template v-if="isUrl(message.content)">
             <a :href="message.content" target="_blank" rel="noopener noreferrer nofollow" class="message-link">{{ message.content }}</a>
@@ -48,7 +44,6 @@
           <template v-else>{{ message.content }}</template>
         </div>
 
-        <!-- Фото -->
         <div v-else-if="message.type === 'image'" class="media-image-wrap">
           <img :src="message.content" class="media-image" @click="lightboxUrl = message.content" />
           <div class="image-meta">
@@ -62,18 +57,15 @@
           </div>
         </div>
 
-        <!-- Видео -->
         <div v-else-if="message.type === 'video'" class="media-video-wrap">
           <video :src="message.content" class="media-video" controls></video>
         </div>
 
-        <!-- Аудио -->
         <div v-else-if="message.type === 'audio'" class="media-audio-wrap">
           <audio :src="message.content" controls class="media-audio"></audio>
           <span v-if="message.file_name" class="media-filename">{{ message.file_name }}</span>
         </div>
 
-        <!-- Файл -->
         <div v-else-if="message.type === 'file'" class="media-file-wrap">
           <a :href="message.content" target="_blank" class="media-file-link">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -87,15 +79,10 @@
           </a>
         </div>
 
-        <!-- Голосовое -->
         <div v-else class="voice-player">
           <button type="button" class="play-btn" @click="togglePlay">
-            <svg v-if="!isPlaying" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-              <path d="M5 3l14 9-14 9V3z"/>
-            </svg>
-            <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-              <path d="M6 4h4v16H6zM14 4h4v16h-4z"/>
-            </svg>
+            <svg v-if="!isPlaying" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
+            <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
           </button>
           <div class="voice-progress" @click="seek">
             <div class="voice-bar">
@@ -120,10 +107,8 @@
 
     <teleport to="body">
       <div v-if="menuOpen" class="ctx-overlay" @click="closeMenu" @contextmenu.prevent="closeMenu" @touchend.stop>
-        <!-- Клон сообщения поверх blur -->
-        <div v-if="isHighlighted" class="ctx-bubble-clone" :style="cloneStyle">
-          <div class="message-bubble clone-bubble" :class="{ mine: isMine, theirs: !isMine }">
-            <!-- Цитата в клоне -->
+        <div v-if="isHighlighted" class="ctx-bubble-clone" :style="cloneWrapStyle">
+          <div class="message-bubble clone-bubble" :class="{ mine: isMine, theirs: !isMine }" :style="cloneBubbleStyle">
             <div v-if="message.reply_to" class="reply-quote">
               <div class="reply-quote-bar"></div>
               <div class="reply-quote-content">
@@ -131,20 +116,14 @@
                 <span class="reply-quote-text">{{ message.reply_to.type === 'voice' ? '🎤 Голосовое' : message.reply_to.type === 'image' ? '📷 Фото' : message.reply_to.content }}</span>
               </div>
             </div>
-            <!-- Текст -->
-            <div v-if="message.type === 'text' || !message.type" class="message-text">{{ message.content }}</div>
-            <!-- Фото — показываем само изображение без полосы -->
+            <div v-if="message.type === 'text' || !message.type" class="message-text" :style="cloneTextStyle">{{ message.content }}</div>
             <div v-else-if="message.type === 'image'" class="clone-image-wrap">
               <img :src="message.content" class="clone-image" />
             </div>
-            <!-- Видео — превью без полосы -->
             <div v-else-if="message.type === 'video'" class="clone-media-label">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-              </svg>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               🎥 Видео
             </div>
-            <!-- Голосовое -->
             <div v-else-if="message.type === 'voice'" class="voice-player">
               <div class="play-btn">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
@@ -152,7 +131,6 @@
               <div class="voice-progress"><div class="voice-bar"></div></div>
               <span class="voice-duration">{{ message.duration ? `${Math.floor(message.duration/60).toString().padStart(2,'0')}:${Math.floor(message.duration%60).toString().padStart(2,'0')}` : '00:00' }}</span>
             </div>
-            <!-- Файл -->
             <div v-else-if="message.type === 'file'" class="media-file-wrap">
               <div class="media-file-link">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -164,8 +142,7 @@
                 </div>
               </div>
             </div>
-            <!-- Всё остальное -->
-            <div v-else class="message-text">{{ clonePreviewText }}</div>
+            <div v-else class="message-text" :style="cloneTextStyle">{{ clonePreviewText }}</div>
             <div class="message-meta">
               <span class="message-time">{{ formatTime(message.created_at || message.createdat) }}</span>
             </div>
@@ -218,15 +195,17 @@ export default {
 
   data() {
     return {
-      isPlaying:     false,
-      progress:      0,
-      duration:      0,
-      lightboxUrl:   null,
-      menuOpen:      false,
-      menuStyle:     {},
-      cloneStyle:    {},
-      pressTimer:    null,
-      isHighlighted: false,
+      isPlaying:      false,
+      progress:       0,
+      duration:       0,
+      lightboxUrl:    null,
+      menuOpen:       false,
+      menuStyle:      {},
+      cloneWrapStyle:   {},
+      cloneBubbleStyle: {},
+      cloneTextStyle:   {},
+      pressTimer:     null,
+      isHighlighted:  false,
     }
   },
 
@@ -244,12 +223,12 @@ export default {
 
   methods: {
     isUrl(str) {
-  if (typeof str !== 'string') return false
-  return /^https?:\/\/[^\s]+$/i.test(str.trim())
-},
-    beforeUnmount() {
-  clearTimeout(this.pressTimer)
-},
+      if (typeof str !== 'string') return false
+      return /^https?:\/\/[^\s]+$/i.test(str.trim())
+    },
+
+    beforeUnmount() { clearTimeout(this.pressTimer) },
+
     formatSize(bytes) {
       if (!bytes) return ''
       if (bytes < 1024)    return bytes + ' B'
@@ -264,26 +243,52 @@ export default {
 
       if (bubbleEl) {
         const rect = bubbleEl.getBoundingClientRect()
-        this.cloneStyle = {
-          position: 'fixed',
-          top:   rect.top  + 'px',
-          left:  rect.left + 'px',
-          width: rect.width + 'px',
+        const cs = getComputedStyle(bubbleEl)
+        const padL = parseFloat(cs.paddingLeft)
+        const padR = parseFloat(cs.paddingRight)
+        const textW = rect.width - padL - padR
+
+        // Враппер клона — точно по размеру пузыря
+        this.cloneWrapStyle = {
+          position:      'fixed',
+          top:           rect.top  + 'px',
+          left:          rect.left + 'px',
+          width:         rect.width + 'px',
+          zIndex:        '2002',
+          pointerEvents: 'none',
+          overflow:      'hidden',
         }
 
-        const menuH = this.isMine ? 160 : 110
-        let top = rect.bottom + 8
-        if (top + menuH > window.innerHeight - 20) {
-          top = rect.top - menuH - 8
+        // Пузырь клона — те же размеры что оригинал
+        this.cloneBubbleStyle = {
+          width:      rect.width + 'px',
+          maxWidth:   rect.width + 'px',
+          minWidth:   rect.width + 'px',
+          boxSizing:  'border-box',
+          overflow:   'hidden',
         }
-if (isMobile) {
-  const menuWidth = Math.min(260, window.innerWidth - 48)
-  this.menuStyle = {
-    top:   top + 'px',
-    right: '12px',
-    width: menuWidth + 'px',
-  }
-}else {
+
+        // Текст клона — ширина минус padding
+        this.cloneTextStyle = {
+          width:        textW + 'px',
+          maxWidth:     textW + 'px',
+          boxSizing:    'border-box',
+          whiteSpace:   'pre-wrap',
+          wordBreak:    'break-word',
+          overflowWrap: 'anywhere',
+          overflow:     'hidden',
+          display:      'block',
+        }
+
+        const menuH = this.isMine ? 165 : 115
+        let top = rect.bottom + 8
+        if (top + menuH > window.innerHeight - 16) top = rect.top - menuH - 8
+        if (top < 8) top = 8
+
+        if (isMobile) {
+          const menuWidth = Math.min(260, window.innerWidth - 48)
+          this.menuStyle = { top: top + 'px', right: '12px', width: menuWidth + 'px' }
+        } else {
           const x = e.clientX ?? window.innerWidth / 2
           const menuW = 200
           const left = Math.min(x, window.innerWidth - menuW - 12)
@@ -299,17 +304,16 @@ if (isMobile) {
     onSelect() { this.$emit('select', this.message); this.closeMenu() },
 
     closeMenu() {
-      this._justOpened = false
       this.menuOpen = false
       this.isHighlighted = false
     },
 
     onTouchStart(e) {
       this._touchMoved = false
+      const touch = e.touches[0]
       this.pressTimer = setTimeout(() => {
         if (!this._touchMoved) {
-          this.openMenu(e.touches[0])
-          this._justOpened = true
+          this.openMenu({ clientX: touch.clientX, clientY: touch.clientY })
         }
       }, 500)
     },
@@ -366,13 +370,13 @@ if (isMobile) {
 
 <style scoped>
 .message-row {
-  display: flex; margin-bottom: 0px; align-items: center; gap: 8px;
+  display: flex; margin-bottom: 0; align-items: center; gap: 8px;
   padding: 1px 0; transition: background 0.15s;
   border-radius: 10px; position: relative;
 }
 .message-row.mine   { justify-content: flex-end; }
 .message-row.theirs { justify-content: flex-start; }
-.message-row.is-selected  { background: rgba(110,121,255,0.08); }
+.message-row.is-selected  { background: rgba(110,121,255,0.14); }
 .message-row.is-selecting { cursor: pointer; }
 .message-row.is-highlighted { z-index: 1001; }
 
@@ -396,16 +400,12 @@ if (isMobile) {
 .message-bubble {
   padding: 6px 10px; border-radius: 14px; position: relative;
   width: 100%; word-break: break-word; overflow-wrap: anywhere; min-width: 0;
-  cursor: default; user-select: none; -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  transition: transform 0.15s;
+  cursor: default;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 .is-selecting .message-bubble { cursor: pointer; }
 .message-bubble:has(.media-image-wrap) { padding: 0; overflow: hidden; }
-.message-bubble.menu-open { transform: scale(1.02); }
-
-/* Клон — не убираем padding даже для изображений */
-.clone-bubble { padding: 6px 10px !important; overflow: hidden; }
+.message-bubble.menu-open { opacity: 0.15; }
 
 @media (max-width: 760px) {
   .message-bubble-wrapper { max-width: calc(100% - 44px); }
@@ -426,7 +426,27 @@ if (isMobile) {
 }
 .theme-light .message-bubble.theirs { background: #fff; border-color: #e4e6f0; color: #1a1d2e; }
 .theme-light .message-bubble.mine   { background: linear-gradient(180deg,#5b6aff,#6e79ff); color: #fff; }
-.reply-quote { display:flex; gap:8px; margin-bottom:6px; padding:6px 8px; border-radius:8px; background:rgba(0,0,0,0.15); cursor:pointer; }
+
+/* Clone */
+.ctx-bubble-clone { position: fixed; z-index: 2002; pointer-events: none; overflow: hidden; }
+.clone-bubble { overflow: hidden; }
+.clone-bubble.mine {
+  background: linear-gradient(180deg, rgba(108,118,255,0.95), rgba(93,104,240,0.97)) !important;
+  box-shadow: 0 10px 22px rgba(70,80,210,0.16) !important;
+}
+.clone-bubble.theirs {
+  background: rgba(255,255,255,0.08) !important;
+  border-color: rgba(255,255,255,0.1) !important;
+  box-shadow: none !important;
+}
+.clone-image-wrap { border-radius: 8px; overflow: hidden; max-width: 100%; margin-bottom: 4px; }
+.clone-image { width: 100%; display: block; border-radius: 8px; max-height: 180px; object-fit: cover; }
+.clone-media-label {
+  display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 8px;
+  background: rgba(0,0,0,0.15); font-size: 14px; font-weight: 500; margin-bottom: 4px;
+}
+
+.reply-quote { display:flex; gap:8px; margin-bottom:6px; padding:6px 8px; border-radius:8px; background:rgba(0,0,0,0.15); }
 .reply-quote-bar { width:3px; border-radius:2px; background:#6e79ff; flex-shrink:0; }
 .reply-quote-content { display:flex; flex-direction:column; gap:2px; min-width:0; }
 .reply-quote-name { font-size:12px; font-weight:700; color:#6e79ff; }
@@ -436,10 +456,8 @@ if (isMobile) {
 .message-link { color: inherit; text-decoration: underline; }
 .message-meta { display: flex; justify-content: flex-end; align-items: center; gap: 3px; margin-top: 2px; }
 .message-time { font-size: 11px; opacity: 0.85; color: rgba(255,255,255,0.85); white-space: nowrap; }
-.message-status { display: inline-flex; align-items: center; color: rgba(255,255,255,0.7); transition: none; }
-.message-status.read { color: rgba(255,255,255,0.7); filter: none; }
-.theme-light .message-status { color: rgba(255,255,255,0.7); }
-.theme-light .message-status.read { color: rgba(255,255,255,0.7); }
+.message-status { display: inline-flex; align-items: center; color: rgba(255,255,255,0.7); }
+.message-status.read { color: rgba(255,255,255,0.7); }
 
 .media-image-wrap { border-radius: 10px; overflow: hidden; max-width: 260px; position: relative; }
 .media-image { width: 100%; display: block; cursor: pointer; border-radius: 10px; }
@@ -458,25 +476,12 @@ if (isMobile) {
 .image-meta .message-status { color: rgba(255,255,255,0.7); }
 .image-meta .message-status.read { color: #fff; }
 
-/* Клон изображения — без полосы, с скруглением */
-.clone-image-wrap { border-radius: 8px; overflow: hidden; max-width: 100%; margin-bottom: 4px; }
-.clone-image { width: 100%; display: block; border-radius: 8px; max-height: 180px; object-fit: cover; }
-
-/* Клон видео */
-.clone-media-label {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px; border-radius: 8px;
-  background: rgba(0,0,0,0.15);
-  font-size: 14px; font-weight: 500;
-  margin-bottom: 4px;
-}
-
 .lightbox { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.92); display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
 .lightbox-img { max-width: 90vw; max-height: 90vh; border-radius: 8px; object-fit: contain; cursor: default; }
 .lightbox-close { position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.1); border: none; color: white; font-size: 20px; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; }
 
 .voice-player { display: flex; align-items: center; gap: 8px; min-width: 160px; max-width: 220px; padding: 2px 0; }
-.play-btn { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; background: rgba(255,255,255,0.2); border: none; cursor: pointer; color: inherit; transition: background 0.2s; }
+.play-btn { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; background: rgba(255,255,255,0.2); border: none; cursor: pointer; color: inherit; }
 .play-btn:hover { background: rgba(255,255,255,0.3); }
 .voice-progress { flex: 1; cursor: pointer; padding: 6px 0; }
 .voice-bar { height: 3px; border-radius: 999px; background: rgba(255,255,255,0.25); }
@@ -486,12 +491,8 @@ if (isMobile) {
 .ctx-overlay {
   position: fixed; inset: 0; z-index: 2000;
   background: rgba(0,0,0,0.72);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   animation: ctxFadeIn 0.15s ease;
-}
-.ctx-bubble-clone {
-  position: fixed; z-index: 2001; pointer-events: none;
 }
 .ctx-menu {
   position: fixed; z-index: 2001;
@@ -514,12 +515,7 @@ if (isMobile) {
 .ctx-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 4px 0; }
 
 @media (max-width: 760px) {
-  .ctx-menu {
-    border-radius: 18px;
-    padding: 4px;
-    min-width: unset;
-    animation: ctxSlideUp 0.25s cubic-bezier(0.16,1,0.3,1);
-  }
+  .ctx-menu { border-radius: 18px; padding: 4px; min-width: unset; animation: ctxSlideUp 0.25s cubic-bezier(0.16,1,0.3,1); }
   .ctx-item { padding: 12px 20px; font-size: 15px; }
   .ctx-divider { margin: 2px 0; }
 }
