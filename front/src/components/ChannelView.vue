@@ -55,6 +55,42 @@
     </header>
 
     <!-- Posts -->
+    <!-- Pinned banner -->
+    <div
+      v-if="pinnedPosts.length"
+      class="pinned-banner"
+      @click="scrollToPinnedPost"
+    >
+      <div class="pinned-banner-lines" v-if="pinnedPosts.length > 1">
+        <span
+          v-for="(_, i) in pinnedPosts"
+          :key="i"
+          class="pinned-line"
+          :class="{ active: i === pinnedIndex }"
+        ></span>
+      </div>
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" style="flex-shrink:0;color:#6e79ff">
+        <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
+      </svg>
+      <div class="pinned-banner-text">
+        <span class="pinned-banner-label">
+          Закреплённое{{ pinnedPosts.length > 1 ? ` · ${pinnedIndex + 1} / ${pinnedPosts.length}` : '' }}
+        </span>
+        <span class="pinned-banner-content">{{ currentPinnedPost?.content }}</span>
+      </div>
+      <button
+        v-if="isAdmin"
+        class="pinned-banner-close"
+        @click.stop="togglePin(currentPinnedPost)"
+        title="Открепить"
+      >
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Posts -->
     <div class="posts-area" ref="postsArea" @scroll="onScroll">
       <div v-if="loading" class="feed-state"><div class="spinner"></div></div>
 
@@ -81,6 +117,7 @@
             </div>
             <ChannelPost
               v-else
+              :data-post-id="item.id"
               :post="item"
               :isAdmin="isAdmin" :isLight="isLight" :currentUserId="currentUserId"
               :channelLetter="channelLetter" :channelColor="channelColor" :channelAvatarUrl="channel?.avatar_url"
@@ -244,7 +281,7 @@ export default {
 
   data() {
     return {
-      posts: [], pinnedPosts: [],
+      posts: [], pinnedPosts: [], pinnedIndex: 0,
       loading: false, loadingMore: false, hasMore: true,
       newPostContent: '', editingPost: null,
       searchOpen: false, searchQuery: '', searchResults: [], searchDebounce: null,
@@ -265,6 +302,9 @@ export default {
   },
 
   computed: {
+    currentPinnedPost() {
+      return this.pinnedPosts[this.pinnedIndex] || null
+    },
     isAdmin()  { return ['owner', 'admin'].includes(this.userRole) },
     isEditor() { return ['owner', 'admin', 'editor'].includes(this.userRole) },
     // Подписан = роль не пустая И не просто "guest"
@@ -331,6 +371,19 @@ export default {
   },
 
   methods: {
+     scrollToPinnedPost() {
+      const post = this.currentPinnedPost
+      if (!post) return
+      // Листаем по кругу
+      this.pinnedIndex = (this.pinnedIndex + 1) % this.pinnedPosts.length
+      if (!this.posts.find(p => String(p.id) === String(post.id))) {
+        this.posts.unshift(post)
+      }
+      this.$nextTick(() => {
+        const el = this.$refs.postsArea?.querySelector(`[data-post-id="${post.id}"]`)
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
+    },
    dayLabel(d) {
       const now = new Date()
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
@@ -941,5 +994,55 @@ export default {
   color: rgba(108, 116, 148, 0.85);
   background: rgba(91, 106, 255, 0.06);
   border-color: rgba(91, 106, 255, 0.10);
+
 }
+.pinned-banner {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 20px;
+  background: rgba(9, 13, 28, 0.97);
+  border-bottom: 1px solid rgba(110, 121, 255, 0.15);
+  cursor: pointer;
+  transition: background 0.15s;
+  min-height: 44px;
+}
+.pinned-banner:hover { background: rgba(110, 121, 255, 0.08); }
+.theme-light .pinned-banner { background: #fff; border-bottom-color: rgba(91, 106, 255, 0.15); }
+
+.pinned-banner-text {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.pinned-banner-label {
+  font-size: 10px; font-weight: 700;
+  color: #6e79ff; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.pinned-banner-content {
+  font-size: 13px; font-weight: 500; color: #a6afd4;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.theme-light .pinned-banner-content { color: #7880a0; }
+
+.pinned-banner-close {
+  width: 24px; height: 24px; border-radius: 8px; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: transparent; border: none; cursor: pointer;
+  color: #5d6888; transition: color 0.15s;
+}
+.pinned-banner-close:hover { color: #ff4d6d; }
+
+@media (max-width: 760px) {
+  .pinned-banner { padding: 8px 14px; }
+}
+.pinned-banner-lines {
+  display: flex; flex-direction: column; gap: 3px;
+  flex-shrink: 0; width: 3px;
+}
+.pinned-line {
+  width: 3px; border-radius: 999px;
+  background: rgba(110, 121, 255, 0.3);
+  flex: 1; min-height: 4px;
+  transition: background 0.2s;
+}
+.pinned-line.active { background: #6e79ff; }
 </style>
