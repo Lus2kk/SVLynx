@@ -1,1 +1,1 @@
-/usr/bin/c++  -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/voice_server.dir/voice_server.cpp.o -o voice_server  -lpthread -framework CoreFoundation
+/usr/bin/c++  -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/voice_server.dir/voice_server.cpp.o -o voice_server  -Wl,-rpath,/Users/konstantin/Documents/messenger/SVLynx/voice_server/whisper.cpp/build/src -lpthread /Users/konstantin/Documents/messenger/SVLynx/voice_server/whisper.cpp/build/src/libwhisper.dylib -framework CoreFoundation -framework Accelerate

@@ -422,6 +422,7 @@ func (h *MessageHandler) SendVoiceMessageHandler(ctx *gin.Context) {
 		RecipientID uuid.UUID `json:"recipient_id" binding:"required"`
 		AudioURL    string    `json:"audio_url" binding:"required"`
 		Duration    int       `json:"duration"`
+		Transcript  string    `json:"transcript"`
 	}
 
 	if err := ctx.ShouldBindJSON(&input); err != nil {
@@ -431,11 +432,12 @@ func (h *MessageHandler) SendVoiceMessageHandler(ctx *gin.Context) {
 	}
 
 	message, err := h.srvc.SendMessage(ctx.Request.Context(), chat_service.CreatedMessage{
-		ChatID:   input.ChatID,
-		SenderID: input.SenderID,
-		Content:  input.AudioURL,
-		Type:     chat_models.VoiceMessage,
-		Duration: input.Duration,
+		ChatID:     input.ChatID,
+		SenderID:   input.SenderID,
+		Content:    input.AudioURL,
+		Type:       chat_models.VoiceMessage,
+		Duration:   input.Duration,
+		Transcript: input.Transcript,
 	})
 	if err != nil {
 		slog.Error("voice send error", "error", err.Error())

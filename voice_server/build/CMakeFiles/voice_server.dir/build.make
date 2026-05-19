@@ -95,6 +95,7 @@ voice_server_EXTERNAL_OBJECTS =
 
 voice_server: CMakeFiles/voice_server.dir/voice_server.cpp.o
 voice_server: CMakeFiles/voice_server.dir/build.make
+voice_server: /Users/konstantin/Documents/messenger/SVLynx/voice_server/whisper.cpp/build/src/libwhisper.dylib
 voice_server: CMakeFiles/voice_server.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/konstantin/Documents/messenger/SVLynx/voice_server/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable voice_server"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/voice_server.dir/link.txt --verbose=$(VERBOSE)
