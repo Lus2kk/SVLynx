@@ -1,0 +1,12 @@
+whisper.cpp/build/
+whisper.cpp/models/
+
+build/
+
+models/
+
+uploads/
+
+*.wav
+*.webm
+*.ogg

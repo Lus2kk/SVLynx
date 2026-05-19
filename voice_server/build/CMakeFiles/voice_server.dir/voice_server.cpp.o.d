@@ -930,4 +930,11 @@ CMakeFiles/voice_server.dir/voice_server.cpp.o: \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__stop_token/stop_source.h \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__thread/thread.h \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__thread/this_thread.h \
-  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/unordered_set
+  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/unordered_set \
+  /Users/konstantin/Documents/messenger/SVLynx/voice_server/./whisper.cpp/include/whisper.h \
+  /Users/konstantin/Documents/messenger/SVLynx/voice_server/./whisper.cpp/ggml/include/ggml.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/stdbool.h \
+  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/17/include/stdbool.h \
+  /Users/konstantin/Documents/messenger/SVLynx/voice_server/./whisper.cpp/ggml/include/ggml-cpu.h \
+  /Users/konstantin/Documents/messenger/SVLynx/voice_server/./whisper.cpp/ggml/include/ggml-backend.h \
+  /Users/konstantin/Documents/messenger/SVLynx/voice_server/./whisper.cpp/ggml/include/ggml-alloc.h

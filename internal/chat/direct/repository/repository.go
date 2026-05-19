@@ -196,8 +196,8 @@ ORDER BY COALESCE(msg.created_at, c.creation_time) DESC
 func (repo *PostgresRepo) SendMessageRepo(ctx context.Context, message *chat_models.Message) (*chat_models.Message, error) {
 	_, err := repo.db.Exec(ctx, `
 		INSERT INTO messages (id, chat_id, sender_id, content, status, created_at, type, duration, file_name, file_size, reply_to)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-		message.ID, message.ChatID, message.SenderID, message.Content, message.Status, message.CreatedAT, message.Type, message.Duration, message.FileName, message.FileSize, replyToJSON(message.ReplyTo),
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		message.ID, message.ChatID, message.SenderID, message.Content, message.Status, message.CreatedAT, message.Type, message.Duration, message.FileName, message.FileSize, replyToJSON(message.ReplyTo), message.Transcript,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("insert message error: %w", err)
@@ -208,7 +208,7 @@ func (repo *PostgresRepo) SendMessageRepo(ctx context.Context, message *chat_mod
 
 func (repo *PostgresRepo) GetMessagesByChatIdRepo(ctx context.Context, chatId uuid.UUID, before time.Time, limit int) ([]*chat_models.Message, error) {
 	rows, err := repo.db.Query(ctx, `
-		SELECT id, chat_id, sender_id, content, status, created_at, type, duration, COALESCE(file_name, ''), COALESCE(file_size, 0),  reply_to
+		SELECT id, chat_id, sender_id, content, status, created_at, type, duration, COALESCE(file_name, ''), COALESCE(file_size, 0),  reply_to,  COALESCE(transcript, '')
 		FROM messages
 		WHERE chat_id = $1 AND created_at < $2
 		ORDER BY created_at DESC
@@ -236,6 +236,7 @@ func (repo *PostgresRepo) GetMessagesByChatIdRepo(ctx context.Context, chatId uu
 			&message.FileName,
 			&message.FileSize,
 			&replyToRaw,
+			&message.Transcript,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan message error: %w", err)
@@ -258,7 +259,7 @@ func (repo *PostgresRepo) GetMessagesByChatIdRepo(ctx context.Context, chatId uu
 
 func (repo *PostgresRepo) SearchMesageRepo(ctx context.Context, chat_id uuid.UUID, content string) ([]*chat_models.Message, error) {
 	rows, err := repo.db.Query(ctx, `
-		SELECT id, chat_id, sender_id, content, status, created_at, type, duration, COALESCE(file_name, ''), COALESCE(file_size, 0), reply_to
+		SELECT id, chat_id, sender_id, content, status, created_at, type, duration, COALESCE(file_name, ''), COALESCE(file_size, 0), reply_to,  COALESCE(transcript, '')
 		FROM messages
 		WHERE chat_id = $1 AND content ILIKE $2
 		ORDER BY created_at DESC`,
@@ -285,6 +286,7 @@ func (repo *PostgresRepo) SearchMesageRepo(ctx context.Context, chat_id uuid.UUI
 			&message.FileName,
 			&message.FileSize,
 			&replyToRaw,
+			&message.Transcript,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan message error: %w", err)
