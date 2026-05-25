@@ -489,13 +489,12 @@
                       <span class="chat-preview">
                         {{ getChannelPreview(ch) || '@' + ch.handle }}
                       </span>
-                      <span
-                        v-if="getChannelUnread(ch) > 0"
-                        class="unread-badge"
-                      >
-                        {{ getChannelUnread(ch) }}
+                     <span
+                       v-if="getChannelUnread(ch) > 0"
+                       class="unread-badge"
+                        >
+                       {{ getChannelUnread(ch) }}
                       </span>
-                      <span v-else class="channel-badge owner-badge">owner</span>
                     </div>
                   </div>
                 </button>
@@ -579,14 +578,12 @@
                       {{ getChannelPreview(ch) || '@' + ch.handle }}
                     </span>
                     <span
-                      v-if="getChannelUnread(ch) > 0"
-                      class="unread-badge"
-                    >
-                      {{ getChannelUnread(ch) }}
-                    </span>
-                    <span v-else class="channel-badge">
-                      {{ ch.member_count }}
-                    </span>
+                     v-if="getChannelUnread(ch) > 0"
+                       class="unread-badge"
+                        >
+                          {{ getChannelUnread(ch) }}
+                        </span>
+            
                   </div>
                 </div>
               </button>

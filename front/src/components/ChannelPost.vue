@@ -81,7 +81,7 @@
                 class="post-text"
                 style="white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; overflow: hidden;"
               >{{ post.content }}</p>
-              <img v-if="post.media_url && post.media_type === 'image'" :src="post.media_url" class="post-img" />
+              <img v-if="post.media_url && post.media_type === 'image'" :src="post.media_url" class="post-img" loading="lazy" />
               <video v-else-if="post.media_url && post.media_type === 'video'" :src="post.media_url" class="post-video" controls />
               <a v-else-if="post.media_url" :href="post.media_url" class="post-file-link" target="_blank" rel="noopener">
                 <div class="post-file-icon">
@@ -333,7 +333,11 @@ export default {
   opacity: 1 !important;
   overflow: hidden;
 }
-
+.media-image {
+  width: 100%; display: block; cursor: pointer; border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+  min-height: 80px;
+}
 .ctx-overlay {
   position: fixed; inset: 0; z-index: 2000;
   background: rgba(0,0,0,0.72);

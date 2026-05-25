@@ -143,7 +143,16 @@ export default {
   const token = getCookie('access_token')
   if (token) {
     const payload = this.parseJwt(token)
-    this.currentUserName = sessionStorage.getItem('current_user_name') || payload?.name || payload?.nickname || payload?.username || ''
+    this.currentUserName = sessionStorage.getItem('current_user_name') || ''
+try {
+  const meRes = await apiFetch(`${BASE}/auth/me`)
+  if (meRes.ok) {
+    const meData = await meRes.json()
+    const me = meData.user || meData
+    this.currentUserName = me.name || me.nickname || me.first_name || me.username || ''
+    sessionStorage.setItem('current_user_name', this.currentUserName)
+  }
+} catch (e) { console.warn('failed to load current user name', e) }
   }
   if ('Notification' in window && Notification.permission === 'default') {
     try {

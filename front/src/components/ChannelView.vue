@@ -95,21 +95,6 @@
       <div v-if="loading" class="feed-state"><div class="spinner"></div></div>
 
       <template v-else>
-        <div v-if="pinnedPosts.length" class="pinned-section">
-          <div class="section-label">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-              <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
-            </svg>
-            Pinned
-          </div>
-          <ChannelPost
-            v-for="post in pinnedPosts" :key="'pinned-' + post.id"
-            :post="post" :isAdmin="isAdmin" :isLight="isLight" :currentUserId="currentUserId"
-            :channelLetter="channelLetter" :channelColor="channelColor" :channelAvatarUrl="channel?.avatar_url"
-            @delete="deletePost" @pin="togglePin" @edit="startEdit"
-          />
-        </div>
-
         <template v-if="displayPosts.length">
           <template v-for="item in postsWithSeparators" :key="item.id">
             <div v-if="item._separator" class="cv-day-sep">

@@ -171,9 +171,14 @@ func (h *MessageHandler) SendMessageHandler(ctx *gin.Context) {
 			}
 			slog.Info("push title", "senderName", input.SenderName, "title", title)
 			go h.pushSender.SendToUser(context.Background(), input.RecipientID.String(), push.PushPayload{
-				Title: title,
-				Body:  input.Content,
-				Icon:  "/favicon.png",
+				Title: func() string {
+					if input.SenderName != "" {
+						return input.SenderName
+					}
+					return "Новое сообщение"
+				}(),
+				Body: input.Content,
+				Icon: "/favicon.png",
 			})
 		}
 	}
@@ -423,6 +428,7 @@ func (h *MessageHandler) SendVoiceMessageHandler(ctx *gin.Context) {
 		AudioURL    string    `json:"audio_url" binding:"required"`
 		Duration    int       `json:"duration"`
 		Transcript  string    `json:"transcript"`
+		SenderName  string    `json:"sender_name"`
 	}
 
 	if err := ctx.ShouldBindJSON(&input); err != nil {

@@ -129,7 +129,7 @@
   :chatId="String(chatId)"
   :senderId="String(currentUserId)"
   :recipientId="String(recipientId)"
-  :senderName="chatTitle"
+  :senderName="currentUserName"
   @media-sent="onMediaSent"
 />
 
@@ -217,7 +217,8 @@ export default {
     isLight: { type: Boolean, default: false },
     showBackButton: { type: Boolean, default: false },
     presence: { type: Object, default: () => ({ online: false, lastSeen: null }) },
-    isTyping: { type: Boolean, default: false }
+    isTyping: { type: Boolean, default: false },
+    currentUserName: { type: String, default: '' },
   },
 
   emits: ['message-sent', 'message-deleted', 'mark-as-read', 'back', 'typing'],
@@ -675,7 +676,7 @@ this._onTouchEndNative = (e) => {
       form.append('sender_id', String(this.currentUserId))
       form.append('recipient_id', String(this.recipientId))
       form.append('waveform', JSON.stringify(this.waveformData))
-      form.append('duration', String(this.voiceTimerSeconds))
+      form.append('sender_name', this.currentUserName)
       
 
       try {
@@ -892,7 +893,7 @@ this.scrollToBottom()
     recipient_id: this.recipientId,
     content: text,
     reply_to: pendingReplyTo,
-    sender_name: this.chatTitle
+    sender_name: this.currentUserName
 })
         })
 

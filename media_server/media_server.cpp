@@ -118,23 +118,27 @@ int main() {
                 return;
             }
 
-            std::ifstream f(path, std::ios::binary);
-            std::string content((std::istreambuf_iterator<char>(f)),
-                                 std::istreambuf_iterator<char>());
-
             // Определяем MIME по расширению
-            std::string mime = "application/octet-stream";
-            if (filename.find(".jpg")  != std::string::npos) mime = "image/jpeg";
-            else if (filename.find(".png")  != std::string::npos) mime = "image/png";
-            else if (filename.find(".gif")  != std::string::npos) mime = "image/gif";
-            else if (filename.find(".webp") != std::string::npos) mime = "image/webp";
-            else if (filename.find(".mp4")  != std::string::npos) mime = "video/mp4";
-            else if (filename.find(".webm") != std::string::npos) mime = "video/webm";
-            else if (filename.find(".mp3")  != std::string::npos) mime = "audio/mpeg";
-            else if (filename.find(".ogg")  != std::string::npos) mime = "audio/ogg";
-            else if (filename.find(".pdf")  != std::string::npos) mime = "application/pdf";
+           std::string mime = "application/octet-stream";
+           if (filename.find(".jpg")  != std::string::npos) mime = "image/jpeg";
+           else if (filename.find(".png")  != std::string::npos) mime = "image/png";
+           else if (filename.find(".gif")  != std::string::npos) mime = "image/gif";
+           else if (filename.find(".webp") != std::string::npos) mime = "image/webp";
+           else if (filename.find(".mp4")  != std::string::npos) mime = "video/mp4";
+           else if (filename.find(".webm") != std::string::npos) mime = "video/webm";
+           else if (filename.find(".mp3")  != std::string::npos) mime = "audio/mpeg";
+           else if (filename.find(".ogg")  != std::string::npos) mime = "audio/ogg";
+           else if (filename.find(".pdf")  != std::string::npos) mime = "application/pdf";
 
-            res.set_content(content, mime);
+           auto fileSize = fs::file_size(path);
+           res.set_header("Cache-Control", "public, max-age=31536000, immutable");
+           res.set_header("Accept-Ranges", "bytes");
+           res.set_header("Content-Length", std::to_string(fileSize));
+
+           std::ifstream f(path, std::ios::binary);
+           std::string content((std::istreambuf_iterator<char>(f)),
+                     std::istreambuf_iterator<char>());
+           res.set_content(content, mime);
         }
     );
 

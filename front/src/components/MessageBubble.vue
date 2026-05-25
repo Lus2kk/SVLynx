@@ -45,7 +45,7 @@
         </div>
 
         <div v-else-if="message.type === 'image'" class="media-image-wrap">
-          <img :src="message.content" class="media-image" @click="lightboxUrl = message.content" />
+          <img :src="message.content" class="media-image" loading="lazy" @click="lightboxUrl = message.content" />
           <div class="image-meta">
             <span class="message-time">{{ formatTime(message.created_at || message.createdat) }}</span>
             <span v-if="isMine" class="message-status" :class="{ read: message.status === 'read' }">

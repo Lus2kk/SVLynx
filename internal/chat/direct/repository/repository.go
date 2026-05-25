@@ -195,7 +195,7 @@ ORDER BY COALESCE(msg.created_at, c.creation_time) DESC
 
 func (repo *PostgresRepo) SendMessageRepo(ctx context.Context, message *chat_models.Message) (*chat_models.Message, error) {
 	_, err := repo.db.Exec(ctx, `
-		INSERT INTO messages (id, chat_id, sender_id, content, status, created_at, type, duration, file_name, file_size, reply_to)
+		INSERT INTO messages (id, chat_id, sender_id, content, status, created_at, type, duration, file_name, file_size, reply_to, transcript)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 		message.ID, message.ChatID, message.SenderID, message.Content, message.Status, message.CreatedAT, message.Type, message.Duration, message.FileName, message.FileSize, replyToJSON(message.ReplyTo), message.Transcript,
 	)

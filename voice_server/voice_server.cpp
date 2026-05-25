@@ -209,12 +209,17 @@ int main() {
 
         httplib::Client goClient(GO_URL);
 
+        std::string senderName;
+        auto nameIt = req.form.fields.find("sender_name");
+        if (nameIt != req.form.fields.end()) senderName = nameIt->second.content;
+
         std::string body = R"({"chat_id":")" + chatId +
-                   R"(","sender_id":")" + senderId +
-                   R"(","recipient_id":")" + recipientId +
-                   R"(","audio_url":")" + audioUrl +
-                   R"(","duration":)" + durationStr +
-                   R"(,"transcript":")" + escapeJson(transcript) + R"("})";
+           R"(","sender_id":")" + senderId +
+           R"(","recipient_id":")" + recipientId +
+           R"(","audio_url":")" + audioUrl +
+           R"(","duration":)" + durationStr +
+           R"(,"sender_name":")" + escapeJson(senderName) +
+           R"(","transcript":")" + escapeJson(transcript) + R"("})";
 
         httplib::Headers headers = {
             {"Content-Type", "application/json"},
