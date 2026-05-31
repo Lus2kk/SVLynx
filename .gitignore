@@ -1,6 +1,56 @@
+# Environment & secrets
 .env
-.DS_Store
-voice_server/build/uploads/
-media_server/build/uploads/
+.env.local
+.env.production
+front/.env
+front/.env.local
+front/.env.production
 
+# Build binaries & outputs
+bin/
 app
+*.exe
+*.dll
+*.so
+*.dylib
+
+# C/C++ CMake builds (all build/ directories recursively)
+build/
+
+# Go build artifacts
+*.o
+*.a
+
+# Vite / Frontend
+.vite/
+front/dist/
+front/node_modules/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test artifacts
+test.txt
+test.wav
+
+# Logs
+*.log
+
+# Compiled protocol buffers
+*.pb.go
+*.pb.cc
+*.pb.h
+
+# Coverage
+*.out
+coverage.txt
