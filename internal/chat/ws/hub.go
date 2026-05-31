@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	channel_repo "github.com/svlynx/messenger/internal/chat/channel/repo"
+	group_repo "github.com/svlynx/messenger/internal/chat/group/repo"
 	chat_service "github.com/svlynx/messenger/internal/chat/direct/service"
 )
 
@@ -21,9 +22,10 @@ type Hub struct {
 	Mservice   *chat_service.MessageService
 	Dservice   *chat_service.DirectService
 	CRepo      channel_repo.ChannelRepo
+	GRepo      group_repo.GroupRepo
 }
 
-func NewHub(Mservice *chat_service.MessageService, Dservice *chat_service.DirectService, CRepo channel_repo.ChannelRepo) *Hub {
+func NewHub(Mservice *chat_service.MessageService, Dservice *chat_service.DirectService, CRepo channel_repo.ChannelRepo, GRepo group_repo.GroupRepo) *Hub {
 	return &Hub{
 		clients:    make(map[uuid.UUID]*Client),
 		register:   make(chan *Client),
@@ -32,6 +34,7 @@ func NewHub(Mservice *chat_service.MessageService, Dservice *chat_service.Direct
 		Mservice:   Mservice,
 		Dservice:   Dservice,
 		CRepo:      CRepo,
+		GRepo:      GRepo,
 	}
 }
 
@@ -388,8 +391,261 @@ func (h *Hub) Run() {
 					continue
 				}
 				h.broadcastToChannelMembers(context.Background(), payload.ChannelID, uuid.Nil, responsePayload)
+
+
+			case NewGroupMessage:
+				var payload NewGroupMessagePayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal new_group_message payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    NewGroupMessage,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling new_group_message response", "error", err)
+					continue
+				}
+				h.broadcastToGroupMembers(context.Background(), payload.GroupID, payload.AuthorID, responsePayload)
+
+			case UpdateGroupMessage:
+				var payload UpdateGroupMessagePayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal update_group_message payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    UpdateGroupMessage,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling update_group_message response", "error", err)
+					continue
+				}
+				h.broadcastToGroupMembers(context.Background(), payload.GroupID, uuid.Nil, responsePayload)
+
+			case DeleteGroupMessage:
+				var payload DeleteGroupMessagePayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal delete_group_message payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    DeleteGroupMessage,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling delete_group_message response", "error", err)
+					continue
+				}
+				h.broadcastToGroupMembers(context.Background(), payload.GroupID, uuid.Nil, responsePayload)
+
+			case PinGroupMessage:
+				var payload PinGroupMessagePayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal pin_group_message payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    PinGroupMessage,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling pin_group_message response", "error", err)
+					continue
+				}
+				h.broadcastToGroupMembers(context.Background(), payload.GroupID, uuid.Nil, responsePayload)
+
+			case GroupMemberJoin:
+				var payload GroupMemberEventPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal group_member_join payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    GroupMemberJoin,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling group_member_join response", "error", err)
+					continue
+				}
+				h.broadcastToGroupMembers(context.Background(), payload.GroupID, uuid.Nil, responsePayload)
+
+			case GroupMemberLeft:
+				var payload GroupMemberEventPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal group_member_left payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    GroupMemberLeft,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling group_member_left response", "error", err)
+					continue
+				}
+				h.broadcastToGroupMembers(context.Background(), payload.GroupID, uuid.Nil, responsePayload)
+
+			case GroupMemberRole:
+				var payload GroupMemberRolePayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal group_member_role payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    GroupMemberRole,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling group_member_role response", "error", err)
+					continue
+				}
+				h.broadcastToGroupMembers(context.Background(), payload.GroupID, uuid.Nil, responsePayload)
+
+			case GroupMemberBanned:
+				var payload GroupMemberBannedPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal group_member_banned payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    GroupMemberBanned,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling group_member_banned response", "error", err)
+					continue
+				}
+				h.broadcastToGroupMembers(context.Background(), payload.GroupID, uuid.Nil, responsePayload)
+
+			case GroupDeleted:
+				var payload GroupDeletedPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal group_deleted payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    GroupDeleted,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling group_deleted response", "error", err)
+					continue
+				}
+				h.broadcastToGroupMembers(context.Background(), payload.GroupID, uuid.Nil, responsePayload)
+
+			case GroupUpdated:
+				var payload GroupUpdatedPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal group_updated payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    GroupUpdated,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling group_updated response", "error", err)
+					continue
+				}
+				h.broadcastToGroupMembers(context.Background(), payload.GroupID, uuid.Nil, responsePayload)
+
+			case GroupOwnershipTransferred:
+				var payload GroupOwnershipTransferredPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal group_ownership_transferred payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    GroupOwnershipTransferred,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling group_ownership_transferred response", "error", err)
+					continue
+				}
+				h.broadcastToGroupMembers(context.Background(), payload.GroupID, uuid.Nil, responsePayload)
+
+			case GroupTopicCreated:
+				var payload GroupTopicPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal group_topic_created payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    GroupTopicCreated,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling group_topic_created response", "error", err)
+					continue
+				}
+				h.broadcastToGroupMembers(context.Background(), payload.GroupID, uuid.Nil, responsePayload)
+
+			case GroupTopicUpdated:
+				var payload GroupTopicPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal group_topic_updated payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    GroupTopicUpdated,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling group_topic_updated response", "error", err)
+					continue
+				}
+				h.broadcastToGroupMembers(context.Background(), payload.GroupID, uuid.Nil, responsePayload)
+
+			case GroupTopicDeleted:
+				var payload GroupTopicDeletedPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					slog.Error("error unmarshal group_topic_deleted payload", "error", err)
+					continue
+				}
+				responsePayload, err := json.Marshal(BaseMessagePayload{
+					Type:    GroupTopicDeleted,
+					Payload: event.Payload,
+				})
+				if err != nil {
+					slog.Error("error marshaling group_topic_deleted response", "error", err)
+					continue
+				}
+				h.broadcastToGroupMembers(context.Background(), payload.GroupID, uuid.Nil, responsePayload)
 			}
 		}
+	}
+}
+
+func (h *Hub) broadcastToGroupMembers(ctx context.Context, groupID uuid.UUID, exceptUserID uuid.UUID, message []byte) {
+	const pageSize = 200
+	offset := 0
+
+	for {
+		members, err := h.GRepo.GetMembersRepo(ctx, groupID, pageSize, offset)
+		if err != nil {
+			slog.Error("broadcastToGroupMembers: GetMembersRepo error", "group_id", groupID, "error", err)
+			return
+		}
+		if len(members) == 0 {
+			break
+		}
+
+		for _, m := range members {
+			if m.IsBanned || m.UserID == exceptUserID {
+				continue
+			}
+			h.SendToUser(m.UserID, message)
+		}
+
+		if len(members) < pageSize {
+			break
+		}
+		offset += pageSize
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 
 	channel_handler "github.com/svlynx/messenger/internal/chat/channel/handler"
 	chat_handler "github.com/svlynx/messenger/internal/chat/direct/handler"
+	group_handler "github.com/svlynx/messenger/internal/chat/group/handler"
 )
 
 func SetupRoutes(engine *gin.Engine) {
@@ -87,4 +88,52 @@ func RegisterChannelRoutes(engine *gin.Engine, h *channel_handler.ChannelHandler
 
 	
 	engine.POST("/invites/:token/join", h.JoinByInviteHandler)
+}
+
+func RegisterGroupRoutes(engine *gin.Engine, h *group_handler.GroupHandler) {
+	groups := engine.Group("/groups")
+	{
+		groups.POST("", h.CreateGroupHandler)
+		groups.GET("", h.GetUserGroupsHandler)
+		groups.GET("/search", h.SearchGroupsHandler)
+		groups.GET("/handle/:handle", h.GetGroupByHandleHandler)
+
+		groups.GET("/:id", h.GetGroupByIDHandler)
+		groups.PATCH("/:id", h.UpdateGroupHandler)
+		groups.DELETE("/:id", h.DeleteGroupHandler)
+
+		groups.POST("/:id/join", h.JoinGroupHandler)
+		groups.POST("/:id/leave", h.LeaveGroupHandler)
+		groups.GET("/:id/members", h.GetMembersHandler)
+
+		groups.DELETE("/:id/members/:user_id", h.KickMemberHandler)
+		groups.PATCH("/:id/members/:user_id/promote", h.PromoteToAdminHandler)
+		groups.PATCH("/:id/members/:user_id/demote", h.DemoteFromAdminHandler)
+		groups.POST("/:id/transfer", h.TransferOwnershipHandler)
+
+		groups.POST("/:id/ban/:user_id", h.BanMemberHandler)
+		groups.DELETE("/:id/ban/:user_id", h.UnbanMemberHandler)
+		groups.GET("/:id/bans", h.GetBansHandler)
+
+		groups.POST("/:id/topics", h.CreateTopicHandler)
+		groups.GET("/:id/topics", h.GetTopicsHandler)
+		groups.GET("/:id/topics/:topic_id", h.GetTopicByIDHandler)
+		groups.PATCH("/:id/topics/:topic_id", h.UpdateTopicHandler)
+		groups.DELETE("/:id/topics/:topic_id", h.DeleteTopicHandler)
+
+		groups.POST("/:id/messages", h.CreateGroupMessageHandler)
+		groups.GET("/:id/messages", h.GetGroupMessagesHandler)
+		groups.GET("/:id/messages/pinned", h.GetPinnedGroupMessagesHandler)
+		groups.GET("/:id/messages/search", h.SearchGroupMessagesHandler)
+
+		groups.PATCH("/:id/messages/:message_id", h.UpdateGroupMessageHandler)
+		groups.DELETE("/:id/messages/:message_id", h.DeleteGroupMessageHandler)
+		groups.PATCH("/:id/messages/:message_id/pin", h.PinGroupMessageHandler)
+
+		groups.POST("/:id/invites", h.CreateInviteLinkHandler)
+		groups.GET("/:id/invites", h.GetInviteLinksHandler)
+		groups.DELETE("/:id/invites/:link_id", h.DeactivateInviteLinkHandler)
+	}
+
+	engine.POST("/group-invites/:token/join", h.JoinByInviteHandler)
 }

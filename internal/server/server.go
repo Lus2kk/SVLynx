@@ -20,6 +20,9 @@ import (
 	chat_handler "github.com/svlynx/messenger/internal/chat/direct/handler"
 	chat_repository "github.com/svlynx/messenger/internal/chat/direct/repository"
 	chat_service "github.com/svlynx/messenger/internal/chat/direct/service"
+	group_handler "github.com/svlynx/messenger/internal/chat/group/handler"
+	group_repo "github.com/svlynx/messenger/internal/chat/group/repo"
+	group_service "github.com/svlynx/messenger/internal/chat/group/service"
 	chat_routes "github.com/svlynx/messenger/internal/chat/routes"
 
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -86,12 +89,17 @@ func NewServer(cfg *config.Config) *Server {
 
 	channelRepo := channel_repo.NewPostgresChannelRepo(db)
 
-	hub := ws.NewHub(messageService, directService, channelRepo)
+	groupRepo := group_repo.NewPostgresGroupRepo(db)
+
+	hub := ws.NewHub(messageService, directService, channelRepo, groupRepo)
 	go hub.Run()
 
 	
 	channelService := channel_service.NewChannelService(channelRepo)
 	channelHandler := channel_handler.NewChannelHandler(channelService, hub)
+
+	groupService := group_service.NewGroupService(groupRepo)
+	groupHandler := group_handler.NewGroupHandler(groupService, hub)
 
 	messageHandler := chat_handler.NewMessageHandler(messageService, hub, pushSender)
 	directHandler := chat_handler.NewDirectHandler(directService, hub)
@@ -107,6 +115,7 @@ func NewServer(cfg *config.Config) *Server {
 	chat_routes.MessageRouter(Router, messageHandler)
 	chat_routes.WsRouter(Router, wsHandler)
 	chat_routes.RegisterChannelRoutes(Router, channelHandler)
+	chat_routes.RegisterGroupRoutes(Router, groupHandler)
 	auth_routes.RegisterRoutes(Router, handler)
 
 	return &Server{
